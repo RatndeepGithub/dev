@@ -1,0 +1,6 @@
+{
+    "require": {
+        "deliciousbrains/wp-background-processing": "^1.1",
+        "olifolkerd/convertor": "^2.0"
+    }
+}

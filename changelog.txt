@@ -1,0 +1,13 @@
+*** Multichannel by CedCommerce ***
+
+2024-04-22 - version 1.0.3
+* update - UI/UX update
+
+2023-11-24 - version 1.0.2
+* fix - Authorization process for Etsy connection
+
+2023-11-21 - version 1.0.1
+* update - Improved stability
+
+2023-10-10 - version 1.0.0
+* Inital release.
