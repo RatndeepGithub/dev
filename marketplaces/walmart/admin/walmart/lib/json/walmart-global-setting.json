@@ -1,0 +1,520 @@
+{
+    "product_specific" : [
+        {
+            "code" : "stock",
+            "default_value" : null,
+            "description" : "Quantity [ Stock ] of the product to be uploaded on walmart.If left blank WooCommerce quantity will be used. ",
+            "description_translations" : [ ],
+            "example" : null,
+            "hierarchy_code" : "",
+            "label" : "Stock",
+            "label_translations" : [ {
+                "locale" : "en",
+                "value" : "Stock"
+            } ],
+            "required" : true,
+            "roles" : [ {
+                "parameters" : [ ],
+                "type" : "Stock"
+            } ],
+            "type" : "TEXT",
+            "type_parameter" : null,
+            "values" : null,
+            "values_list" : null,
+            "variant" : false
+        },
+        {
+            "code" : "title",
+            "default_value" : null,
+            "description" : "Title of the product to be uploaded on walmart.If left blank WooCommerce title will be used.",
+            "description_translations" : [ ],
+            "example" : null,
+            "hierarchy_code" : "",
+            "label" : "Product Title",
+            "label_translations" : [ {
+                "locale" : "en",
+                "value" : "Title"
+            } ],
+            "required" : true,
+            "roles" : [ {
+                "parameters" : [ ],
+                "type" : "Title"
+            } ],
+            "type" : "TEXT",
+            "type_parameter" : null,
+            "values" : null,
+            "values_list" : null,
+            "variant" : false
+        },
+        {
+            "code" : "description",
+            "default_value" : null,
+            "description" : "Description of the product to be uploaded on walmart.If left blank WooCommerce description will be used.",
+            "description_translations" : [ ],
+            "example" : null,
+            "hierarchy_code" : "",
+            "label" : "Description",
+            "label_translations" : [ {
+                "locale" : "en",
+                "value" : "Description"
+            } ],
+            "required" : true,
+            "roles" : [ {
+                "parameters" : [ ],
+                "type" : "Description"
+            } ],
+            "type" : "TEXT",
+            "type_parameter" : null,
+            "values" : null,
+            "values_list" : null,
+            "variant" : false
+        },
+        {
+            "code" : "identifier_type",
+            "default_value" : null,
+            "description" : "Unique identifier [ barcode ] type your product must have to list on walmart.",
+            "description_translations" : [ ],
+            "example" : null,
+            "hierarchy_code" : "",
+            "label" : "Identifier Type",
+            "label_translations" : [ {
+                "locale" : "en",
+                "value" : "Identifier Type"
+            } ],
+            "required" : true,
+            "roles" : [ {
+                "parameters" : [ ],
+                "type" : "Identifier Type"
+            } ],
+            "type" : "LIST",
+            "type_parameter" : null,
+            "values" : null,
+            "values_list" : [{"code":"UPC","label":"UPC","label_translations":{"label_translation":{"locale":"en","value":"UPC"}}},{"code":"ISBN","label":"ISBN","label_translations":{"label_translation":{"locale":"en","value":"ISBN"}}},{"code":"GTIN","label":"GTIN","label_translations":{"label_translation":{"locale":"en","value":"GTIN"}}},{"code":"EAN","label":"EAN","label_translations":{"label_translation":{"locale":"en","value":"EAN"}}}],
+            "variant" : false
+        },{
+            "code" : "identifier_value",
+            "default_value" : null,
+            "description" : "Identifier [ barcode ] value, for the selected Identifier Type above.",
+            "description_translations" : [ ],
+            "example" : null,
+            "hierarchy_code" : "",
+            "label" : "Identifier Value",
+            "label_translations" : [ {
+                "locale" : "en",
+                "value" : "Identifier Value"
+            } ],
+            "required" : true,
+            "roles" : [ {
+                "parameters" : [ ],
+                "type" : "Identifier Value"
+            } ],
+            "type" : "TEXT",
+            "type_parameter" : null,
+            "values" : null,
+            "values_list" : null,
+            "variant" : false
+        },{
+            "code" : "product_brand",
+            "default_value" : null,
+            "description" : "Product Brand to be uploaded on walmart.",
+            "description_translations" : [ ],
+            "example" : null,
+            "hierarchy_code" : "",
+            "label" : "Product Brand",
+            "label_translations" : [ {
+                "locale" : "en",
+                "value" : "Product Brand to be uploaded on walmart."
+            } ],
+            "required" : true,
+            "roles" : [ {
+                "parameters" : [ ],
+                "type" : "Product Brand"
+            } ],
+            "type" : "TEXT",
+            "type_parameter" : null,
+            "values" : null,
+            "values_list" : null,
+            "variant" : false
+        }],
+
+"price_specific" : [{
+    "code" : "price",
+    "default_value" : null,
+    "description" : "Price of the product to be uploaded on walmart.If left blank WooCommerce price will be used.",
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Price",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Price"
+    } ],
+    "required" : true,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Price"
+    } ],
+    "type" : "TEXT",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : null,
+    "variant" : false
+},
+{
+    "code" : "markup_type",
+    "default_value" : null,
+    "description" : "Increase price by a certain amount in the actual price of the product when uploading on walmart.",
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Increase Price By ",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Markup Type"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Markup Type"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"fixed_increased","label":"Fixed Increased","label_translations":{"label_translation":{"locale":"en","value":"Fixed Increased"}}},{"code":"percentage_increased","label":"Percentage Increased","label_translations":{"label_translation":{"locale":"en","value":"Percentage Increased"}}}],
+    "variant" : false
+},{
+    "code" : "markup_value",
+    "default_value" : null,
+    "description" : "Enter the markup value to be added in the price. Eg : 10. Please do not use % or any other symbol.",
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Markup Value",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Markup Value"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Markup Value"
+    } ],
+    "type" : "TEXT",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : null,
+    "variant" : false
+}],
+
+"shipping_specific" : [{
+    "code" : "package_weight",
+    "default_value" : null,
+    "description" : "Weight of the product to be uploaded on walmart.If left blank WooCommerce weight will be used.",
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Package Weight",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Package Weight"
+    } ],
+    "required" : true,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Package Weight"
+    } ],
+    "type" : "TEXT",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : null,
+    "variant" : false
+},{
+    "code" : "walmart_fulfillmentlagtime",
+    "default_value" : null,
+    "description" : "Shipping time in days from seller to customer (default = 5 days)",
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Walmart Fulfillment Lag Time",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Walmart FulfillmentLagTime"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Walmart FulfillmentLagTime"
+    } ],
+    "type" : "TEXT",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : null,
+    "variant" : false
+}],
+"orderable_specific" : [{
+    "code" : "floor_price",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Floor Price",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Floor Price"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Floor Price"
+    } ],
+    "type" : "TEXT",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : null,
+    "variant" : false
+},{
+    "code" : "pricePerUnit_Quantity",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "PPU Quantity of Units",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "PPU Quantity of Units"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "PPU Quantity of Units"
+    } ],
+    "type" : "TEXT",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : null,
+    "variant" : false
+},{
+    "code" : "pricePer_UnitUom",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "PPU Unit of Measure",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "PPU Unit of Measure "
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "PPU Unit of Measure"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"pound","label":"Pound","label_translations":{"label_translation":{"locale":"en","value":"Pound"}}},
+       {"code":"yard","label":"Yard","label_translations":{"label_translation":{"locale":"en","value":"Yard"}}},
+       {"code":"square_foot","label":"Square Foot","label_translations":{"label_translation":{"locale":"en","value":"Square Foot"}}},
+       {"code":"inch","label":"Inch","label_translations":{"label_translation":{"locale":"en","value":"Inch"}}},
+       {"code":"ounce","label":"Ounce","label_translations":{"label_translation":{"locale":"en","value":"Ounce"}}},
+       {"code":"fluid_ounce","label":"Fluid Ounce","label_translations":{"label_translation":{"locale":"en","value":"Fluid Ounce"}}},
+       {"code":"each","label":"Each","label_translations":{"label_translation":{"locale":"en","value":"Each"}}},
+       {"code":"foot","label":"Foot","label_translations":{"label_translation":{"locale":"en","value":"Foot"}}},
+       {"code":"cubic_foot","label":"Cubic Foot","label_translations":{"label_translation":{"locale":"en","value":"Cubic Foot"}}}],
+    "variant" : false
+},{
+    "code" : "electronics_Indicator",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Electronic Indicator",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Electronic Indicator"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Electronic Indicator"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"yes","label":"YES","label_translations":{"label_translation":{"locale":"en","value":"YES"}}},{"code":"no","label":"NO","label_translations":{"label_translation":{"locale":"en","value":"NO"}}}],
+    "variant" : false
+},{
+    "code" : "battery_technology_type",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Battery Technology Type",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Battery Technology Type"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Battery Technology Type"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [
+        {"code":"mercury","label":"Mercury","label_translations":{"label_translation":{"locale":"en","value":"Mercury"}}},
+        {"code":"carbon_zinc","label":"Carbon Zinc","label_translations":{"label_translation":{"locale":"en","value":"Carbon Zinc"}}},
+        {"code":"leadAcid_Non-Spillable","label":"Lead Acid (Non-Spillable)","label_translations":{"label_translation":{"locale":"en","value":"Lead Acid (Non-Spillable)"}}},
+        {"code":"alkaline","label":"Alkaline","label_translations":{"label_translation":{"locale":"en","value":"Alkaline"}}},
+        {"code":"Does Not Contain a Battery","label":"Does Not Contain a Battery","label_translations":{"label_translation":{"locale":"en","value":"Does Not Contain a Battery"}}},
+        {"code":"thermal","label":"Thermal","label_translations":{"label_translation":{"locale":"en","value":"Thermal"}}},
+        {"code":"lithiumprimaryLithiumMeta","label":"Lithium Primary (Lithium Metal)","label_translations":{"label_translation":{"locale":"en","value":"Lithium Primary (Lithium Metal)"}}},
+        {"code":"nickelcadmium","label":"Nickel Cadmium","label_translations":{"label_translation":{"locale":"en","value":"Nickel Cadmium"}}},
+        {"code":"lithiumIon","label":"Lithium Ion","label_translations":{"label_translation":{"locale":"en","value":"Lithium Ion"}}},
+        {"code":"nickelMetalHydride","label":"Nickel Metal Hydride","label_translations":{"label_translation":{"locale":"en","value":"Nickel Metal Hydride"}}},
+        {"code":"leadAcid","label":"Lead Acid","label_translations":{"label_translation":{"locale":"en","value":"Lead Acid"}}},
+        {"code":"multipleTypes","label":"Multiple Types","label_translations":{"label_translation":{"locale":"en","value":"Multiple Types"}}},
+        {"code":"other","label":"Other","label_translations":{"label_translation":{"locale":"en","value":"Other"}}},
+        {"code":"silver","label":"Silver","label_translations":{"label_translation":{"locale":"en","value":"Silver"}}},
+        {"code":"magnesium","label":"Magnesium","label_translations":{"label_translation":{"locale":"en","value":"Magnesium"}}}],
+    "variant" : false
+},{
+    "code" : "chemical_aerosol_pesticide",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Chemical Aerosol Pesticide",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Chemical Aerosol Pesticide"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Chemical Aerosol Pesticide"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"yes","label":"YES","label_translations":{"label_translation":{"locale":"en","value":"YES"}}},{"code":"no","label":"NO","label_translations":{"label_translation":{"locale":"en","value":"NO"}}}],
+    "variant" : false
+},{
+    "code" : "multipack_quantity",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "multipack Quantity",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "multipack Quantity"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "multipack Quantity"
+    } ],
+    "type" : "TEXT",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : null,
+    "variant" : false
+},{
+    "code" : "shipsIn_original_packaging",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "ships In Original Packaging",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "ships In Original Packaging"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "ships In Original Packaging"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"yes","label":"YES","label_translations":{"label_translation":{"locale":"en","value":"YES"}}},{"code":"no","label":"NO","label_translations":{"label_translation":{"locale":"en","value":"NO"}}}],
+    "variant" : false
+},{
+    "code" : "mustShipAlone",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Must Ship Alone",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Must Ship Alone"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Must Ship Alone"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"yes","label":"YES","label_translations":{"label_translation":{"locale":"en","value":"YES"}}},{"code":"no","label":"NO","label_translations":{"label_translation":{"locale":"en","value":"NO"}}}],
+    "variant" : false
+},{
+    "code" : "productId_Update",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Product Id Update",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Product Id Update"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Product Id Update"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"yes","label":"YES","label_translations":{"label_translation":{"locale":"en","value":"YES"}}},{"code":"no","label":"NO","label_translations":{"label_translation":{"locale":"en","value":"NO"}}}],
+    "variant" : false
+},{
+    "code" : "sku_Update",
+    "default_value" : null,
+    "description" : null,
+    "description_translations" : [ ],
+    "example" : null,
+    "hierarchy_code" : "",
+    "label" : "Sku Update",
+    "label_translations" : [ {
+        "locale" : "en",
+        "value" : "Sku Update"
+    } ],
+    "required" : false,
+    "roles" : [ {
+        "parameters" : [ ],
+        "type" : "Sku Update"
+    } ],
+    "type" : "LIST",
+    "type_parameter" : null,
+    "values" : null,
+    "values_list" : [{"code":"yes","label":"YES","label_translations":{"label_translation":{"locale":"en","value":"YES"}}},{"code":"no","label":"NO","label_translations":{"label_translation":{"locale":"en","value":"NO"}}}],
+    "variant" : false
+}]
+}
