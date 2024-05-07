@@ -1,0 +1,72 @@
+/* registration form */
+
+#ced_mcfw_user_register_wrap {
+	margin: 150px auto;
+}
+
+.ced-subscribe-form-wrapper {
+	background-color: rgb(255, 255, 255);
+	color: rgb(30, 30, 30);
+	position: relative;
+	box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 0px 1px;
+	outline: none;
+	border-radius: calc(1px);
+	width: 25%;
+	margin: 0 auto;
+	padding: 30px;
+	box-shadow: 0px 10px 20px #ccc;
+}
+
+.ced-subscribe-form-content form label {
+	display: block;
+	font-weight: ;
+	margin-bottom: 7px;
+}
+.ced-subscribe-form-content form input[type="email"] {
+	padding: 5px;
+	width: 98%;
+	border-radius: 3px;
+	border: 1px solid #ccc;
+	margin-bottom: 25px;
+}
+.ced-accept-wrap a {
+	text-decoration: none;
+}
+.ced-register-button-wrap {
+	margin-top: 30px;
+}
+.ced-register-button-wrap a {
+	padding: 12px 20px;
+	text-decoration: none;
+	background: #007cba;
+	border-radius: 5px;
+	color: #fff;
+}
+.ced-register-banner-text {
+	width: 28%;
+	margin: 30px auto;
+}
+
+.ced-notification-top-wrap {
+	margin-left: -20px;
+	height: unset;
+}
+
+.ced-notification-top-wrap .woocommerce-layout__header-heading {
+	 height: unset !important;
+}
+
+.ced-notification-top-wrap .woocommerce-layout__header {
+	box-shadow: 0 8px 16px 0 rgba(85, 93, 102, .3);
+}
+
+.ced-header-wrapper {
+	margin: 20px auto;
+}
+
+.wp-list-table.widefat.fixed.striped.table-view-list.posts.ced_mcfw_marketplace_lists td {
+	padding: 16px 10px;
+}
+.wp-list-table.widefat.fixed.striped.table-view-list.posts.ced_mcfw_marketplace_lists {
+	border:unset;
+}

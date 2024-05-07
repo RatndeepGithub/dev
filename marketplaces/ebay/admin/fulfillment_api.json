@@ -1,0 +1,1985 @@
+{
+    "href": "https://api.ebay.com/sell/fulfillment/v1/order?filter=creationdate:%5B2022-03-20T05:10:33.000Z..2022-06-17T05:09:33.000Z%5D&limit=10&offset=0",
+    "total": 24,
+    "next": "https://api.ebay.com/sell/fulfillment/v1/order?filter=creationdate:%5B2022-03-20T05:10:33.000Z..2022-06-17T05:09:33.000Z%5D&limit=10&offset=10",
+    "limit": 10,
+    "offset": 0,
+    "orders": [
+        {
+            "orderId": "12-08757-34855",
+            "legacyOrderId": "284851586957-2409463023018",
+            "creationDate": "2022-06-16T17:17:14.000Z",
+            "lastModifiedDate": "2022-06-16T17:21:35.000Z",
+            "orderFulfillmentStatus": "NOT_STARTED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "pinkwendy2356",
+                "taxAddress": {
+                    "stateOrProvince": "NE",
+                    "postalCode": "68305-8515",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "7.6",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "4.62",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "12.22",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "10.53",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420004_S",
+                        "paymentDate": "2022-06-16T17:19:22.855Z",
+                        "amount": {
+                            "value": "10.53",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-25T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Wendy Collier",
+                            "contactAddress": {
+                                "addressLine1": "64080 735 RD",
+                                "city": "Auburn",
+                                "stateOrProvince": "NE",
+                                "postalCode": "68305-8515",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "4024142137"
+                            },
+                            "email": "290c7c933075efefc647@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [],
+            "lineItems": [
+                {
+                    "lineItemId": "10046682983312",
+                    "legacyItemId": "284851586957",
+                    "sku": "FU48067",
+                    "title": "Harry Potter Dumbledore with Baby Harry Pop! Vinyl Figure",
+                    "lineItemCost": {
+                        "value": "7.6",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "NOT_STARTED",
+                    "total": {
+                        "value": "12.22",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.87",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [
+                        {
+                            "discountAmount": {
+                                "value": "0.0",
+                                "currency": "USD"
+                            },
+                            "promotionId": "9376187108",
+                            "description": "Save up to 20%"
+                        }
+                    ],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "0.67",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-25T07:00:00.000Z",
+                        "shipByDate": "2022-06-18T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3733",
+            "totalFeeBasisAmount": {
+                "value": "12.89",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "1.69",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "02-08759-52342",
+            "legacyOrderId": "284851586830-2409421247018",
+            "creationDate": "2022-06-16T14:08:44.000Z",
+            "lastModifiedDate": "2022-06-16T14:16:03.000Z",
+            "orderFulfillmentStatus": "NOT_STARTED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "freebird83072",
+                "taxAddress": {
+                    "stateOrProvince": "CO",
+                    "postalCode": "80465-1755",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "7.6",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "4.63",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "12.23",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "10.54",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420011_S",
+                        "paymentDate": "2022-06-16T14:12:59.408Z",
+                        "amount": {
+                            "value": "10.54",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-21T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-23T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Megan Johnston",
+                            "contactAddress": {
+                                "addressLine1": "4786 South Xenophon way",
+                                "city": "Morrison",
+                                "stateOrProvince": "CO",
+                                "postalCode": "80465-1755",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "7208396853"
+                            },
+                            "email": "00a42f2f6747c4dcef46@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [],
+            "lineItems": [
+                {
+                    "lineItemId": "10046889829602",
+                    "legacyItemId": "284851586830",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Harry Potter Neville with Monster Book Pop! Vinyl Figure",
+                    "lineItemCost": {
+                        "value": "7.6",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "NOT_STARTED",
+                    "total": {
+                        "value": "12.23",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.88",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [
+                        {
+                            "discountAmount": {
+                                "value": "0.0",
+                                "currency": "USD"
+                            },
+                            "promotionId": "9376187108",
+                            "description": "Save up to 20%"
+                        }
+                    ],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "0.61",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-21T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-23T07:00:00.000Z",
+                        "shipByDate": "2022-06-18T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3732",
+            "totalFeeBasisAmount": {
+                "value": "12.84",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "1.69",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "19-08753-45071",
+            "legacyOrderId": "354104408696-1350413529022",
+            "creationDate": "2022-06-16T06:06:14.000Z",
+            "lastModifiedDate": "2022-06-16T17:24:10.000Z",
+            "orderFulfillmentStatus": "FULFILLED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "alj-car-89azpo",
+                "taxAddress": {
+                    "stateOrProvince": "CA",
+                    "postalCode": "92114-7916",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "15.0",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "4.61",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "19.61",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "17.06",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420007_S",
+                        "paymentDate": "2022-06-16T06:08:24.602Z",
+                        "amount": {
+                            "value": "17.06",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Carolyn Teofilo",
+                            "contactAddress": {
+                                "addressLine1": "7275 Aquamarine Rd",
+                                "city": "San Diego",
+                                "stateOrProvince": "CA",
+                                "postalCode": "92114-7916",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "6192520349"
+                            },
+                            "email": "290a0763487f66a29261@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [
+                "https://api.ebay.com/sell/fulfillment/v1/order/19-08753-45071/shipping_fulfillment/9400136205309447231762"
+            ],
+            "lineItems": [
+                {
+                    "lineItemId": "10046635378819",
+                    "legacyItemId": "354104408696",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: A New Hope R2-D2 FiGPiN Classic 3-inch Enamel Pin",
+                    "lineItemCost": {
+                        "value": "15.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.61",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.86",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.22",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                        "shipByDate": "2022-06-18T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3731",
+            "totalFeeBasisAmount": {
+                "value": "20.83",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "2.55",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "15-08752-44801",
+            "legacyOrderId": "354104358485-1350279800022",
+            "creationDate": "2022-06-15T16:20:37.000Z",
+            "lastModifiedDate": "2022-06-16T08:13:40.000Z",
+            "orderFulfillmentStatus": "FULFILLED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "cosmogirlsthrifyfinds",
+                "taxAddress": {
+                    "stateOrProvince": "AZ",
+                    "postalCode": "85032-9521",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "7.6",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "4.74",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "12.34",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "10.63",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420013_S",
+                        "paymentDate": "2022-06-15T16:23:43.351Z",
+                        "amount": {
+                            "value": "10.63",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "gina nygryn",
+                            "contactAddress": {
+                                "addressLine1": "4631 e villa maria dr",
+                                "city": "phoenix",
+                                "stateOrProvince": "AZ",
+                                "postalCode": "85032-9521",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "6024605388"
+                            },
+                            "email": "2907017463a6e2f0e121@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [
+                "https://api.ebay.com/sell/fulfillment/v1/order/15-08752-44801/shipping_fulfillment/9400136205309444700223"
+            ],
+            "lineItems": [
+                {
+                    "lineItemId": "10046637563915",
+                    "legacyItemId": "354104358485",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Alice in Wonderland 70th Alice Curtsying Pop! Vinyl Figure",
+                    "lineItemCost": {
+                        "value": "7.6",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "12.34",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.99",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [
+                        {
+                            "discountAmount": {
+                                "value": "0.0",
+                                "currency": "USD"
+                            },
+                            "promotionId": "9376187108",
+                            "description": "Save up to 20%"
+                        }
+                    ],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "0.72",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3730",
+            "totalFeeBasisAmount": {
+                "value": "13.06",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "1.71",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "04-08755-14688",
+            "legacyOrderId": "283279095011",
+            "creationDate": "2022-06-15T14:32:49.000Z",
+            "lastModifiedDate": "2022-06-16T21:56:49.000Z",
+            "orderFulfillmentStatus": "FULFILLED",
+            "orderPaymentStatus": "PARTIALLY_REFUNDED",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "bsaemt",
+                "taxAddress": {
+                    "stateOrProvince": "GA",
+                    "postalCode": "30189-7424",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "104.99",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "28.84",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "133.83",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "73.19",
+                    "currency": "USD"
+                },
+                "refunds": [
+                    {
+                        "refundDate": "2022-06-15T16:30:15.000Z",
+                        "amount": {
+                            "value": "45.01",
+                            "currency": "USD"
+                        },
+                        "refundStatus": "REFUNDED",
+                        "refundReferenceId": "5067315964",
+                        "refundId": "5067315964"
+                    }
+                ],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420016_S",
+                        "paymentDate": "2022-06-15T14:37:07.826Z",
+                        "amount": {
+                            "value": "118.2",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Annmarie F. Bell",
+                            "contactAddress": {
+                                "addressLine1": "402 Sycamore Trl",
+                                "city": "Woodstock",
+                                "stateOrProvince": "GA",
+                                "postalCode": "30189-7424",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "7706274115"
+                            },
+                            "email": "0520d38b64c657ff6683@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [
+                "https://api.ebay.com/sell/fulfillment/v1/order/04-08755-14688/shipping_fulfillment/9405536205309444634033"
+            ],
+            "lineItems": [
+                {
+                    "lineItemId": "10047175058304",
+                    "legacyItemId": "354104408862",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: A New Hope Han Solo FiGPiN Classic 3-inch Enamel Pin",
+                    "lineItemCost": {
+                        "value": "15.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.12",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.37",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.15",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-15T16:30:15.000Z",
+                            "amount": {
+                                "value": "7.26",
+                                "currency": "USD"
+                            },
+                            "refundId": "5067315964"
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                },
+                {
+                    "lineItemId": "10047175058404",
+                    "legacyItemId": "284851623302",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: A New Hope C-3PO FiGPiN Classic 3-inch Enamel Pin",
+                    "lineItemCost": {
+                        "value": "15.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.12",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.37",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.15",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-15T16:30:15.000Z",
+                            "amount": {
+                                "value": "7.26",
+                                "currency": "USD"
+                            },
+                            "refundId": "5067315964"
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                },
+                {
+                    "lineItemId": "10047175058504",
+                    "legacyItemId": "284851624373",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: A New Hope Luke Skywalker FiGPiN Classic Enamel Pin",
+                    "lineItemCost": {
+                        "value": "15.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.12",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.37",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.15",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-15T16:30:15.000Z",
+                            "amount": {
+                                "value": "7.26",
+                                "currency": "USD"
+                            },
+                            "refundId": "5067315964"
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                },
+                {
+                    "lineItemId": "10047175058604",
+                    "legacyItemId": "354104409574",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: A New Hope Princess Leia FiGPiN Classic Enamel Pin",
+                    "lineItemCost": {
+                        "value": "15.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.12",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.37",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.15",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-15T16:30:15.000Z",
+                            "amount": {
+                                "value": "7.26",
+                                "currency": "USD"
+                            },
+                            "refundId": "5067315964"
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                },
+                {
+                    "lineItemId": "10047175058704",
+                    "legacyItemId": "354104408696",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: A New Hope R2-D2 FiGPiN Classic 3-inch Enamel Pin",
+                    "lineItemCost": {
+                        "value": "15.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.12",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.37",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.15",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-15T16:30:15.000Z",
+                            "amount": {
+                                "value": "7.26",
+                                "currency": "USD"
+                            },
+                            "refundId": "5067315964"
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                },
+                {
+                    "lineItemId": "10047175058804",
+                    "legacyItemId": "284851624991",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: The Mandalorian FiGPiN 3-Inch Enamel Pin",
+                    "lineItemCost": {
+                        "value": "14.99",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.11",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.37",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.15",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-15T16:30:15.000Z",
+                            "amount": {
+                                "value": "7.25",
+                                "currency": "USD"
+                            },
+                            "refundId": "5067315964"
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                },
+                {
+                    "lineItemId": "10047175058904",
+                    "legacyItemId": "354104408804",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars: A New Hope Chewbacca FiGPiN Classic 3-inch Enamel Pin",
+                    "lineItemCost": {
+                        "value": "15.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "19.12",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.37",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.15",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-15T16:30:15.000Z",
+                            "amount": {
+                                "value": "7.27",
+                                "currency": "USD"
+                            },
+                            "refundId": "5067315964"
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3729",
+            "totalFeeBasisAmount": {
+                "value": "141.88",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "15.63",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "24-08763-99215",
+            "legacyOrderId": "354104356264-1350254217022",
+            "creationDate": "2022-06-15T13:59:55.000Z",
+            "lastModifiedDate": "2022-06-16T08:12:00.000Z",
+            "orderFulfillmentStatus": "FULFILLED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "mrryuhoshi1985",
+                "taxAddress": {
+                    "stateOrProvince": "CT",
+                    "postalCode": "06604-5515",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "11.2",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "4.62",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "15.82",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "13.7",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420004_S",
+                        "paymentDate": "2022-06-15T14:02:35.107Z",
+                        "amount": {
+                            "value": "13.7",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-23T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "James M Peace III",
+                            "contactAddress": {
+                                "addressLine1": "99 Atlantic st",
+                                "city": "bridgeport",
+                                "stateOrProvince": "CT",
+                                "postalCode": "06604-5515",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "2033600936"
+                            },
+                            "email": "00a419f67dbb9c6924aa@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [
+                "https://api.ebay.com/sell/fulfillment/v1/order/24-08763-99215/shipping_fulfillment/9400136205309444712394"
+            ],
+            "lineItems": [
+                {
+                    "lineItemId": "10046753825424",
+                    "legacyItemId": "354104356264",
+                    "sku": "woo-single",
+                    "title": "The Little Mermaid Ariel Blue Translucent Pop! Vinyl Figure - EE Exclusive",
+                    "lineItemCost": {
+                        "value": "11.2",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "15.82",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.87",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [
+                        {
+                            "discountAmount": {
+                                "value": "0.0",
+                                "currency": "USD"
+                            },
+                            "promotionId": "9376187108",
+                            "description": "Save up to 20%"
+                        }
+                    ],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.0",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-20T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-23T07:00:00.000Z",
+                        "shipByDate": "2022-06-17T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3721",
+            "totalFeeBasisAmount": {
+                "value": "16.82",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "2.12",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "05-08747-83449",
+            "legacyOrderId": "354104408920-1349839893022",
+            "creationDate": "2022-06-13T17:18:03.000Z",
+            "lastModifiedDate": "2022-06-17T01:48:29.000Z",
+            "orderFulfillmentStatus": "FULFILLED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "wc5920-mi5aujfk",
+                "taxAddress": {
+                    "stateOrProvince": "OR",
+                    "postalCode": "97756-5511",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "20.0",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "4.61",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "24.61",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "21.65",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420008_S",
+                        "paymentDate": "2022-06-13T17:20:17.532Z",
+                        "amount": {
+                            "value": "21.65",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Christian Williams",
+                            "contactAddress": {
+                                "addressLine1": "2846 SW Indian Cir",
+                                "city": "Redmond",
+                                "stateOrProvince": "OR",
+                                "postalCode": "97756-5511",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "15416105920"
+                            },
+                            "email": "00a3f2adea993d98e569@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [
+                "https://api.ebay.com/sell/fulfillment/v1/order/05-08747-83449/shipping_fulfillment/9400136205309436494185"
+            ],
+            "lineItems": [
+                {
+                    "lineItemId": "10046787265405",
+                    "legacyItemId": "354104408920",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Gundam x Hello Kitty Guntank FiGPiN Classic 3-Inch Enamel Pin (Limited Edition)",
+                    "lineItemCost": {
+                        "value": "20.0",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "24.61",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "3.86",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "properties": {
+                        "buyerProtection": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-18T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-22T07:00:00.000Z",
+                        "shipByDate": "2022-06-15T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "salesRecordReference": "3720",
+            "totalFeeBasisAmount": {
+                "value": "24.61",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "2.96",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "20-08736-23086",
+            "legacyOrderId": "284851584933-2408155098018",
+            "creationDate": "2022-06-12T00:14:30.000Z",
+            "lastModifiedDate": "2022-06-15T22:58:22.000Z",
+            "orderFulfillmentStatus": "FULFILLED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "jaelebrow-0",
+                "taxAddress": {
+                    "stateOrProvince": "NV",
+                    "postalCode": "89141-8864",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "23.99",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "6.86",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "30.85",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "27.0",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420004_S",
+                        "paymentDate": "2022-06-12T00:18:19.863Z",
+                        "amount": {
+                            "value": "27.0",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-15T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-17T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Jaelen Brown",
+                            "contactAddress": {
+                                "addressLine1": "6047 Ancient Peaks Ave",
+                                "city": "Las Vegas",
+                                "stateOrProvince": "NV",
+                                "postalCode": "89141-8864",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "12134358109"
+                            },
+                            "email": "1479d2d70a2b57028181@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [
+                "https://api.ebay.com/sell/fulfillment/v1/order/20-08736-23086/shipping_fulfillment/9405508205499682856377"
+            ],
+            "lineItems": [
+                {
+                    "lineItemId": "10046629536120",
+                    "legacyItemId": "284851584933",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Disneyland 65th Anniversary Peter and Flight Pop! Vinyl Ride",
+                    "lineItemCost": {
+                        "value": "23.99",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "30.85",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "6.11",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.75",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [
+                        {
+                            "discountAmount": {
+                                "value": "0.0",
+                                "currency": "USD"
+                            },
+                            "promotionId": "9339773008",
+                            "description": "Save up to 20%"
+                        }
+                    ],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "2.01",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true,
+                        "soldViaAdCampaign": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-15T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-17T07:00:00.000Z",
+                        "shipByDate": "2022-06-14T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3719",
+            "totalFeeBasisAmount": {
+                "value": "32.86",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "3.85",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "21-08729-57935",
+            "legacyOrderId": "353070904967-1349031874022",
+            "creationDate": "2022-06-10T05:25:20.000Z",
+            "lastModifiedDate": "2022-06-10T10:29:42.000Z",
+            "orderFulfillmentStatus": "NOT_STARTED",
+            "orderPaymentStatus": "FULLY_REFUNDED",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "jefwhi_2136",
+                "taxAddress": {
+                    "stateOrProvince": "IL",
+                    "postalCode": "60411-4677",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "26.99",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "5.57",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "32.56",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "CANCELED",
+                "cancelledDate": "2022-06-10T10:29:42.000Z",
+                "cancelRequests": [
+                    {
+                        "cancelReason": "ORDER_PLACED_BY_MISTAKE",
+                        "cancelRequestedDate": "2022-06-10T05:37:27.000Z",
+                        "cancelCompletedDate": "2022-06-10T10:29:42.000Z",
+                        "cancelInitiator": "BUYER",
+                        "cancelRequestId": "5289082817",
+                        "cancelRequestState": "COMPLETED"
+                    }
+                ]
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "0.0",
+                    "currency": "USD"
+                },
+                "refunds": [
+                    {
+                        "refundDate": "2022-06-10T10:28:12.000Z",
+                        "amount": {
+                            "value": "28.43",
+                            "currency": "USD"
+                        },
+                        "refundStatus": "REFUNDED",
+                        "refundReferenceId": "5289082817"
+                    }
+                ],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420006_S",
+                        "paymentDate": "2022-06-10T05:27:51.325Z",
+                        "amount": {
+                            "value": "28.43",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-14T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-16T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Jeffrey Whitten",
+                            "contactAddress": {
+                                "addressLine1": "28 Vals Ct",
+                                "city": "Lynwood",
+                                "stateOrProvince": "IL",
+                                "postalCode": "60411-4677",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "7082446080"
+                            },
+                            "email": "51d47a5e466b24cf2883@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [],
+            "lineItems": [
+                {
+                    "lineItemId": "10051781088821",
+                    "legacyItemId": "353070904967",
+                    "legacyVariationId": "622259246773",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Star Wars Black Series Empire Strikes Back 40th Anniversary Wave 1 - IN STOCK",
+                    "lineItemCost": {
+                        "value": "26.99",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "NOT_STARTED",
+                    "total": {
+                        "value": "32.56",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "5.57",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "2.93",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true
+                    },
+                    "refunds": [
+                        {
+                            "refundDate": "2022-06-10T10:28:12.000Z",
+                            "amount": {
+                                "value": "32.56",
+                                "currency": "USD"
+                            }
+                        }
+                    ],
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-14T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-16T07:00:00.000Z",
+                        "shipByDate": "2022-06-14T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3718",
+            "totalFeeBasisAmount": {
+                "value": "35.49",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "4.13",
+                "currency": "USD"
+            }
+        },
+        {
+            "orderId": "02-08710-74475",
+            "legacyOrderId": "353479527078-1347593510022",
+            "creationDate": "2022-06-04T00:56:02.000Z",
+            "lastModifiedDate": "2022-06-11T22:01:31.000Z",
+            "orderFulfillmentStatus": "FULFILLED",
+            "orderPaymentStatus": "PAID",
+            "sellerId": "threeifbyspace",
+            "buyer": {
+                "username": "alicibingha0",
+                "taxAddress": {
+                    "stateOrProvince": "CO",
+                    "postalCode": "80817-3177",
+                    "countryCode": "US"
+                }
+            },
+            "pricingSummary": {
+                "priceSubtotal": {
+                    "value": "12.99",
+                    "currency": "USD"
+                },
+                "deliveryCost": {
+                    "value": "5.28",
+                    "currency": "USD"
+                },
+                "total": {
+                    "value": "18.27",
+                    "currency": "USD"
+                }
+            },
+            "cancelStatus": {
+                "cancelState": "NONE_REQUESTED",
+                "cancelRequests": []
+            },
+            "paymentSummary": {
+                "totalDueSeller": {
+                    "value": "15.85",
+                    "currency": "USD"
+                },
+                "refunds": [],
+                "payments": [
+                    {
+                        "paymentMethod": "EBAY",
+                        "paymentReferenceId": "420018_S",
+                        "paymentDate": "2022-06-04T01:00:25.489Z",
+                        "amount": {
+                            "value": "15.85",
+                            "currency": "USD"
+                        },
+                        "paymentStatus": "PAID"
+                    }
+                ]
+            },
+            "fulfillmentStartInstructions": [
+                {
+                    "fulfillmentInstructionsType": "SHIP_TO",
+                    "minEstimatedDeliveryDate": "2022-06-08T07:00:00.000Z",
+                    "maxEstimatedDeliveryDate": "2022-06-11T07:00:00.000Z",
+                    "ebaySupportedFulfillment": false,
+                    "shippingStep": {
+                        "shipTo": {
+                            "fullName": "Joseph Tevis",
+                            "contactAddress": {
+                                "addressLine1": "553 Autumn Pl",
+                                "city": "Fountain",
+                                "stateOrProvince": "CO",
+                                "postalCode": "80817-3177",
+                                "countryCode": "US"
+                            },
+                            "primaryPhone": {
+                                "phoneNumber": "7654135747"
+                            },
+                            "email": "5193394fee1225a6dc91@members.ebay.com"
+                        },
+                        "shippingCarrierCode": "USPS",
+                        "shippingServiceCode": "USPSFirstClass"
+                    }
+                }
+            ],
+            "fulfillmentHrefs": [
+                "https://api.ebay.com/sell/fulfillment/v1/order/02-08710-74475/shipping_fulfillment/9400108205499653995859"
+            ],
+            "lineItems": [
+                {
+                    "lineItemId": "10046602092202",
+                    "legacyItemId": "353479527078",
+                    "legacyVariationId": "622754772276",
+                    "sku": "Woo-tshirt-logo",
+                    "title": "Funko Pop! Animation: Sanrio/My Hero Academia - Pop Vinyl Figures - IN STOCK",
+                    "lineItemCost": {
+                        "value": "12.99",
+                        "currency": "USD"
+                    },
+                    "quantity": 1,
+                    "soldFormat": "FIXED_PRICE",
+                    "listingMarketplaceId": "EBAY_US",
+                    "purchaseMarketplaceId": "EBAY_US",
+                    "lineItemFulfillmentStatus": "FULFILLED",
+                    "total": {
+                        "value": "18.27",
+                        "currency": "USD"
+                    },
+                    "deliveryCost": {
+                        "shippingCost": {
+                            "value": "4.68",
+                            "currency": "USD"
+                        },
+                        "handlingCost": {
+                            "value": "0.6",
+                            "currency": "USD"
+                        }
+                    },
+                    "appliedPromotions": [],
+                    "taxes": [],
+                    "ebayCollectAndRemitTaxes": [
+                        {
+                            "taxType": "STATE_SALES_TAX",
+                            "amount": {
+                                "value": "1.38",
+                                "currency": "USD"
+                            },
+                            "collectionMethod": "NET"
+                        }
+                    ],
+                    "properties": {
+                        "buyerProtection": true
+                    },
+                    "lineItemFulfillmentInstructions": {
+                        "minEstimatedDeliveryDate": "2022-06-08T07:00:00.000Z",
+                        "maxEstimatedDeliveryDate": "2022-06-11T07:00:00.000Z",
+                        "shipByDate": "2022-06-07T03:59:59.000Z",
+                        "guaranteedDelivery": false
+                    },
+                    "itemLocation": {
+                        "location": "Smyrna, Georgia",
+                        "countryCode": "US",
+                        "postalCode": "30082"
+                    }
+                }
+            ],
+            "ebayCollectAndRemitTax": true,
+            "salesRecordReference": "3717",
+            "totalFeeBasisAmount": {
+                "value": "19.65",
+                "currency": "USD"
+            },
+            "totalMarketplaceFee": {
+                "value": "2.42",
+                "currency": "USD"
+            }
+        }
+    ]
+}
