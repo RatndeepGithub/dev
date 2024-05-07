@@ -5,8 +5,6 @@
  * @package WP-Background-Processing
  */
 
-require_once __DIR__ . '/fixtures/Test_Batch_Data.php';
-
 use PHPUnit\Framework\MockObject\MockObject;
 
 /**
@@ -31,8 +29,8 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 		$this->wpbp = $this->getMockForAbstractClass( WP_Background_Process::class );
 
 		$this->wpbp->expects( $this->any() )
-		           ->method( 'task' )
-		           ->will( $this->returnValue( false ) );
+				   ->method( 'task' )
+				   ->will( $this->returnValue( false ) );
 	}
 
 	/**
@@ -51,25 +49,6 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 		$property->setAccessible( true );
 
 		return $property->getValue( $this->wpbp );
-	}
-
-	/**
-	 * Set a property value on WPBP regardless of accessibility.
-	 *
-	 * @param string $name
-	 * @param mixed  $value
-	 *
-	 * @return mixed
-	 */
-	private function setWPBPProperty( string $name, $value ) {
-		try {
-			$property = new ReflectionProperty( 'WP_Background_Process', $name );
-		} catch ( Exception $e ) {
-			return new WP_Error( $e->getCode(), $e->getMessage() );
-		}
-		$property->setAccessible( true );
-
-		return $property->setValue( $this->wpbp, $value );
 	}
 
 	/**
@@ -199,41 +178,6 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 		$this->assertInstanceOf( 'stdClass', $second_batch );
 		$this->assertNotEquals( $first_batch, $second_batch, '2nd batch returned as 1st deleted' );
 		$this->assertEquals( array( 'more wibble' ), $second_batch->data );
-
-		// Tests using a custom class for the $item.
-		$this->wpbp->delete( $second_batch->key );
-		$batch_data_object = new Test_Batch_Data();
-		$this->wpbp->push_to_queue( $batch_data_object );
-		$this->assertNotEmpty( $this->getWPBPProperty( 'data' ) );
-		$this->assertEquals( array( $batch_data_object ), $this->getWPBPProperty( 'data' ) );
-		$this->wpbp->save();
-		$third_batch = $this->executeWPBPMethod( 'get_batch' );
-		$this->assertCount( 1, $third_batch->data );
-		$this->assertInstanceOf( Test_Batch_Data::class, $third_batch->data[0] );
-
-		// Explicitly set allowed classes to Test_Batch_Data.
-		$this->setWPBPProperty( 'allowed_batch_data_classes', array( Test_Batch_Data::class ) );
-		$third_batch = $this->executeWPBPMethod( 'get_batch' );
-		$this->assertCount( 1, $third_batch->data );
-		$this->assertInstanceOf( Test_Batch_Data::class, $third_batch->data[0] );
-
-		// Allow a different class.
-		$this->setWPBPProperty( 'allowed_batch_data_classes', array( stdClass::class ) );
-		$third_batch = $this->executeWPBPMethod( 'get_batch' );
-		$this->assertCount( 1, $third_batch->data );
-		$this->assertInstanceOf( __PHP_Incomplete_Class::class, $third_batch->data[0] );
-
-		// Disallow all classes.
-		$this->setWPBPProperty( 'allowed_batch_data_classes', false );
-		$third_batch = $this->executeWPBPMethod( 'get_batch' );
-		$this->assertCount( 1, $third_batch->data );
-		$this->assertInstanceOf( __PHP_Incomplete_Class::class, $third_batch->data[0] );
-
-		// Allow everything.
-		$this->setWPBPProperty( 'allowed_batch_data_classes', true );
-		$third_batch = $this->executeWPBPMethod( 'get_batch' );
-		$this->assertCount( 1, $third_batch->data );
-		$this->assertInstanceOf( Test_Batch_Data::class, $third_batch->data[0] );
 	}
 
 	/**
@@ -340,19 +284,28 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 	public function test_maybe_handle_cancelled() {
 		// Cancelled status results in cleared batches and action fired.
 		$cancelled_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_cancelled', function () use ( &$cancelled_fired ) {
-			$cancelled_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_cancelled',
+			function () use ( &$cancelled_fired ) {
+				$cancelled_fired = true;
+			}
+		);
 		// Paused action should not be fired though.
 		$paused_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_paused', function () use ( &$paused_fired ) {
-			$paused_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_paused',
+			function () use ( &$paused_fired ) {
+				$paused_fired = true;
+			}
+		);
 		// Completed action should not be fired though.
 		$completed_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_completed', function () use ( &$completed_fired ) {
-			$completed_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_completed',
+			function () use ( &$completed_fired ) {
+				$completed_fired = true;
+			}
+		);
 		add_filter( $this->getWPBPProperty( 'identifier' ) . '_wp_die', '__return_false' );
 		$this->wpbp->push_to_queue( 'wibble' );
 		$this->wpbp->save();
@@ -381,24 +334,36 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 	public function test_maybe_handle_paused_resumed() {
 		// Cancelled action should not be fired.
 		$cancelled_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_cancelled', function () use ( &$cancelled_fired ) {
-			$cancelled_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_cancelled',
+			function () use ( &$cancelled_fired ) {
+				$cancelled_fired = true;
+			}
+		);
 		// Paused action should fire and batches remain intact.
 		$paused_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_paused', function () use ( &$paused_fired ) {
-			$paused_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_paused',
+			function () use ( &$paused_fired ) {
+				$paused_fired = true;
+			}
+		);
 		// Resumed action should fire on resume before batches handled.
 		$resumed_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_resumed', function () use ( &$resumed_fired ) {
-			$resumed_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_resumed',
+			function () use ( &$resumed_fired ) {
+				$resumed_fired = true;
+			}
+		);
 		// Completed action should fire after batches handled.
 		$completed_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_completed', function () use ( &$completed_fired ) {
-			$completed_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_completed',
+			function () use ( &$completed_fired ) {
+				$completed_fired = true;
+			}
+		);
 		add_filter( $this->getWPBPProperty( 'identifier' ) . '_wp_die', '__return_false' );
 		$this->wpbp->push_to_queue( 'wibble' );
 		$this->wpbp->save();
@@ -451,24 +416,36 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 	public function test_maybe_handle_single_batch() {
 		// Cancelled action should not be fired.
 		$cancelled_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_cancelled', function () use ( &$cancelled_fired ) {
-			$cancelled_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_cancelled',
+			function () use ( &$cancelled_fired ) {
+				$cancelled_fired = true;
+			}
+		);
 		// Paused action should not be fired.
 		$paused_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_paused', function () use ( &$paused_fired ) {
-			$paused_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_paused',
+			function () use ( &$paused_fired ) {
+				$paused_fired = true;
+			}
+		);
 		// Resumed action should not be fired.
 		$resumed_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_resumed', function () use ( &$resumed_fired ) {
-			$resumed_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_resumed',
+			function () use ( &$resumed_fired ) {
+				$resumed_fired = true;
+			}
+		);
 		// Completed action should fire after batches handled.
 		$completed_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_completed', function () use ( &$completed_fired ) {
-			$completed_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_completed',
+			function () use ( &$completed_fired ) {
+				$completed_fired = true;
+			}
+		);
 		add_filter( $this->getWPBPProperty( 'identifier' ) . '_wp_die', '__return_false' );
 		$this->wpbp->push_to_queue( 'wibble' );
 		$this->wpbp->save();
@@ -495,24 +472,36 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 	public function test_maybe_handle_nothing() {
 		// Cancelled action should not be fired.
 		$cancelled_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_cancelled', function () use ( &$cancelled_fired ) {
-			$cancelled_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_cancelled',
+			function () use ( &$cancelled_fired ) {
+				$cancelled_fired = true;
+			}
+		);
 		// Paused action should not be fired.
 		$paused_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_paused', function () use ( &$paused_fired ) {
-			$paused_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_paused',
+			function () use ( &$paused_fired ) {
+				$paused_fired = true;
+			}
+		);
 		// Resumed action should not be fired.
 		$resumed_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_resumed', function () use ( &$resumed_fired ) {
-			$resumed_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_resumed',
+			function () use ( &$resumed_fired ) {
+				$resumed_fired = true;
+			}
+		);
 		// Completed action should not be fired.
 		$completed_fired = false;
-		add_action( $this->getWPBPProperty( 'identifier' ) . '_completed', function () use ( &$completed_fired ) {
-			$completed_fired = true;
-		} );
+		add_action(
+			$this->getWPBPProperty( 'identifier' ) . '_completed',
+			function () use ( &$completed_fired ) {
+				$completed_fired = true;
+			}
+		);
 		add_filter( $this->getWPBPProperty( 'identifier' ) . '_wp_die', '__return_false' );
 		$this->assertCount( 0, $this->wpbp->get_batches() );
 		$this->assertFalse( $cancelled_fired, 'cancelled action not fired yet' );
@@ -641,32 +630,5 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 		$this->assertTrue( $this->wpbp->is_active(), 'cancelling, so still active' );
 		$this->wpbp->maybe_handle();
 		$this->assertFalse( $this->wpbp->is_active(), 'cancel handled, queue emptied, so no longer active' );
-	}
-
-	/**
-	 * Test get_cron_interval.
-	 *
-	 * @return void
-	 */
-	public function test_get_cron_interval() {
-		// Default value.
-		$this->assertEquals( 5, $this->wpbp->get_cron_interval() );
-
-		// Override via property (usually on subclass).
-		$this->wpbp->cron_interval = 3;
-		$this->assertEquals( 3, $this->wpbp->get_cron_interval() );
-
-		// Override via filter.
-		$callback = function ( $interval ) {
-			return 1;
-		};
-		add_filter( $this->getWPBPProperty( 'identifier' ) . '_cron_interval', $callback );
-		$this->assertEquals( 1, $this->wpbp->get_cron_interval() );
-
-		remove_filter( $this->getWPBPProperty( 'identifier' ) . '_cron_interval', $callback );
-		$this->assertEquals( 3, $this->wpbp->get_cron_interval() );
-
-		unset( $this->wpbp->cron_interval );
-		$this->assertEquals( 5, $this->wpbp->get_cron_interval() );
 	}
 }

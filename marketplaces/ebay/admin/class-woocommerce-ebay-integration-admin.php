@@ -1,6 +1,5 @@
 <?php
-namespace Ced\Ebay;
-use Ced\Ebay\EVENTS_HANDLER as EVENTS_HANDLER;
+
 /**
  * The admin-specific functionality of the plugin.
  *
@@ -37,12 +36,9 @@ class EBay_Integration_For_Woocommerce_Admin {
 	private $version;
 
 	public $user_id;
-
-	public $site_id;
-
-	public $ced_ebay_manager;
-
+	public $schedule_order_task;
 	public $schedule_import_task;
+	public $schedule_bulk_upload_task;
 
 	public $sync_business_policies;
 	/**
@@ -56,20 +52,39 @@ class EBay_Integration_For_Woocommerce_Admin {
 
 		$this->plugin_name = $plugin_name;
 		$this->version     = $version;
-		$this->user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$this->site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
 		$this->loadDependency();
-		require_once CED_EBAY_DIRPATH . 'admin/class-ced-ebay-events-handler.php';
-		EVENTS_HANDLER::init();
+		// error_reporting( ~0 );
+		// ini_set( 'display_errors', 1 );
+		$this->user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
 		add_action( 'ced_show_connected_accounts_details', array( $this, 'ced_show_connected_accounts_details_callback' ) );
 		add_action( 'ced_show_connected_accounts', array( $this, 'ced_show_connected_accounts_callback' ) );
 		add_action( 'manage_edit-shop_order_columns', array( $this, 'ced_ebay_add_table_columns' ) );
 		add_action( 'manage_shop_order_posts_custom_column', array( $this, 'ced_ebay_manage_table_columns' ), 10, 2 );
+		add_action( 'wp_ajax_ced_ebay_order_schedule_manager', array( $this, 'ced_ebay_order_schedule_manager' ) );
+		add_action( 'wp_ajax_nopriv_ced_ebay_order_schedule_manager', array( $this, 'ced_ebay_order_schedule_manager' ) );
+		add_action( 'wp_ajax_nopriv_ced_ebay_import_products_manager', array( $this, 'ced_ebay_import_products_manager' ) );
+		add_action( 'wp_ajax_nopriv_ced_ebay_inventory_schedule_manager', array( $this, 'ced_ebay_inventory_schedule_manager' ) );
+		add_action( 'wp_ajax_nopriv_ced_ebay_existing_products_sync_manager', array( $this, 'ced_ebay_existing_products_sync_manager' ) );
+		add_action( 'wp_ajax_nopriv_ced_ebay_sync_seller_event', array( $this, 'ced_ebay_sync_seller_event' ) );
+		add_action( 'wp_ajax_nopriv_ced_ebay_manually_ended_listings_manager', array( $this, 'ced_ebay_manually_ended_listings_manager' ) );
 		add_action( 'admin_notices', array( $this, 'ced_ebay_show_active_inventory_sync_notice' ) );
 		add_action( 'ced_ebay_refresh_access_token_schedule', array( $this, 'ced_ebay_refresh_access_token_schedule_action' ) );
 		add_filter( 'woocommerce_shop_order_search_fields', array( $this, 'ced_ebay_search_orders_query' ) );
 		add_action( 'init', array( $this, 'ced_ebay_init_background_process' ) );
 		// async stock update
+		add_action( 'ced_ebay_async_update_stock_action', array( $this, 'ced_ebay_async_update_stock_callback' ) );
+		add_action( 'ced_ebay_async_bulk_upload_action', array( $this, 'ced_ebay_async_bulk_upload_callback' ) );
+
+		add_action( 'ced_ebay_async_order_sync_action', array( $this, 'ced_ebay_async_order_sync_manager' ) );
+
+		// add_action( 'admin_footer', array( $this, 'ced_ebay_product_modifications_modal_template' ) );
+		add_action( 'wp_ajax_ced_ebay_get_product_details', array( $this, 'ced_ebay_get_product_details' ) );
+
+		add_action( 'wp_ajax_ced_ebay_update_stock_on_webhook', array( $this, 'ced_ebay_update_stock_on_webhook' ) );
+		add_action( 'wp_ajax_nopriv_ced_ebay_update_stock_on_webhook', array( $this, 'ced_ebay_update_stock_on_webhook' ) );
+
+		add_action( 'wp_ajax_ced_ebay_get_categories_for_category_mapping', array( $this, 'ced_ebay_get_categories_for_category_mapping' ) );
+
 		add_action( 'wp_ajax_ced_ebay_bulk_upload_endpoint', array( $this, 'ced_ebay_schedule_bulk_upload_using_external_endpoint' ) );
 		add_action( 'wp_ajax_nopriv_ced_ebay_bulk_upload_endpoint', array( $this, 'ced_ebay_schedule_bulk_upload_using_external_endpoint' ) );
 
@@ -94,6 +109,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 			}
 		);
 
+		add_filter( 'wp_ajax_ced_ebay_async_update_stock_using_ajax', array( $this, 'ced_ebay_async_update_stock_using_ajax_callback' ) );
 		add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', array( $this, 'ced_ebay_handle_custom_query_var' ), 10, 2 );
 
 		// Disable SSL checks for curl. Useful when debugging webhooks on local.
@@ -103,7 +119,6 @@ class EBay_Integration_For_Woocommerce_Admin {
 			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/EbayRestEndpoints.php';
 		}
 
-
 		if ( file_exists( CED_EBAY_DIRPATH . 'admin/includes/ced_logging/Ced_Logging.php' ) ) {
 			require_once CED_EBAY_DIRPATH . 'admin/includes/ced_logging/Ced_Logging.php';
 		}
@@ -112,6 +127,9 @@ class EBay_Integration_For_Woocommerce_Admin {
 			require_once CED_EBAY_DIRPATH . 'admin/vendor/autoload.php';
 		}
 
+		if ( file_exists( CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayTemplateCustomMetabox.php' ) ) {
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayTemplateCustomMetabox.php';
+		}
 		add_action( 'admin_print_footer_scripts', array( $this, 'ced_ebay_product_importer_heartbeat_footer_js' ), 20 );
 		add_filter( 'heartbeat_received', array( $this, 'ced_ebay_product_importer_heartbeat_received' ), 10, 2 );
 
@@ -127,67 +145,6 @@ class EBay_Integration_For_Woocommerce_Admin {
 		add_filter( 'woocommerce_email_enabled_failed_order', array( $this, 'ced_ebay_inhibit_order_emails' ), 10, 2 );
 
 		add_filter( 'woocommerce_product_pre_search_products', array( $this, 'ced_ebay_custom_search_products_logic' ), 10, 6 );
-
-		add_action('wp_ajax_run_code', function(){
-			$this->schedule_import_task->cancel_process();die('213');
-			$ebayUploadInstance = \Ced\Ebay\EbayUpload::get_instance( 28 );
-			$itemId =            '110554444875';							
-			$itemDetails        = $ebayUploadInstance->get_item_details( $itemId );
-			$import_listing = new \Ced\Ebay\Import_Listing();
-			$ebay_item_specifics = isset($itemDetails['Item']['ItemSpecifics']) ? $itemDetails['Item']['ItemSpecifics'] : ['NameValueList' => []];
-			if ( ! isset( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'][0] ) ) {
-				$tempNameValueList = array();
-				$tempNameValueList = $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'];
-				unset( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'] );
-				$itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'][] = $tempNameValueList;
-			}
-			$variation_specifics =  isset($itemDetails['Item']['Variations']['VariationSpecificsSet']) ? $itemDetails['Item']['Variations']['VariationSpecificsSet'] : ['NameValueList' => []];
-			$product_id = $import_listing->createProduct($itemDetails['Item']['Title'], 'publish');
-			if(!is_wp_error($product_id)){
-				// $import_listing->setWooProduct($product_id, 'simple');
-				$import_listing->setWooProduct($product_id, 'variable');
-				// $import_listing->importDescription($itemDetails['Item']['Description']);
-				$import_listing->importProductAttributes($itemDetails['Item']['ItemSpecifics']);
-			}
-			
-		});
-	}
-
-	public function beta_test(){
-		$zip = '';
-		$update_plugins = get_site_transient('update_plugins');
-		if (!is_object($update_plugins)) {
-			$update_plugins = new \stdClass();
-		}
-
-		$plugin_info = new \stdClass();
-		$plugin_info->new_version = '1.0.3';
-		$plugin_info->slug = 'multichannel-by-cedcommerce';
-		$plugin_info->plugin = 'multichannel-by-cedcommerce/multichannel-by-cedcommerce.php';
-		$plugin_info->package = $zip;
-
-		$update_plugins->response['multichannel-by-cedcommerce/multichannel-by-cedcommerce.php'] = $plugin_info;
-
-		set_site_transient('update_plugins', $update_plugins);
-
-		$plugin = 'multichannel-by-cedcommerce/multichannel-by-cedcommerce.php';
-
-		include_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
-		include_once ABSPATH . 'wp-admin/includes/file.php';
-		include_once ABSPATH . 'wp-admin/includes/misc.php';
-
-		try {
-			ob_start();
-			$skin = new \WP_Ajax_Upgrader_Skin();
-			$upgrader = new \Plugin_Upgrader($skin);
-			$result = $upgrader->upgrade($plugin);
-			if (!is_plugin_active($plugin)) {
-				activate_plugin($plugin, '', is_multisite());
-			}
-			ob_end_clean();
-		} catch (\Exception $e) {
-			print_r($e->getMessage());
-		}
 	}
 
 
@@ -196,11 +153,6 @@ class EBay_Integration_For_Woocommerce_Admin {
 			'auth.sandbox.ebay.com',
 			'ebay.com',
 			'auth.ebay.com',
-			'cedserver.com',
-			'woombc-api.cedserver.com',
-			'woodemo.cedcommerce.com',
-			'api.cedcommerce.com',
-			'cedcommerce.com'
 		);
 		return array_merge( $hosts, $ebay_hosts );
 	}
@@ -234,7 +186,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 		if ( 'ebay' == $active_channel ) {
 
 			require_once CED_EBAY_DIRPATH . 'admin/class-ced-ebay-setup-wizard.php';
-			$ced_ebay_setup_wizard = new \Ced\Ebay\Ced_Ebay_Setup_Wizard();
+			$ced_ebay_setup_wizard = new \Ced_Ebay_WooCommerce_Core\Ced_Ebay_Setup_Wizard();
 			$ced_ebay_setup_wizard->setup_wizard();
 
 		}
@@ -349,7 +301,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 			return false;
 		}
 		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
-		$configInstance  = \Ced\Ebay\Ebayconfig::get_instance();
+		$configInstance  = \Ced_Ebay_WooCommerce_Core\Ebayconfig::get_instance();
 		$ebaySiteDetails = $configInstance->getEbaycountrDetail( $site_id, $marketplaceEnum );
 		if ( ! empty( $ebaySiteDetails ) && is_array( $ebaySiteDetails ) && isset( $ebaySiteDetails['siteID'] ) ) {
 			return $ebaySiteDetails['siteID'];
@@ -371,7 +323,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 
 	public function ced_ebay_custom_search_products_logic( $preempt, $query, $type = '', $include = false, $all_statuses = false, $limit = null ) {
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		if ( preg_match( '/^ebay:/', $query ) ) {
 			$search_terms       = explode( ':', $query, 2 );
 			$actual_search_term = isset( $search_terms[1] ) ? trim( $search_terms[1] ) : '';
@@ -476,11 +428,28 @@ class EBay_Integration_For_Woocommerce_Admin {
 		}
 	}
 
-	
+	public function ced_ebay_async_update_stock_using_ajax_callback() {
+		if ( isset( $_POST['product_id'] ) && ! check_ajax_referer( 'ced_ebay_async_stock_update-' . sanitize_text_field( $_POST['product_id'] ), false, false ) ) {
+			exit();
+		}
+		$shop_data  = get_option( 'ced_ebay_user_access_token' );
+		$product_id = isset( $_POST['product_id'] ) ? sanitize_text_field( $_POST['product_id'] ) : '';
+		if ( ! empty( $shop_data ) && is_array( $shop_data ) && ! empty( $product_id ) ) {
+			foreach ( $shop_data as $user_id => $eBayAccountData ) {
+				$this->ced_ebay_async_update_stock_callback(
+					array(
+						'user_id'    => $user_id,
+						'product_id' => $product_id,
+					),
+					''
+				);
+			}
+		}
+	}
 
 	public function ced_ebay_instant_stock_sync( $product ) {
 
-		if ( ! $product instanceof \WC_Product ) {
+		if ( ! $product instanceof WC_Product ) {
 			return;
 		}
 
@@ -524,9 +493,19 @@ class EBay_Integration_For_Woocommerce_Admin {
 
 
 	public function ced_ebay_init_background_process() {
-		require_once plugin_dir_path( __DIR__ ) . 'admin/ebay/lib/class-ebay-import-backgroup-process.php';
+		if ( ! class_exists( 'OrderBackground_Process' ) ) {
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/OrderBackgroundProcess.php';
+		}
+		if ( ! class_exists( 'ImportBackground_Process' ) ) {
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ImportBackground.php';
+		}
+		if ( ! class_exists( 'BulkUpload_Background_Process' ) ) {
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/BulkUploadBackgroundProcess.php';
+		}
 
-		$this->schedule_import_task      = new \Ced\Ebay\ImportBackground_Process();
+		$this->schedule_order_task       = new OrderBackground_Process();
+		$this->schedule_import_task      = new ImportBackground_Process();
+		$this->schedule_bulk_upload_task = new BulkUpload_Background_Process();
 	}
 
 	/**
@@ -590,7 +569,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 		$page    = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
 		$channel = isset( $_GET['channel'] ) ? sanitize_text_field( $_GET['channel'] ) : '';
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		global $pagenow;
 		if ( 'sales_channel' == $page && 'amazon' != $channel || 'edit' == $action || 'post-new.php' == $pagenow ) {
 			wp_enqueue_script( 'sales-channel-ebay', plugin_dir_url( __FILE__ ) . 'js/sales_channel_ebay.js', array( 'jquery', 'jquery-blockui', 'jquery-ui-spinner' ), time(), false );
@@ -612,20 +591,17 @@ class EBay_Integration_For_Woocommerce_Admin {
 			wp_enqueue_script( 'mode-css', plugin_dir_url( __FILE__ ) . 'js/ace/mode-css.js', array( 'jquery' ), '1.4.12' );
 		}
 		$wp_upload_dir  = wp_upload_dir() ['baseurl'];
-		if(is_ssl()){
-			$wp_upload_dir = str_replace( 'http://', 'https://', $wp_upload_dir );
-		}
 		$ebay_folder    = $wp_upload_dir . '/ced-ebay/category-templates-json';
 		$ajax_nonce     = wp_create_nonce( 'ced-ebay-ajax-seurity-string' );
 		$localize_array = array(
 			'ajax_url'   => admin_url( 'admin-ajax.php' ),
 			'ajax_nonce' => $ajax_nonce,
 			'user_id'    => isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '',
-			'site_id'    => isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '',
-			'rsid'    => isset( $_GET['rsid'] ) ? sanitize_text_field( $_GET['rsid'] ) : '',
+			'site_id'    => isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '',
 			'site_url'   => get_option( 'siteurl' ),
 			'ebay_path'  => $ebay_folder,
 		);
+		wp_localize_script( $this->plugin_name, 'ced_ebay_admin_obj', $localize_array );
 		wp_localize_script( 'sales-channel-ebay', 'ced_ebay_admin_obj', $localize_array );
 		if ( 'plugins.php' == $hook ) {
 			wp_enqueue_script( 'jquery-ui-dialog' );
@@ -637,7 +613,57 @@ class EBay_Integration_For_Woocommerce_Admin {
 
 
 
-	
+	public function ced_ebay_get_product_details() {
+		$check_ajax = check_ajax_referer( 'ced-ebay-ajax-seurity-string', 'ajax_nonce' );
+		if ( $check_ajax ) {
+			$product_id = isset( $_POST['product_id'] ) ? sanitize_text_field( $_POST['product_id'] ) : '';
+			$user_id    = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
+			if ( ! empty( $product_id ) && ! empty( $user_id ) ) {
+				$product_data          = array();
+				$product               = wc_get_product( $product_id );
+				$product_data['id']    = $product_id;
+				$product_data['title'] = $product->get_title();
+				if ( ! empty( get_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true ) ) ) {
+					$ebay_listing_id   = get_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true );
+					$listing_url_tld   = get_option( 'ced_ebay_listing_url_tld_' . $user_id, true );
+					$mode_of_operation = get_option( 'ced_ebay_mode_of_operation', '' );
+					if ( 'sandbox' == $mode_of_operation ) {
+						$view_url = 'https://sandbox.ebay' . $listing_url_tld . '/itm/' . $ebay_listing_id;
+					} elseif ( 'production' == $mode_of_operation ) {
+						$view_url = 'https://www.ebay' . $listing_url_tld . '/itm/' . $ebay_listing_id;
+
+					}
+					$product_data['view_url'] = ! empty( $view_url ) ? $view_url : false;
+				}
+				if ( $product->is_type( 'simple' ) ) {
+					$product_data['type']  = 'simple';
+					$product_data['price'] = ! empty( $product->get_price() ) ? $product->get_price() : 0;
+					$product_data['sku']   = ! empty( $product->get_sku() ) ? $product->get_sku() : false;
+					$product_data['stock'] = ! empty( $product->get_stock_quantity() ) ? $product->get_stock_quantity() : 0;
+				} elseif ( $product->is_type( 'variable' ) ) {
+					$product_data['type']      = 'variable';
+					$product_data['parent_id'] = $product_id;
+					$product_childrens         = $product->get_children();
+					if ( ! empty( $product_childrens ) ) {
+						foreach ( $product_childrens as $key => $variation_id ) {
+							$product_data['child'][ $variation_id ] = array(
+								'sku'   => ! empty( get_post_meta( $variation_id, '_sku', true ) ) ? get_post_meta( $variation_id, '_sku', true ) : false,
+								'price' => ! empty( get_post_meta( $variation_id, '_price', true ) ) ? get_post_meta( $variation_id, '_price', true ) : 0,
+								'stock' => ! empty( get_post_meta( $variation_id, '_stock', true ) ) ? get_post_meta( $variation_id, '_stock', true ) : 0,
+							);
+						}
+					}
+				}
+			}
+
+			wp_send_json_success(
+				array(
+					'product_id'   => $product_id,
+					'product_data' => $product_data,
+				)
+			);
+		}
+	}
 
 	public function ced_ebay_product_modifications_modal_template() {
 		?>
@@ -810,8 +836,6 @@ class EBay_Integration_For_Woocommerce_Admin {
 									$ebay_user_id = $key;
 									if ( ! empty( $ebay_user_id ) && is_array( $ebay_sites ) ) {
 										foreach ( $ebay_sites as $ebay_site => $connection_status ) {
-											$remote_shop_id = '';
-											$remote_shop_id = $connection_status['remote_shop_id'];
 											$site_details = ced_ebay_get_site_details( $ebay_site );
 											$site_name    = isset( $site_details['name'] ) ? $site_details['name'] : '';
 											?>
@@ -823,7 +847,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 													<?php
 													if ( isset( $connection_status['onboarding_error'] ) && 'unable_to_connect' == $connection_status['onboarding_error'] ) {
 														$visit_url            = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=setup-ebay&add-new-account=yes';
-														$overview_section_url = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $ebay_user_id . '&sid=' . $ebay_site . '&rsid=' . $remote_shop_id;
+														$overview_section_url = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $ebay_user_id . '&site_id=' . $ebay_site;
 														?>
 																	<a class="ced-pending-link" href="<?php echo esc_url( $visit_url ); ?>"><span class="ced-circle"></span>Unable to connect with eBay</a>
 																</div>
@@ -834,7 +858,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 																
 																<?php
 													} elseif ( isset( $connection_status['ced_ebay_current_step'] ) && 1 < (int) $connection_status['ced_ebay_current_step'] ) {
-															$visit_url = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $ebay_user_id . '&sid=' . $ebay_site . '&rsid=' . $remote_shop_id;
+															$visit_url = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $ebay_user_id . '&site_id=' . $ebay_site;
 
 														?>
 																	<a style="width: 33%;" class="ced-connected-link-account" href=""><span class="ced-circle"></span>Onboarding Completed</a>
@@ -851,9 +875,9 @@ class EBay_Integration_For_Woocommerce_Admin {
 														if ( false === $current_step ) {
 															$urlKey = 'section=setup-ebay&add-new-account=yes';
 														} elseif ( 0 == $current_step ) {
-															$urlKey = 'section=onboarding-global-options&user_id=' . $ebay_user_id . '&sid=' . $ebay_site . '&rsid=' . $remote_shop_id;
+															$urlKey = 'section=onboarding-global-options&user_id=' . $ebay_user_id . '&site_id=' . $ebay_site;
 														} elseif ( 1 == $current_step ) {
-															$urlKey = 'section=onboarding-general-settings&user_id=' . $ebay_user_id . '&sid=' . $ebay_site . '&rsid=' . $remote_shop_id;
+															$urlKey = 'section=onboarding-general-settings&user_id=' . $ebay_user_id . '&site_id=' . $ebay_site;
 														}
 														$visit_url = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&' . $urlKey;
 
@@ -1015,18 +1039,30 @@ class EBay_Integration_For_Woocommerce_Admin {
 			$userid           = isset( $_POST['userid'] ) ? sanitize_text_field( $_POST['userid'] ) : '';
 			$site_id          = isset( $_POST['site_id'] ) ? sanitize_text_field( $_POST['site_id'] ) : '';
 			$levels           = isset( $sanitized_array['levels'] ) ? ( $sanitized_array['levels'] ) : '';
-			$rsid        = ced_ebay_get_shop_data( $userid, $site_id );
-			if (empty($rsid) || !isset($rsid['remote_shop_id']) ) {
+			$shop_data        = ced_ebay_get_shop_data( $userid, $site_id );
+			if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+				$siteID = $site_id;
+				$token  = $shop_data['access_token'];
+			} else {
 				echo json_encode(
 					array(
 						'status'  => 'error',
-						'message' => 'Invalid remote shop!',
+						'message' => 'Invalid eBay site or account!',
 					)
 				);
 				die;
 			}
-			
-			$site_details = ced_ebay_get_site_details( $site_id );
+			$pre_flight_check = ced_ebay_pre_flight_check( $userid );
+			if ( ! $pre_flight_check ) {
+				echo json_encode(
+					array(
+						'status'  => 'error',
+						'message' => 'Unable to fetch categories. Token has been revoked.',
+					)
+				);
+				die;
+			}
+			$site_details = ced_ebay_get_site_details( $siteID );
 			if ( empty( $site_details ) ) {
 				echo json_encode(
 					array(
@@ -1059,10 +1095,10 @@ class EBay_Integration_For_Woocommerce_Admin {
 			}
 			$categoryLevel  = 0;
 			$levels         = isset( $sanitized_array['levels'] ) ? ( $sanitized_array['levels'] ) : '';
-			$cedCatInstance = CedGetCategories::get_instance( $site_id, $rsid );
+			$cedCatInstance = CedGetCategories::get_instance( $siteID, $token );
 			foreach ( $levels as $level ) {
 				$getCat = $cedCatInstance->_getCategories( $level );
-				if ( $getCat && is_array( $getCat ) && isset($getCat['CategoryArray']['Category']) ) {
+				if ( $getCat && is_array( $getCat ) ) {
 					$cates = array();
 					foreach ( $getCat['CategoryArray']['Category'] as $key => $value ) {
 						if ( "$level" == $value['CategoryLevel'] ) {
@@ -1135,26 +1171,40 @@ class EBay_Integration_For_Woocommerce_Admin {
 		if ( $check_ajax ) {
 			$ced_ebay_manager = $this->ced_ebay_manager;
 			$user_id          = isset( $_POST['userid'] ) ? sanitize_text_field( $_POST['userid'] ) : '';
-			$siteID          = isset( $_POST['site_id'] ) ? sanitize_text_field( $_POST['site_id'] ) : '';
-			$rs_data        = ced_ebay_get_shop_data( $user_id, $siteID );
-			if (empty($rs_data) || !isset($rs_data['remote_shop_id']) ) {
+			$site_id          = isset( $_POST['site_id'] ) ? sanitize_text_field( $_POST['site_id'] ) : '';
+			$shop_data        = ced_ebay_get_shop_data( $user_id, $site_id );
+			if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+				$siteID      = $site_id;
+				$token       = $shop_data['access_token'];
+				$getLocation = $shop_data['location'];
+			} else {
 				echo json_encode(
 					array(
 						'status'  => 400,
-						'message' => 'Invalid remote shop!',
+						'message' => 'Unable to verify eBay user.',
 						'prodid'  => '',
 						'title'   => 'Error',
 					)
 				);
 				die;
 			}
-			$rsid = $rs_data['remote_shop_id'];
 
-			
+			$access_token_arr = get_option( 'ced_ebay_user_access_token' );
+			if ( ! empty( $access_token_arr ) ) {
+				foreach ( $access_token_arr as $key => $value ) {
+					$tokenValue = get_transient( 'ced_ebay_user_access_token_' . $key );
+					if ( false === $tokenValue || null == $tokenValue || empty( $tokenValue ) ) {
+						$user_refresh_token = $value['refresh_token'];
+						$this->ced_ebay_save_user_access_token( $key, $user_refresh_token, 'refresh_user_token' );
+					}
+				}
+			}
 
+			$pre_flight_check = ced_ebay_pre_flight_check( $user_id, $siteID );
 			$sanitized_array  = filter_input_array( INPUT_POST, FILTER_UNSAFE_RAW );
 			$operation        = isset( $sanitized_array['operation_to_be_performed'] ) ? ( $sanitized_array['operation_to_be_performed'] ) : '';
 			$product_id       = isset( $sanitized_array['id'] ) ? ( $sanitized_array['id'] ) : '';
+			if ( $pre_flight_check ) {
 				if ( is_array( $product_id ) ) {
 					if ( 'upload_product' == $operation ) {
 						global $wpdb;
@@ -1245,20 +1295,42 @@ class EBay_Integration_For_Woocommerce_Admin {
 							if ( file_exists( $log_file_product_xml ) ) {
 								wp_delete_file( $log_file_product_xml );
 							}
-							$uploadOnEbay = $ced_ebay_manager->prepareProductHtmlForUpload( $user_id, $siteID, $prodIDs );
+							$SimpleXml = $ced_ebay_manager->prepareProductHtmlForUpload( $user_id, $siteID, $prodIDs );
 
-							
+							if ( is_array( $SimpleXml ) && ! empty( $SimpleXml ) && ! isset( $SimpleXml['error'] ) ) {
+
+								if ( function_exists( 'simplexml_load_string' ) ) {
+									$addItemXml                                      = simplexml_load_string( $SimpleXml[0] );
+									$addItemXml->RequesterCredentials->eBayAuthToken = 'xxx';
+									$addItemXmlOutput                                = $addItemXml->asXML();
+									file_put_contents( $log_file_product_xml, $addItemXmlOutput );
+								}
+								require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+							} elseif ( isset( $SimpleXml['error'] ) ) {
+								echo json_encode(
+									array(
+										'status'  => 400,
+										'message' => $SimpleXml['error'],
+										'prodid'  => $prodIDs,
+										'title'   => ! empty( $wc_product->get_title() ) ? $wc_product->get_title() : '',
+
+									)
+								);
+								die;
+							}
 							$log_file_product_upload = $wp_upload_dir . 'upload_' . $prodIDs . '.json';
+							$ebayUploadInstance      = EbayUpload::get_instance( $siteID, $token );
+							$uploadOnEbay            = $ebayUploadInstance->upload( $SimpleXml[0], $SimpleXml[1] );
 
 							if ( file_exists( $log_file_product_upload ) ) {
 								wp_delete_file( $log_file_product_upload );
 							}
 							file_put_contents( $log_file_product_upload, json_encode( $uploadOnEbay ) );
-							if ( is_wp_error($uploadOnEbay) ) {
+							if ( ! is_array( $uploadOnEbay ) && ! empty( $uploadOnEbay ) ) {
 								echo json_encode(
 									array(
 										'status'  => 400,
-										'message' => $uploadOnEbay->get_error_message(),
+										'message' => 'No Profile Assigned to the product.',
 										'prodid'  => $prodIDs,
 										'title'   => ! empty( $wc_product->get_title() ) ? $wc_product->get_title() : '',
 									)
@@ -2089,7 +2161,6 @@ class EBay_Integration_For_Woocommerce_Admin {
 						$prodIDs          = $product_id[0];
 						$wc_product       = wc_get_product( $prodIDs );
 						$already_uploaded = get_post_meta( $prodIDs, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true );
-						$itemIDs[ $prodIDs ] = $already_uploaded;
 						if ( $already_uploaded ) {
 							if ( 'false' === get_option( 'ced_ebay_out_of_stock_preference_' . $user_id, true ) ) {
 								global $wpdb;
@@ -2134,10 +2205,19 @@ class EBay_Integration_For_Woocommerce_Admin {
 									$already_uploaded = get_post_meta( $prodIDs, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true );
 									if ( $already_uploaded ) {
 										$itemIDs[ $prodIDs ] = $already_uploaded;
-										$ebayUploadInstance = EbayUpload::get_instance( $rsid );
+										require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+										$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
 										$itemId             = get_post_meta( $prodIDs, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true );
-										
-										$itemDetails        = $ebayUploadInstance->get_item_details( $itemId );
+										$check_stauts_xml   = '
+										<?xml version="1.0" encoding="utf-8"?>
+										<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+										<RequesterCredentials>
+										<eBayAuthToken>' . $token . '</eBayAuthToken>
+										</RequesterCredentials>
+										<DetailLevel>ReturnAll</DetailLevel>
+										<ItemID>' . $itemId . '</ItemID>
+										</GetItemRequest>';
+										$itemDetails        = $ebayUploadInstance->get_item_details( $check_stauts_xml );
 										if ( 'Success' == $itemDetails['Ack'] || 'Warning' == $itemDetails['Ack'] ) {
 											if ( isset( $itemDetails['Item']['ListingDetails']['RelistedItemID'] ) ) {
 												update_post_meta( $prodIDs, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, $itemDetails['Item']['ListingDetails']['RelistedItemID'] );
@@ -2178,18 +2258,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 											}
 										}
 
-										$archiveProducts = $ebayUploadInstance->endItems( $itemId );
-										if(is_wp_error($archiveProducts)){
-											echo json_encode(
-												array(
-													'status' => 400,
-													'message' => $archiveProducts->get_error_message(),
-													'prodid' => $prodIDs,
-													'title' => ! empty( $wc_product->get_title() ) ? $wc_product->get_title() : '',
-												)
-											);
-											die;
-										}
+										$archiveProducts = $ebayUploadInstance->endItems( $itemIDs );
 										if ( is_array( $archiveProducts ) && ! empty( $archiveProducts ) ) {
 											if ( isset( $archiveProducts['Ack'] ) ) {
 												if ( 'Warning' == $archiveProducts['Ack'] || 'Success' == $archiveProducts['Ack'] ) {
@@ -2230,20 +2299,19 @@ class EBay_Integration_For_Woocommerce_Admin {
 										}
 									}
 								}
-								$ebayUploadInstance = EbayUpload::get_instance( $rsid );
-								$SimpleXml          = $ced_ebay_manager->prepareProductHtmlForUpdateStock( $rsid, $itemIDs, false );
-								if(is_wp_error($SimpleXml)){
-									echo json_encode(
-										array(
-											'status' => 400,
-											'message' => $SimpleXml->get_error_message(),
-											'prodid' => $prodIDs,
-											'title' => ! empty( $wc_product->get_title() ) ? $wc_product->get_title() : '',
-										)
-									);
-									die;
+								require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+								$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+								$SimpleXml          = $ced_ebay_manager->prepareProductHtmlForUpdateStock( $user_id, $siteID, $prodIDs, false );
+								if ( is_array( $SimpleXml ) && ! empty( $SimpleXml ) ) {
+
+									foreach ( $SimpleXml as $key => $value ) {
+										$uploadOnEbay[] = $ebayUploadInstance->cedEbayUpdateInventory( $value );
+									}
+								} else {
+
+									$uploadOnEbay = $ebayUploadInstance->cedEbayUpdateInventory( $SimpleXml );
 								}
-								$uploadOnEbay = $SimpleXml;
+
 								if ( is_array( $uploadOnEbay ) && ! empty( $uploadOnEbay[0] ) ) {
 									foreach ( $uploadOnEbay as $key => $inventory_update ) {
 										if ( isset( $inventory_update['Ack'] ) ) {
@@ -2339,33 +2407,20 @@ class EBay_Integration_For_Woocommerce_Admin {
 							}
 
 							require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
-							$ebayUploadInstance = EbayUpload::get_instance( $rsid );
-							$SimpleXml          = $ced_ebay_manager->prepareProductHtmlForUpdateStock( $rsid, $itemIDs, false );
-							if(is_wp_error($SimpleXml)){
-								echo json_encode(
-									array(
-										'status' => 400,
-										'message' => $SimpleXml->get_error_message(),
-										'prodid' => $prodIDs,
-										'title' => ! empty( $wc_product->get_title() ) ? $wc_product->get_title() : '',
-									)
-								);
-								die;
+							$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+							$SimpleXml          = $ced_ebay_manager->prepareProductHtmlForUpdateStock( $user_id, $siteID, $prodIDs, false );
+							if ( is_array( $SimpleXml ) && ! empty( $SimpleXml ) ) {
+
+								foreach ( $SimpleXml as $key => $value ) {
+									$uploadOnEbay[] = $ebayUploadInstance->cedEbayUpdateInventory( $value );
+								}
+							} else {
+
+								$uploadOnEbay = $ebayUploadInstance->cedEbayUpdateInventory( $SimpleXml );
 							}
-							$uploadOnEbay = $SimpleXml;
+
 							if ( is_array( $uploadOnEbay ) && ! empty( $uploadOnEbay[0] ) ) {
 								foreach ( $uploadOnEbay as $key => $inventory_update ) {
-									if(is_wp_error($inventory_update)){
-										echo json_encode(
-											array(
-												'status' => 400,
-												'message' => $inventory_update->get_error_message(),
-												'prodid' => $prodIDs,
-												'title' => ! empty( $wc_product->get_title() ) ? $wc_product->get_title() : '',
-											)
-										);
-										die;
-									}
 									if ( isset( $inventory_update['Ack'] ) ) {
 										if ( 'Warning' == $inventory_update['Ack'] || 'Success' == $inventory_update['Ack'] ) {
 											$ebayID = $inventory_update['ItemID'];
@@ -2471,7 +2526,102 @@ class EBay_Integration_For_Woocommerce_Admin {
 						}
 					}
 				}
-			
+			} else {
+				echo json_encode(
+					array(
+						'status'  => 400,
+						'message' => 'We are not able to connect to eBay at the moment. Please try again later. If the issue persists, please contact support.',
+						'title'   => 'Error',
+					)
+				);
+				die;
+			}
+		}
+	}
+
+	public function ced_ebay_manually_ended_listings_manager( $data = array() ) {
+		$fetchCurrentAction = current_action();
+		$this->ced_ebay_onWpAdminInit();
+		if ( strpos( $fetchCurrentAction, 'wp_ajax_nopriv_' ) !== false ) {
+			$user_id = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : false;
+			$site_id = isset( $_GET['site_id'] ) ? wc_clean( $_GET['site_id'] ) : false;
+		} else {
+			$user_id = isset( $data['user_id'] ) ? $data['user_id'] : '';
+			$site_id = isset( $data['site_id'] ) ? $data['site_id'] : '';
+		}
+
+		$logger  = wc_get_logger();
+		$context = array( 'source' => 'ced_ebay_manually_ended_listings_manager' );
+		$logger->info( '>>>Commencing scheduled job', $context );
+		$shop_data = ced_ebay_get_shop_data( $user_id, $site_id );
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$siteID = $site_id;
+			$token  = $shop_data['access_token'];
+		} else {
+			return false;
+		}
+		$file             = CED_EBAY_DIRPATH . 'admin/ebay/class-ebay.php';
+		$renderDependency = $this->renderDependency( $file );
+		if ( $renderDependency ) {
+			$cedeBay             = new Class_Ced_EBay_Manager();
+			$cedebayInstance     = $cedeBay->get_instance();
+			$page_number         = ! empty( get_option( 'ced_ebay_ended_listings_pagination_' . $user_id . '>' . $siteID ) ) ? get_option( 'ced_ebay_ended_listings_pagination_' . $user_id . '>' . $siteID, true ) : 1;
+			$ended_products_list = $cedebayInstance->ced_ebay_get_manually_ended_listings( $token, $siteID, $page_number );
+			if ( 'api-error' != $ended_products_list ) {
+				$logger->info( wc_print_r( 'Page Number ' . $page_number, true ), $context );
+				++$page_number;
+				update_option( 'ced_ebay_ended_listings_pagination_' . $user_id . '>' . $siteID, $page_number );
+				if ( ! empty( $ended_products_list['ItemArray']['Item'] ) ) {
+					if ( ! isset( $ended_products_list['ItemArray']['Item'][0] ) ) {
+						$temp_ended_list = array();
+						$temp_ended_list = $ended_products_list['ItemArray']['Item'];
+						unset( $ended_products_list['ItemArray']['Item'] );
+						$ended_products_list['ItemArray']['Item'][] = $temp_ended_list;
+					}
+					foreach ( $ended_products_list['ItemArray']['Item'] as $key => $ended_ebay_listing ) {
+						if ( ! empty( $ended_ebay_listing['ItemID'] ) && isset( $ended_ebay_listing['ListingDetails']['EndingReason'] ) ) {
+
+							$logger->info( wc_print_r( 'Listing ' . $ended_ebay_listing['ItemID'] . ' has been manually ended on eBay', true ), $context );
+							if ( isset( $ended_ebay_listing['ListingDetails']['RelistedItemID'] ) && ! empty( $ended_ebay_listing['ListingDetails']['RelistedItemID'] ) ) {
+								$logger->info( wc_print_r( 'Listing ' . $ended_ebay_listing['ItemID'] . ' has been relisted on eBay', true ), $context );
+							}
+							$itemId        = $ended_ebay_listing['ItemID'];
+							$store_product = get_posts(
+								array(
+									'numberposts'  => -1,
+									'post_type'    => 'product',
+									'meta_key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $siteID,
+									'meta_value'   => $itemId,
+									'meta_compare' => '=',
+								)
+							);
+							$store_product = wp_list_pluck( $store_product, 'ID' );
+							if ( ! empty( $store_product ) ) {
+								$product_id = $store_product[0];
+								$logger->info( wc_print_r( 'Found Woo Product ' . $product_id, true ), $context );
+								$product = wc_get_product( $product_id );
+								$product->set_stock_quantity( '0' );
+								$product->set_stock_status( 'outofstock' );
+								$product->save();
+								delete_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID );
+								delete_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id . '>' . $siteID );
+								if ( isset( $ended_ebay_listing['ListingDetails']['RelistedItemID'] ) && ! empty( $ended_ebay_listing['ListingDetails']['RelistedItemID'] ) ) {
+									$logger->info( wc_print_r( 'Relisted item ID is ' . $ended_ebay_listing['ListingDetails']['RelistedItemID'], true ), $context );
+									update_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, $ended_ebay_listing['ListingDetails']['RelistedItemID'] );
+									update_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id . '>' . $siteID, $ended_ebay_listing['ListingDetails']['RelistedItemID'] );
+								}
+								$product->save();
+							}
+						}
+					}
+				} else {
+					$logger->info( 'Unable to get ItemArray', $context );
+					update_option( 'ced_ebay_ended_listings_pagination_' . $user_id . '>' . $siteID, 1 );
+				}
+			} else {
+				$logger->info( 'API Error', $context );
+				update_option( 'ced_ebay_ended_listings_pagination_' . $user_id . '>' . $siteID, 1 );
+			}
 		}
 	}
 
@@ -2596,13 +2746,359 @@ class EBay_Integration_For_Woocommerce_Admin {
 
 
 
-	
+	public function ced_ebay_update_stock_on_webhook() {
+		$wp_folder     = wp_upload_dir();
+		$wp_upload_dir = $wp_folder['basedir'];
+		$logs_folder   = $wp_upload_dir . '/ced-ebay/logs/stock-update/webhook/';
+		$current_date  = new DateTime();
+		$current_date  = $current_date->format( 'ymd' );
+		$log_file      = $logs_folder . 'logs_' . $current_date . '.txt';
+		if ( ! file_exists( $log_file ) ) {
+			file_put_contents( $log_file, '' );
+		}
+		ced_ebay_log_data( 'Commence Webhook based stock update', 'ced_ebay_async_update_stock_callback', $log_file );
+		if ( file_get_contents( 'php://input' ) ) {
+			$response_body    = json_decode( file_get_contents( 'php://input' ), true );
+			$product_id       = $response_body['id'];
+			$access_token_arr = get_option( 'ced_ebay_user_access_token' );
+			if ( ! empty( $access_token_arr ) && ! empty( $product_id ) ) {
+				foreach ( $access_token_arr as $user_id => $value ) {
+					if ( ! empty( get_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID ) ) ) {
+						ced_ebay_log_data( 'Webhook stock update | Product ID ' . $product_id, 'ced_ebay_async_update_stock_callback', $log_file );
+						$stock_update_data               = array();
+						$stock_update_data['product_id'] = $product_id;
+						$stock_update_data['user_id']    = $user_id;
+						$this->ced_ebay_async_update_stock_callback( $stock_update_data, $log_file );
+					} else {
+						ced_ebay_log_data( 'Woo product #' . $product_id . ' is not an eBay listing!', 'ced_ebay_async_update_stock_callback', $log_file );
+						ced_ebay_log_data( '----------------', 'ced_ebay_async_update_stock_callback', $log_file );
+
+					}
+				}
+			}
+		}
+	}
 
 
 
+	public function ced_ebay_inventory_schedule_manager( $data = array() ) {
+		$fetchCurrentAction = current_action();
+		if ( strpos( $fetchCurrentAction, 'wp_ajax_nopriv_' ) !== false ) {
+			$user_id = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : false;
+		} else {
+			$user_id = isset( $data['user_id'] ) ? $data['user_id'] : '';
+			$site_id = isset( $data['site_id'] ) ? $data['site_id'] : '';
+		}
+		$ced_ebay_manager = $this->ced_ebay_manager;
+		$shop_data        = ced_ebay_get_shop_data( $user_id, $site_id );
+		$logger           = wc_get_logger();
+		$context          = array( 'source' => 'ced_ebay_inventory_schedule_manager' );
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$siteID      = $site_id;
+			$token       = $shop_data['access_token'];
+			$getLocation = $shop_data['location'];
+		} else {
+			return false;
+		}
+		$access_token_arr = get_option( 'ced_ebay_user_access_token' );
+		if ( ! empty( $access_token_arr ) ) {
+			foreach ( $access_token_arr as $key => $value ) {
+				$tokenValue = get_transient( 'ced_ebay_user_access_token_' . $key );
+				if ( false === $tokenValue || null == $tokenValue || empty( $tokenValue ) ) {
+					$user_refresh_token = $value['refresh_token'];
+					$this->ced_ebay_save_user_access_token( $key, $user_refresh_token, 'refresh_user_token' );
+				}
+			}
+		}
+		$pre_flight_check = ced_ebay_pre_flight_check( $user_id, $siteID );
+		if ( ! $pre_flight_check ) {
+			return;
+		}
+		$file             = CED_EBAY_DIRPATH . 'admin/ebay/class-ebay.php';
+		$renderDependency = $this->renderDependency( $file );
+		if ( $renderDependency ) {
+			$cedeBay           = new Class_Ced_EBay_Manager();
+			$cedebayInstance   = $cedeBay->get_instance();
+			$seller_prefrences = $cedebayInstance->ced_ebay_get_seller_preferences( $user_id, $token, $siteID );
+		}
+
+		$products_to_update = get_option( 'ced_eBay_update_chunk_product_' . $user_id . '>' . $siteID, array() );
+		if ( empty( $products_to_update ) ) {
+			$logger->info( '#####Commencing Stock Update#####', $context );
+			$store_products = get_posts(
+				array(
+					'numberposts' => -1,
+					'post_type'   => 'product',
+					'post_status' => 'publish',
+					'fields'      => 'ids',
+					'meta_query'  => array(
+						array(
+							'key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $siteID,
+							'compare' => 'EXISTS',
+						),
+					),
+				)
+			);
+			update_option(
+				'ced_ebay_stock_sync_progress_' . $user_id . '>' . $siteID,
+				array(
+					'total_count' => count( $store_products ),
+					'synced'      => 0,
+				)
+			);
+			$products_to_update = array_chunk( $store_products, 50 );
+		}
+		if ( is_array( $products_to_update[0] ) && ! empty( $products_to_update[0] ) ) {
+			$prodIDs = $products_to_update[0];
+			foreach ( $products_to_update[0] as $key => $value ) {
+				$product_actual_stock = get_post_meta( $value, '_stock', true );
+				$manage_stock         = get_post_meta( $value, '_manage_stock', true );
+				$product_status       = get_post_meta( $value, '_stock_status', true );
+				if ( 'yes' != $manage_stock && 'instock' == $product_status ) {
+					$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+					$default_stock              = isset( $renderDataOnGlobalSettings[ $user_id ][ $siteID ]['ced_ebay_product_default_stock'] ) ? $renderDataOnGlobalSettings[ $user_id ][ $siteID ]['ced_ebay_product_default_stock'] : 0;
+					$product_actual_stock       = $default_stock;
+				}
+
+				$async_action_id = as_enqueue_async_action(
+					'ced_ebay_async_update_stock_action',
+					array(
+						'data' => array(
+							'product_id' => $value,
+							'user_id'    => $user_id,
+							'site_id'    => $siteID,
+						),
+					),
+					'ced_ebay_inventory_scheduler_group_' . $user_id . '>' . $siteID
+				);
+				if ( $async_action_id ) {
+					$logger->info( wc_print_r( 'Product ID ' . $value, true ), $context );
+					$logger->info( wc_print_r( 'Async Stock Update Scheduled with ID ' . $async_action_id, true ), $context );
+				}
+			}
+			unset( $products_to_update[0] );
+			$products_to_update = array_values( $products_to_update );
+			update_option( 'ced_eBay_update_chunk_product_' . $user_id . '>' . $siteID, $products_to_update );
+			$logger->info( '--------------------------------', $context );
+
+		}
+	}
 
 
-	
+	public function ced_ebay_async_update_stock_callback( $stock_update_data, $log_file = '' ) {
+		$synced = 0;
+		if ( ! empty( $stock_update_data ) && ! empty( $stock_update_data['product_id'] ) && ! empty( $stock_update_data['user_id'] ) && is_array( $stock_update_data ) ) {
+			$product_id = $stock_update_data['product_id'];
+			$user_id    = $stock_update_data['user_id'];
+			$site_id    = $stock_update_data['site_id'];
+			$woo_prd    = wc_get_product( $product_id );
+			ced_ebay_log_data( 'eBay User ID ' . $user_id, 'ced_ebay_async_update_stock_callback', $log_file );
+			ced_ebay_log_data( 'Product ID ' . $product_id, 'ced_ebay_async_update_stock_callback', $log_file );
+			$ced_ebay_manager = $this->ced_ebay_manager;
+			$shop_data        = ced_ebay_get_shop_data( $user_id, $site_id );
+			if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+				$siteID      = $site_id;
+				$token       = $shop_data['access_token'];
+				$getLocation = $shop_data['location'];
+			} else {
+				return false;
+			}
+			$pre_flight_check = ced_ebay_pre_flight_check( $user_id, $siteID );
+			if ( ! $pre_flight_check ) {
+				return false;
+			}
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+			$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+			$already_uploaded   = get_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true );
+			if ( ! $already_uploaded ) {
+				ced_ebay_log_data( 'Product is not an eBay listing. Returning!', 'ced_ebay_async_update_stock_callback', $log_file );
+				return;
+			}
+			if ( $already_uploaded ) {
+				$itemIDs[ $product_id ] = $already_uploaded;
+				require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+				$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+				$check_stauts_xml   = '
+				<?xml version="1.0" encoding="utf-8"?>
+				<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+				<RequesterCredentials>
+				<eBayAuthToken>' . $token . '</eBayAuthToken>
+				</RequesterCredentials>
+				<DetailLevel>ReturnAll</DetailLevel>
+				<ItemID>' . $already_uploaded . '</ItemID>
+				</GetItemRequest>';
+				$itemDetails        = $ebayUploadInstance->get_item_details( $check_stauts_xml );
+				if ( 'Success' == $itemDetails['Ack'] || 'Warning' == $itemDetails['Ack'] ) {
+
+					if ( isset( $itemDetails['Item']['ListingDetails']['RelistedItemID'] ) ) {
+						update_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, $itemDetails['Item']['ListingDetails']['RelistedItemID'] );
+						update_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id, $already_uploaded );
+					}
+				}
+			}
+			if ( 'false' === get_option( 'ced_ebay_out_of_stock_preference_' . $user_id, true ) ) {
+				$file             = CED_EBAY_DIRPATH . 'admin/ebay/class-ebay.php';
+				$renderDependency = $this->renderDependency( $file );
+				if ( $renderDependency ) {
+					$cedeBay               = new Class_Ced_EBay_Manager();
+					$cedebayInstance       = $cedeBay->get_instance();
+					$check_if_out_of_stock = $cedebayInstance->ced_ebay_check_out_of_stock_product( $user_id, $product_id );
+					if ( ! $check_if_out_of_stock ) {
+						ced_ebay_log_data( 'Product ID ' . $product_id . ' is out of stock on WooCommerce!', 'ced_ebay_async_update_stock_callback', $log_file );
+						$already_uploaded = get_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true );
+						if ( $already_uploaded ) {
+							$itemIDs[ $product_id ] = $already_uploaded;
+							if ( 'Success' == $itemDetails['Ack'] || 'Warning' == $itemDetails['Ack'] ) {
+								if ( ! empty( $itemDetails['Item']['ListingDetails']['EndingReason'] ) || 'Completed' == $itemDetails['Item']['SellingStatus']['ListingStatus'] ) {
+									delete_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID );
+									delete_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id . '>' . $siteID );
+									global $wpdb;
+									$remove_from_bulk_upload_logs = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}ced_ebay_bulk_upload WHERE `product_id` IN (%d) AND `user_id` = %s AND `site_id`=%s", $product_id, $user_id, $siteID ) );
+									ced_ebay_log_data( 'eBay ID ' . $already_uploaded . ' has been ended from eBay. Resetting product.', 'ced_ebay_async_update_stock_callback', $log_file );
+								}
+							} elseif ( 'Failure' == $itemDetails['Ack'] ) {
+								if ( ! empty( $itemDetails['Errors']['ErrorCode'] ) && '17' == $itemDetails['Errors']['ErrorCode'] ) {
+									delete_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID );
+									delete_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id . '>' . $siteID );
+									global $wpdb;
+									$remove_from_bulk_upload_logs = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}ced_ebay_bulk_upload WHERE `product_id` IN (%d) AND `user_id` = %s AND `site_id`=%s", $product_id, $user_id, $siteID ) );
+									ced_ebay_log_data( 'eBay ID ' . $already_uploaded . ' error code 17. Resetting product.', 'ced_ebay_async_update_stock_callback', $log_file );
+								}
+							}
+
+							$archiveProducts = $ebayUploadInstance->endItems( $itemIDs );
+							if ( is_array( $archiveProducts ) && ! empty( $archiveProducts ) ) {
+								if ( isset( $archiveProducts['Ack'] ) ) {
+									if ( 'Warning' == $archiveProducts['Ack'] || 'Success' == $archiveProducts['Ack'] ) {
+										delete_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID );
+										delete_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id . '>' . $siteID );
+										global $wpdb;
+										$remove_from_bulk_upload_logs = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}ced_ebay_bulk_upload WHERE `product_id` IN (%d) AND `user_id` = %s AND `site_id` = %s", $product_id, $user_id, $siteID ) );
+										ced_ebay_log_data( 'eBay ID ' . $already_uploaded . ' Removed from eBay successfully', 'ced_ebay_async_update_stock_callback', $log_file );
+									} else {
+										if ( 1047 == $archiveProducts['EndItemResponseContainer']['Errors']['ErrorCode'] ) {
+											delete_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID );
+											delete_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id . '>' . $siteID );
+											global $wpdb;
+											$remove_from_bulk_upload_logs = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}ced_ebay_bulk_upload WHERE `product_id` IN (%d) AND `user_id` = %s AND `site_id` = %s", $product_id, $user_id, $siteID ) );
+										}
+										$endResponse = $archiveProducts['EndItemResponseContainer']['Errors']['LongMessage'];
+										ced_ebay_log_data( 'eBay ID ' . $already_uploaded . ' ' . $endResponse, 'ced_ebay_async_update_stock_callback', $log_file );
+									}
+								}
+							}
+						}
+						ced_ebay_log_data( '----------------', 'ced_ebay_async_update_stock_callback', $log_file );
+						return;
+					}
+				}
+			}
+			$SimpleXml = $ced_ebay_manager->prepareProductHtmlForUpdateStock( $user_id, $siteID, $product_id );
+			if ( is_array( $SimpleXml ) && ! empty( $SimpleXml ) ) {
+				$stock_sync_progress = get_option( 'ced_ebay_stock_sync_progress_' . $user_id . '>' . $siteID );
+				if ( ! empty( $stock_sync_progress ) ) {
+					$synced      = $stock_sync_progress['synced'];
+					$total_count = $stock_sync_progress['total_count'];
+					++$synced;
+					update_option(
+						'ced_ebay_stock_sync_progress_' . $user_id . '>' . $siteID,
+						array(
+							'total_count' => $total_count,
+							'synced'      => $synced,
+						)
+					);
+				}
+				ced_ebay_log_data( 'Product has more than 4 variations.', 'ced_ebay_async_update_stock_callback', $log_file );
+				foreach ( $SimpleXml as $key => $value ) {
+					$uploadOnEbay[] = $ebayUploadInstance->cedEbayUpdateInventory( $value );
+
+				}
+			} else {
+				$stock_sync_progress = get_option( 'ced_ebay_stock_sync_progress_' . $user_id . '>' . $siteID );
+				if ( ! empty( $stock_sync_progress ) ) {
+					$synced      = $stock_sync_progress['synced'];
+					$total_count = $stock_sync_progress['total_count'];
+					++$synced;
+					update_option(
+						'ced_ebay_stock_sync_progress_' . $user_id . '>' . $siteID,
+						array(
+							'total_count' => $total_count,
+							'synced'      => $synced,
+						)
+					);
+				}
+				$uploadOnEbay = $ebayUploadInstance->cedEbayUpdateInventory( $SimpleXml );
+
+				if ( ! empty( $uploadOnEbay ) ) {
+					if ( 'Failure' == $uploadOnEbay['Ack'] ) {
+						$temp_inv_update_error = array();
+						if ( ! isset( $uploadOnEbay['Errors'][0] ) ) {
+							$temp_inv_update_error = $uploadOnEbay['Errors'];
+							unset( $uploadOnEbay['Errors'] );
+							$uploadOnEbay['Errors'][] = $temp_inv_update_error;
+						}
+						if ( ! empty( $uploadOnEbay['Errors'] ) ) {
+							foreach ( $uploadOnEbay['Errors'] as $key => $ebay_api_error ) {
+								if ( '21916750' == $ebay_api_error['ErrorCode'] ) {
+									delete_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID );
+									delete_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id );
+									global $wpdb;
+									$remove_from_bulk_upload_logs = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}ced_ebay_bulk_upload WHERE `product_id` IN (%d) AND `user_id` = %s AND `site_id`=%s", $product_id, $user_id, $siteID ) );
+									ced_ebay_log_data( 'Stock sync unable to update the listing ' . $already_uploaded . ' since it is removed from eBay!', 'ced_ebay_async_update_stock_callback' );
+								}
+								if ( '518' == $ebay_api_error['ErrorCode'] ) {
+									if ( function_exists( 'as_unschedule_all_actions' ) ) {
+										as_unschedule_all_actions( 'ced_ebay_inventory_scheduler_job_' . $user_id );
+									}
+									if ( function_exists( 'as_get_scheduled_actions' ) ) {
+										$has_action = as_get_scheduled_actions(
+											array(
+												'group'  => 'ced_ebay_inventory_scheduler_' . $user_id,
+												'status' => ActionScheduler_Store::STATUS_PENDING,
+											),
+											'ARRAY_A'
+										);
+									}
+									if ( ! empty( $has_action ) ) {
+										if ( function_exists( 'as_unschedule_all_actions' ) ) {
+											$unschedule_actions = as_unschedule_all_actions( null, null, 'ced_ebay_inventory_scheduler_' . $user_id );
+
+											ced_ebay_log_data( 'Call usage limit reached. Unscheduling all inventory syncing actions.', 'ced_ebay_async_update_stock_callback', $log_file );
+											continue;
+										}
+									}
+								}
+
+								if ( '231' == $ebay_api_error['ErrorCode'] || '21916750' == $ebay_api_error['ErrorCode'] ) {
+									$error_code      = $ebay_api_error['ErrorCode'];
+									$ebay_listing_id = get_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, true );
+									ced_ebay_log_data( 'Error code ' . $error_code . '. eBay item ' . $ebay_listing_id . ' no longer exists on eBay. Removing from Woo.', 'ced_ebay_async_update_stock_callback', $log_file );
+									delete_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID );
+									delete_post_meta( $product_id, '_ced_ebay_relist_item_id_' . $user_id );
+								}
+
+								if ( '21919474' == $ebay_api_error['ErrorCode'] || 21919474 == $ebay_api_error['ErrorCode'] ) {
+									$status = $this->ced_ebay_update_stock_using_inventory_api( $user_id, $siteID, $token, $product_id );
+									if ( 200 == $status || '200' == $status ) {
+										$logger->info( 'Initiating Product update through Inventory API call', $context );
+									} elseif ( 400 == $status || '400' == $status ) {
+										$logger->info( 'Failure error code, Operation not allowed', $context );
+									}
+								}
+							}
+						}
+					}
+				}
+				ced_ebay_log_data( $uploadOnEbay, 'ced_ebay_async_update_stock_callback', $log_file );
+			}
+
+			ced_ebay_log_data( '----------------', 'ced_ebay_async_update_stock_callback', $log_file );
+
+		} else {
+			ced_ebay_log_data( 'Missing Product ID or User ID', 'ced_ebay_async_update_stock_callback', $log_file );
+			return;
+		}
+	}
 
 	public function ced_ebay_update_stock_using_inventory_api( $user_id, $siteID, $token, $product_id ) {
 		$logger  = wc_get_logger();
@@ -2846,7 +3342,115 @@ class EBay_Integration_For_Woocommerce_Admin {
 		}
 	}
 
-	
+	public function ced_ebay_order_schedule_manager() {
+		$fetchCurrentAction = current_action();
+		$this->ced_ebay_onWpAdminInit();
+		if ( strpos( $fetchCurrentAction, 'wp_ajax_nopriv_' ) !== false ) {
+			$user_id = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : false;
+		} else {
+			$user_id = str_replace( 'ced_ebay_order_scheduler_job_', '', $fetchCurrentAction );
+		}
+		$shop_data = ced_ebay_get_shop_data( $user_id );
+		$logger    = wc_get_logger();
+		$context   = array( 'source' => 'ced_ebay_order_schedule_manager' );
+		if ( ! empty( $shop_data ) ) {
+			$siteID      = $shop_data['site_id'];
+			$token       = $shop_data['access_token'];
+			$getLocation = $shop_data['location'];
+		}
+		$access_token_arr = get_option( 'ced_ebay_user_access_token' );
+		if ( ! empty( $access_token_arr ) ) {
+			foreach ( $access_token_arr as $key => $value ) {
+				$tokenValue = get_transient( 'ced_ebay_user_access_token_' . $key );
+				if ( false === $tokenValue || null == $tokenValue || empty( $tokenValue ) ) {
+					$user_refresh_token = $value['refresh_token'];
+					$this->ced_ebay_save_user_access_token( $key, $user_refresh_token, 'refresh_user_token' );
+				}
+			}
+		}
+		$pre_flight_check = ced_ebay_pre_flight_check( $user_id );
+		if ( ! $pre_flight_check ) {
+			$logger->info( 'Unable to communicate with eBay APIs at the moment!', $context );
+			return;
+		}
+		$list_offset = ! empty( get_option( 'ced_ebay_order_fetch_offset_' . $user_id . '>' . $siteID ) ) ? get_option( 'ced_ebay_order_fetch_offset_' . $user_id . '>' . $siteID ) : 0;
+		if ( file_exists( CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php' ) ) {
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php';
+			$currentime         = time();
+			$toDate             = $currentime - ( 1 * 60 );
+			$fromDate           = $currentime - ( 7 * 24 * 60 * 60 );
+			$offset             = '.000Z';
+			$toDate             = gmdate( 'Y-m-d', $toDate ) . 'T' . gmdate( 'H:i:s', $toDate ) . $offset;
+			$fromDate           = gmdate( 'Y-m-d', $fromDate ) . 'T' . gmdate( 'H:i:s', $fromDate ) . $offset;
+			$endpoint           = '?filter=creationdate:%5B' . $fromDate . '..' . $toDate . '%5D,orderfulfillmentstatus:%7BNOT_STARTED%7CIN_PROGRESS%7D&limit=10&offset=' . $list_offset;
+			$fulfillmentRequest = new Ced_Marketing_API_Request( $siteID );
+			$get_orders_data    = $fulfillmentRequest->sendHttpRequestForFulfillmentAPI( $endpoint, $token, '', '' );
+
+			if ( ! empty( $get_orders_data ) ) {
+				$ebay_orders_data = json_decode( $get_orders_data, true );
+			}
+		}
+		if ( isset( $ebay_orders_data['total'] ) && $ebay_orders_data['total'] > 0 ) {
+			if ( ! empty( $ebay_orders_data['orders'] ) && is_array( $ebay_orders_data['orders'] ) ) {
+				$list_offset = $list_offset + 10;
+				update_option( 'ced_ebay_order_fetch_offset_' . $user_id . '>' . $siteID, $list_offset );
+				$ebay_orders = array();
+				$ebay_orders = $ebay_orders_data['orders'];
+				foreach ( $ebay_orders as $key => $ebay_order ) {
+					$order_id      = '';
+					$ebay_order_id = $ebay_order['orderId'];
+					if ( ! empty( $ebay_order_id ) && 'PAID' == $ebay_order['orderPaymentStatus'] ) {
+						$args         = array(
+							'post_type'   => 'shop_order',
+							'post_status' => 'wc-processing',
+							'numberposts' => 1,
+							'meta_query'  => array(
+								'relation' => 'OR',
+								array(
+									'key'     => '_ced_ebay_order_id',
+									'value'   => $ebay_order_id,
+									'compare' => '=',
+								),
+								array(
+									'key'     => '_ebay_order_id',
+									'value'   => $ebay_order_id,
+									'compare' => '=',
+								),
+							),
+						);
+						$order        = get_posts( $args );
+						$order_id_arr = wp_list_pluck( $order, 'ID' );
+						if ( ! empty( $order_id_arr ) ) {
+							$order_id = $order_id_arr[0];
+						}
+						if ( $order_id ) {
+							$logger->info( wc_print_r( 'Order ' . $ebay_order_id . ' with WooCommerce order ID ' . $order_id . ' already exists.', true ), $context );
+							continue;
+						}
+						$data = array(
+							'order_id' => $ebay_order_id,
+							'user_id'  => $user_id,
+						);
+						$this->schedule_order_task->push_to_queue( $data );
+
+					} else {
+						$logger->info( wc_print_r( 'Skipping order ' . $ebay_order_id, true ), $context );
+						if ( 'PAID' != $ebay_order['orderPaymentStatus'] ) {
+							$logger->info( wc_print_r( 'PAYMENT STATUS - ' . $ebay_order['orderPaymentStatus'], true ), $context );
+						}
+						continue;
+					}
+				}
+				$this->schedule_order_task->save()->dispatch();
+			} else {
+				$logger->info( 'End of orders. Resetting offset!', $context );
+				update_option( 'ced_ebay_order_fetch_offset_' . $user_id . '>' . $siteID, 0 );
+			}
+		} else {
+			$logger->info( 'End of totals. Resetting offset!', $context );
+			update_option( 'ced_ebay_order_fetch_offset_' . $user_id . '>' . $siteID, 0 );
+		}
+	}
 
 	public function ced_ebay_delete_product_images_when_trashed( $post_id ) {
 		$wc_product = wc_get_product( $post_id );
@@ -2881,7 +3485,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 
 	public function ced_ebay_show_active_inventory_sync_notice() {
 		$user_id      = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : false;
-		$site_id      = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : false;
+		$site_id      = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : false;
 		$current_page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : false;
 		if ( ! empty( get_option( 'ced_ebay_stock_sync_progress_' . $user_id . '>' . $site_id, true ) ) ) {
 			$stock_sync_progress = get_option( 'ced_ebay_stock_sync_progress_' . $user_id . '>' . $site_id, true );
@@ -2895,7 +3499,251 @@ class EBay_Integration_For_Woocommerce_Admin {
 		}
 	}
 
-	
+	public function insert_product_variations( $post_id, $variations ) {
+		$logger              = wc_get_logger();
+		$context             = array( 'source' => 'insert_product_variations' );
+		$variations_pictures = array();
+		if ( ! empty( $variations['Pictures'] ) ) {
+			$variations_pictures['Pictures'] = $variations['Pictures'];
+			unset( $variations['Pictures'] );
+		}
+
+		if ( ! isset( $variations['Variation'][0] ) ) {
+			$tempVariationList = array();
+			$tempVariationList = $variations['Variation'];
+			unset( $variations['Variation'] );
+			$variations['Variation'][] = $tempVariationList;
+		}
+
+		if ( ! isset( $variations_pictures['Pictures'][0] ) && ! empty( $variations_pictures['Pictures'] ) ) {
+			$tempVariationPicturesList = array();
+			$tempVariationPicturesList = $variations_pictures['Pictures'];
+			unset( $variations_pictures['Pictures'] );
+			$variations_pictures['Pictures'][] = $tempVariationPicturesList;
+		}
+
+		foreach ( $variations['Variation'] as $key => $prod_variation ) {
+			if ( ! isset( $prod_variation['VariationSpecifics']['NameValueList'][0] ) ) {
+				$tempNameValueList = array();
+				$tempNameValueList = $prod_variation['VariationSpecifics']['NameValueList'];
+				unset( $variations['Variation'][ $key ]['VariationSpecifics']['NameValueList'] );
+				$variations['Variation'][ $key ]['VariationSpecifics']['NameValueList'][] = $tempNameValueList;
+			}
+		}
+
+		if ( isset( $variations['Variation'][0] ) ) {
+			foreach ( $variations['Variation'] as $index => $variation ) {
+				$variation_post = array(
+					// Setup the post data for the variation
+
+					'post_name'   => 'product-' . $post_id . '-variation-' . $index,
+					'post_status' => 'publish',
+					'post_parent' => $post_id,
+					'post_type'   => 'product_variation',
+					'guid'        => home_url() . '/?product_variation=product-' . $post_id . '-variation-' . $index,
+				);
+
+				$variation_post_id = wp_insert_post( $variation_post ); // Insert the variation
+
+				// Get product attribute
+				$values = array();
+				if ( ! empty( $variation['VariationSpecifics']['NameValueList'] ) ) {
+					foreach ( $variation['VariationSpecifics']['NameValueList'] as $k2 => $ebay_attr_values ) {
+						$attr_name = $ebay_attr_values['Name'];
+						$values[]  = $ebay_attr_values['Value'];
+						wp_set_object_terms( $variation_post_id, $values, $attr_name );
+						$attribute = sanitize_title( $attr_name );
+						update_post_meta( $variation_post_id, 'attribute_' . $attribute, $ebay_attr_values['Value'] );
+						$thedata = array(
+							$attribute => array(
+								'name'         => $attr_name,
+								'value'        => '',
+								'is_visible'   => '1',
+								'is_variation' => '1',
+								'is_taxonomy'  => '1',
+							),
+						);
+						update_post_meta( $variation_post_id, '_product_attributes', $thedata );
+						if ( ! empty( $variations_pictures ) ) {
+							foreach ( $variations_pictures['Pictures'] as $key => $wc_var_ebay_pic ) {
+
+								if ( isset( $wc_var_ebay_pic['VariationSpecificPictureSet'] ) ) {
+									if ( ! isset( $wc_var_ebay_pic['VariationSpecificPictureSet'][0] ) ) {
+										$temp_var_picture_list = array();
+										$temp_var_picture_list = $wc_var_ebay_pic['VariationSpecificPictureSet'];
+										unset( $wc_var_ebay_pic['VariationSpecificPictureSet'] );
+										$wc_var_ebay_pic['VariationSpecificPictureSet'][] = $temp_var_picture_list;
+									}
+									foreach ( $wc_var_ebay_pic['VariationSpecificPictureSet'] as $key => $wc_var_picture ) {
+										if ( $wc_var_picture['VariationSpecificValue'] == $ebay_attr_values['Value'] ) {
+											$image_url = is_array( $wc_var_picture['PictureURL'] ) ? $wc_var_picture['PictureURL'][0] : $wc_var_picture['PictureURL'];
+											$image_url = remove_query_arg( array( 'set_id' ), $image_url );
+
+											$image_name = basename( $image_url );
+											$upload_dir = wp_upload_dir();
+											$image_url  = str_replace( 'https', 'http', $image_url );
+											$image_data = file_get_contents( $image_url );
+											if ( empty( $image_data ) ) {
+												$connection = curl_init();
+												curl_setopt( $connection, CURLOPT_URL, $image_url );
+
+												curl_setopt( $connection, CURLOPT_RETURNTRANSFER, 1 );
+												$image_data = curl_exec( $connection );
+												curl_close( $connection );
+											}
+
+											$unique_file_name = wp_unique_filename( $upload_dir['path'], $image_name );
+											$filename         = basename( $unique_file_name );
+
+											if ( wp_mkdir_p( $upload_dir['path'] ) ) {
+												$file = $upload_dir['path'] . '/' . $filename;
+											} else {
+												$file = $upload_dir['basedir'] . '/' . $filename;
+											}
+											file_put_contents( $file, $image_data );
+											$wp_filetype = wp_check_filetype( $filename, null );
+											$attachment  = array(
+												'post_mime_type' => $wp_filetype['type'],
+												'post_title' => sanitize_file_name( $filename ),
+												'post_content' => '',
+												'post_status' => 'inherit',
+											);
+											$attach_id   = wp_insert_attachment( $attachment, $file, $post_id );
+											require_once ABSPATH . 'wp-admin/includes/image.php';
+											$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
+											wp_update_attachment_metadata( $attach_id, $attach_data );
+
+											if ( $attach_id ) {
+												$wc_var_product = wc_get_product( $variation_post_id );
+												$wc_var_product->set_image_id( $attach_id );
+												$wc_var_product->save();
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				if ( $variation['Quantity'] - $variation['SellingStatus']['QuantitySold'] > 0 ) {
+					update_post_meta( $variation_post_id, '_stock_status', 'instock' );
+					update_post_meta( $variation_post_id, '_stock', $variation['Quantity'] - $variation['SellingStatus']['QuantitySold'] );
+					update_post_meta( $variation_post_id, '_manage_stock', 'yes' );
+					update_post_meta( $post_id, '_stock_status', 'instock' );
+				} else {
+					update_post_meta( $variation_post_id, '_stock_status', 'outofstock' );
+				}
+				update_post_meta( $variation_post_id, '_sku', $variation['SKU'] );
+				update_post_meta( $variation_post_id, '_price', $variation['StartPrice'] );
+				update_post_meta( $variation_post_id, '_regular_price', $variation['StartPrice'] );
+
+				$variation_prod = wc_get_product( $variation_post_id );
+				$variation_prod->save();
+			}
+		} else {
+			foreach ( $variations['Variation']['VariationSpecifics']['NameValueList'] as $index => $variation_attr ) {
+				$attr_name         = $variation_attr['Name'];
+				$variation         = $variations['Variation'];
+				$variation_post    = array(
+					// Setup the post data for the variation
+
+					'post_title'  => $variation['VariationTitle'],
+					'post_name'   => 'product-' . $post_id . '-variation-' . $index,
+					'post_status' => 'publish',
+					'post_parent' => $post_id,
+					'post_type'   => 'product_variation',
+					'guid'        => home_url() . '/?product_variation=product-' . $post_id . '-variation-' . $index,
+				);
+				$variation_post_id = wp_insert_post( $variation_post ); // Insert the variation
+				$values            = array();
+				$attr_values[]     = $variation_attr['Value'];
+				$attr_values       = array_unique( $values );
+
+				wp_set_object_terms( $variation_post_id, $values, $attr_name );
+
+				$attribute = sanitize_title( $attr_name );
+
+				update_post_meta( $variation_post_id, 'attribute_' . $attribute, $variation_attr['Value'] );
+				$thedata = array(
+					$attribute => array(
+						'name'         => $variation_attr['Value'],
+						'value'        => '',
+						'is_visible'   => '1',
+						'is_variation' => '1',
+						'is_taxonomy'  => '1',
+					),
+				);
+
+				update_post_meta( $variation_post_id, '_product_attributes', $thedata );
+				if ( ! empty( $variations_pictures ) ) {
+					foreach ( $variations_pictures['Pictures'] as $key => $wc_var_ebay_pic ) {
+						if ( isset( $wc_var_ebay_pic['VariationSpecificPictureSet'] ) ) {
+							foreach ( $wc_var_ebay_pic['VariationSpecificPictureSet'] as $key => $wc_var_picture ) {
+								if ( $wc_var_picture['VariationSpecificValue'] == $variation_attr['Value'] ) {
+									$image_url = $wc_var_picture['PictureURL'][0];
+									$image_url = remove_query_arg( array( 'set_id' ), $image_url );
+
+									$image_name = basename( $image_url );
+									$upload_dir = wp_upload_dir();
+									$image_url  = str_replace( 'https', 'http', $image_url );
+									$image_data = file_get_contents( $image_url );
+									if ( empty( $image_data ) ) {
+										$connection = curl_init();
+										curl_setopt( $connection, CURLOPT_URL, $image_url );
+
+										curl_setopt( $connection, CURLOPT_RETURNTRANSFER, 1 );
+										$image_data = curl_exec( $connection );
+										curl_close( $connection );
+									}
+
+									$unique_file_name = wp_unique_filename( $upload_dir['path'], $image_name );
+									$filename         = basename( $unique_file_name );
+
+									if ( wp_mkdir_p( $upload_dir['path'] ) ) {
+										$file = $upload_dir['path'] . '/' . $filename;
+									} else {
+										$file = $upload_dir['basedir'] . '/' . $filename;
+									}
+									file_put_contents( $file, $image_data );
+									$wp_filetype = wp_check_filetype( $filename, null );
+									$attachment  = array(
+										'post_mime_type' => $wp_filetype['type'],
+										'post_title'     => sanitize_file_name( $filename ),
+										'post_content'   => '',
+										'post_status'    => 'inherit',
+									);
+									$attach_id   = wp_insert_attachment( $attachment, $file, $post_id );
+									require_once ABSPATH . 'wp-admin/includes/image.php';
+									$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
+									wp_update_attachment_metadata( $attach_id, $attach_data );
+
+									if ( $attach_id ) {
+										$wc_var_product = wc_get_product( $variation_post_id );
+										$wc_var_product->set_image_id( $attach_id );
+										$wc_var_product->save();
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			if ( $variation['Quantity'] - $variation['SellingStatus']['QuantitySold'] > 0 ) {
+				update_post_meta( $variation_post_id, '_stock_status', 'instock' );
+				update_post_meta( $variation_post_id, '_stock', $variation['Quantity'] - $variation['SellingStatus']['QuantitySold'] );
+				update_post_meta( $variation_post_id, '_manage_stock', 'yes' );
+				update_post_meta( $post_id, '_stock_status', 'instock' );
+			} else {
+				update_post_meta( $variation_post_id, '_stock_status', 'outofstock' );
+			}
+			update_post_meta( $variation_post_id, '_sku', $variation['SKU'] );
+			update_post_meta( $variation_post_id, '_price', $variation['StartPrice'] );
+			update_post_meta( $variation_post_id, '_regular_price', $variation['StartPrice'] );
+
+			$variation_prod = wc_get_product( $variation_post_id );
+			$variation_prod->save();
+		}
+	}
 
 
 	public function ced_ebay_recursive_find_category_id( $needle, $haystack ) {
@@ -2931,11 +3779,1152 @@ class EBay_Integration_For_Woocommerce_Admin {
 		return array();
 	}
 
+
+
+
+	public function ced_ebay_bulk_import_to_store( $itemId = array(), $user_id = '', $isPhpInvoked = '' ) {
+		$isPhpInvoked = empty( $isPhpInvoked ) ? false : $isPhpInvoked;
+		if ( false == $isPhpInvoked ) {
+			$check_ajax = check_ajax_referer( 'ced-ebay-ajax-seurity-string', 'ajax_nonce' );
+			if ( ! $check_ajax ) {
+				wp_die();
+			}
+		}
+
+		$ced_ebay_manager = $this->ced_ebay_manager;
+		$user_id          = isset( $_POST['userid'] ) ? sanitize_text_field( $_POST['userid'] ) : $user_id;
+		$shop_data        = ced_ebay_get_shop_data( $user_id );
+		if ( ! empty( $shop_data ) ) {
+			$siteID      = $shop_data['site_id'];
+			$token       = $shop_data['access_token'];
+			$getLocation = $shop_data['location'];
+		}
+
+		$pre_flight_check = ced_ebay_pre_flight_check( $user_id );
+		if ( ! $pre_flight_check ) {
+			$response = array(
+				'status' => 'Bulk Import Error',
+				'title'  => 'We are not able to connect to eBay at the moment. Please try again later. If the issue persists, please contact support.',
+			);
+			wp_send_json( $response );
+			update_option( 'ced_ebay_product_importer_product_error_' . $user_id . '>' . $siteID, 'We are not able to connect to eBay at the moment. Please try again later. If the issue persists, please contact support.' );
+		}
+		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+
+		$sanitized_array = filter_input_array( INPUT_POST, FILTER_UNSAFE_RAW );
+		$operation       = isset( $sanitized_array['operation_to_be_performed'] ) ? ( $sanitized_array['operation_to_be_performed'] ) : '';
+		$itemId          = ! empty( $itemId ) ? $itemId : $sanitized_array['products_id'];
+		$count_imports   = 0;
+		if ( is_array( $itemId ) && ! empty( $itemId ) ) {
+			foreach ( $itemId as $key => $value ) {
+				if ( '' == $value && null == $value ) {
+					continue;
+				}
+				$store_products = get_posts(
+					array(
+						'numberposts'  => 1,
+						'post_type'    => 'product',
+						'meta_key'     => '_ced_ebay_importer_listing_id_' . $user_id . '>' . $siteID,
+						'meta_value'   => $value,
+						'meta_compare' => '=',
+					)
+				);
+				$localItemID    = wp_list_pluck( $store_products, 'ID' );
+				if ( ! empty( $localItemID ) && is_array( $localItemID ) ) {
+					$existing_product_id = $localItemID[0];
+					if ( ! empty( $existing_product_id ) ) {
+						$response = array(
+							'status' => 'Bulk Import Error',
+							'title'  => 'The eBay listing you are trying to import already exists in WooCommerce. If you think this is an error, please contact support.',
+						);
+						wp_send_json( $response );
+						update_option( 'ced_ebay_product_importer_product_error_' . $user_id . '>' . $siteID, 'The eBay listing you are trying to import already exists in WooCommerce. If you think this is an error, please contact support.' );
+					}
+				}
+				$mainXml            = '
+				<?xml version="1.0" encoding="utf-8"?>
+				<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+				<RequesterCredentials>
+				<eBayAuthToken>' . $token . '</eBayAuthToken>
+				</RequesterCredentials>
+				<DetailLevel>ReturnAll</DetailLevel>
+				<IncludeItemSpecifics>true</IncludeItemSpecifics>
+				<ItemID>' . $value . '</ItemID>
+				</GetItemRequest>';
+				$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+				$itemDetails        = $ebayUploadInstance->get_item_details( $mainXml );
+				if ( 'Success' == $itemDetails['Ack'] || 'Warning' == $itemDetails['Ack'] ) {
+					$renderDataOnGlobalSettings = ! empty( get_option( 'ced_ebay_global_settings', false ) ) ? get_option( 'ced_ebay_global_settings', false ) : false;
+					$import_products_ebay_site  = ! empty( $renderDataOnGlobalSettings[ $user_id ]['ced_ebay_item_import_country'] ) ? $renderDataOnGlobalSettings[ $user_id ]['ced_ebay_item_import_country'] : false;
+					if ( ! empty( $import_products_ebay_site ) ) {
+
+						if ( $import_products_ebay_site !== $itemDetails['Item']['Site'] ) {
+							if ( $isPhpInvoked ) {
+								continue;
+							} else {
+								$response = array(
+									'status' => 'Bulk Import Error',
+									'title'  => 'The product you are trying to import belongs to an eBay site other than the eBay listing site you selected in the General Settings section.',
+								);
+								wp_send_json( $response );
+								update_option( 'ced_ebay_product_importer_product_error_' . $user_id . '>' . $siteID, 'The product you are trying to import belongs to an eBay site other than the eBay listing site you selected in the General Settings section.' );
+							}
+						}
+					}
+					if ( 'Chinese' == $itemDetails['Item']['ListingType'] ) {
+						echo 'Skipping Auction Product';
+						continue;
+					}
+					$itemid = $itemDetails['Item']['ItemID'];
+
+					$product_id = wp_insert_post(
+						array(
+							'post_title'   => $itemDetails['Item']['Title'],
+							'post_status'  => 'publish',
+							'post_type'    => 'product',
+							'post_content' => $itemDetails['Item']['Description'],
+						)
+					);
+
+					if ( isset( $itemDetails['Item']['Title'] ) ) {
+						update_option( 'ced_ebay_last_imported_title_' . $user_id . '>' . $siteID, $itemDetails['Item']['Title'] );
+
+					}
+					$progress_key = 'ced_ebay_product_importer_product_progress_' . $user_id . '>' . $siteID;
+					$next_product = ! empty( get_option( $progress_key ) ) ? get_option( $progress_key ) : 1;
+					++$next_product;
+					update_option( $progress_key, $next_product );
+
+					update_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, $itemid );
+					update_post_meta( $product_id, '_ced_ebay_importer_listing_id_' . $user_id . '>' . $siteID, $itemid );
+					update_post_meta( $product_id, 'ced_ebay_listing_user_id', $user_id );
+
+					$get_prod = wc_get_product( $product_id );
+					if ( isset( $itemDetails['Item']['ShippingPackageDetails'] ) ) {
+
+						$listing_weight_major = isset( $itemDetails['Item']['ShippingPackageDetails']['WeightMajor'] ) ? $itemDetails['Item']['ShippingPackageDetails']['WeightMajor'] : 0;
+						$listing_weight_minor = isset( $itemDetails['Item']['ShippingPackageDetails']['WeightMinor'] ) ? $itemDetails['Item']['ShippingPackageDetails']['WeightMinor'] : 0;
+						$listing_weight       = $listing_weight_major . '.' . $listing_weight_minor;
+						$listingEbaySite      = isset( $itemDetails['Item']['Site'] ) ? $itemDetails['Item']['Site'] : '';
+						if ( ! empty( $listingEbaySite ) ) {
+							$wcWeightUnit = get_option( 'woocommerce_weight_unit' );
+							if ( 'US' == $listingEbaySite || 'eBayMotors' == $listingEbaySite ) {
+								if ( '' != $wcWeightUnit ) {
+									if ( 'oz' == $wcWeightUnit ) {
+										$weight_in_ounces = ceil( $listing_weight * 16 );
+										$listing_weight   = $weight_in_ounces;
+									}
+								}
+							} elseif ( '' != $wcWeightUnit ) {
+								if ( 'g' == $wcWeightUnit ) {
+									$weight_in_grams = $listing_weight * 1000;
+									$listing_weight  = $weight_in_grams;
+								}
+							}
+						}
+						$get_prod->set_weight( $listing_weight );
+
+						$get_prod->save();
+
+						$listing_length = isset( $itemDetails['Item']['ShippingPackageDetails']['PackageLength'] ) ? $itemDetails['Item']['ShippingPackageDetails']['PackageLength'] : 0;
+						$listing_width  = isset( $itemDetails['Item']['ShippingPackageDetails']['PackageWidth'] ) ? $itemDetails['Item']['ShippingPackageDetails']['PackageWidth'] : 0;
+						$listing_height = isset( $itemDetails['Item']['ShippingPackageDetails']['PackageDepth'] ) ? $itemDetails['Item']['ShippingPackageDetails']['PackageDepth'] : 0;
+						$get_prod->set_props(
+							array(
+								'width'  => $listing_width,
+								'height' => $listing_height,
+								'length' => $listing_length,
+							)
+						);
+
+						$get_prod->save();
+					}
+
+					$category             = explode( ':', $itemDetails['Item']['PrimaryCategory']['CategoryName'] );
+					$ebay_category_id     = ! empty( $itemDetails['Item']['PrimaryCategory']['CategoryID'] ) ? $itemDetails['Item']['PrimaryCategory']['CategoryID'] : false;
+					$woo_store_categories = get_terms( 'product_cat' );
+					foreach ( $woo_store_categories as $key => $woo_category ) {
+						$mapped_to_ebay_category = get_term_meta( $woo_category->term_id, 'ced_ebay_mapped_category_' . $user_id, true );
+						if ( ! empty( $mapped_to_ebay_category ) ) {
+							if ( $mapped_to_ebay_category == $ebay_category_id ) {
+								wp_set_object_terms( $product_id, $woo_category->term_id, 'product_cat' );
+							}
+						}
+					}
+					if ( false != $renderDataOnGlobalSettings ) {
+						$import_categories = $renderDataOnGlobalSettings[ $user_id ]['ced_ebay_import_ebay_categories'];
+						if ( isset( $renderDataOnGlobalSettings[ $user_id ]['ced_ebay_import_categories_type'] ) ) {
+							$import_categories_type = ! empty( $renderDataOnGlobalSettings[ $user_id ]['ced_ebay_import_categories_type'] ) ? $renderDataOnGlobalSettings[ $user_id ]['ced_ebay_import_categories_type'] : 'ebay_store';
+						} else {
+							$import_categories_type = 'ebay_site';
+						}
+						if ( ! empty( $import_categories ) && 'Enabled' == $import_categories ) {
+							if ( 'ebay_site' == $import_categories_type ) {
+								if ( ! empty( $category ) ) {
+									$parent_id = '';
+									foreach ( $category as $key => $value ) {
+										$term = wp_insert_term(
+											$value,
+											'product_cat',
+											array(
+												'description' => $value,
+												'parent' => $parent_id,
+											)
+										);
+										if ( isset( $term->error_data['term_exists'] ) ) {
+
+											$term_id = $term->error_data['term_exists'];
+										} elseif ( isset( $term['term_id'] ) ) {
+
+											$term_id = $term['term_id'];
+										}
+
+										$parent_id = ! empty( $term_id ) ? $term_id : '';
+									}
+									wp_set_object_terms( $product_id, $term_id, 'product_cat' );
+								}
+							} elseif ( 'ebay_store' == $import_categories_type ) {
+								if ( ! empty( $itemDetails['Item']['Storefront']['StoreCategoryID'] ) ) {
+									$category = $itemDetails['Item']['Storefront']['StoreCategoryID'];
+									if ( ! empty( $category ) ) {
+										if ( file_exists( CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayAuthorization.php' ) ) {
+											require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayAuthorization.php';
+											$cedAuthorization        = new Ebayauthorization();
+											$cedAuhorizationInstance = $cedAuthorization->get_instance();
+											$shopDetails             = $cedAuhorizationInstance->getStoreData( $siteID, $user_id );
+											if ( ! empty( $shopDetails ) && 'Success' == $shopDetails['Ack'] ) {
+												$store_categories    = $shopDetails['Store']['CustomCategories']['CustomCategory'];
+												$store_cateogry_name = $this->ced_ebay_recursive_find_category_id( $category, $store_categories );
+												if ( ! empty( $store_cateogry_name ) && is_array( $store_cateogry_name ) ) {
+													foreach ( $store_cateogry_name as $key => $prodMainCategory ) {
+														$get_term_by_slug = get_term_by( 'slug', $key, 'product_cat' );
+
+														if ( empty( $get_term_by_slug ) ) {
+
+															$mainTerm    = wp_insert_term(
+																$prodMainCategory,
+																'product_cat',
+																array(
+																	'',
+																	'slug' => $key,
+																	'parent' => $parent,
+																)
+															);
+															$newParentID = $mainTerm['term_id'];
+															$tem_slug    = $mainTerm['slug'];
+														} else {
+
+															$get_term    = get_term_by( 'slug', $key, 'product_cat' );
+															$parentCatId = $get_term->parent;
+
+															$mainTerm = array(
+																'term_id' => $get_term->term_id,
+																'term_taxonomy_id' => $get_term->term_taxonomy_id,
+																'slug' => $get_term->slug,
+
+															);
+
+															$newParentID = $mainTerm['term_id'];
+															$term_slug   = $mainTerm['slug'];
+
+															if ( $prodMainCategory != $get_term->name ) {
+																wp_update_term( $mainTerm['term_id'], 'product_cat', array( 'name' => $prodMainCategory ) );
+															}
+														}
+														$parent = $newParentID;
+													}
+													wp_set_object_terms( $product_id, $newParentID, 'product_cat' );
+												} else {
+													wc_get_logger()->info( 'Failed to recursively find store category name!', array( 'source' => 'ced_ebay_bulk_import_to_store' ) );
+												}
+											} else {
+												wc_get_logger()->info( 'Failed to fetch store categories from the API!', array( 'source' => 'ced_ebay_bulk_import_to_store' ) );
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				$get_prod->save();
+				$image_url = ! empty( $itemDetails['Item']['PictureDetails']['GalleryURL'] ) ? $itemDetails['Item']['PictureDetails']['GalleryURL'] : false;
+				if ( ! empty( $image_url ) ) {
+					$upload = wc_rest_upload_image_from_url( esc_url_raw( $image_url ) );
+					if ( ! is_wp_error( $upload ) ) {
+						$attachment_id = wc_rest_set_uploaded_image_as_attachment( $upload, $product_id );
+						if ( wp_attachment_is_image( $attachment_id ) ) {
+							$get_prod->set_image_id( $attachment_id );
+							$get_prod->save();
+							// Set the image name
+							wp_update_post(
+								array(
+									'ID'         => $attachment_id,
+									'post_title' => $itemDetails['Item']['Title'] . ' Main Image',
+								)
+							);
+						}
+					}
+				} else {
+					if ( is_array( $itemDetails['Item']['PictureDetails']['PictureURL'] ) ) {
+						$image_url = $itemDetails['Item']['PictureDetails']['PictureURL'][0];
+					} else {
+						$image_url = $itemDetails['Item']['PictureDetails']['PictureURL'];
+					}
+
+					$upload = wc_rest_upload_image_from_url( esc_url_raw( $image_url ) );
+					if ( ! is_wp_error( $upload ) ) {
+						$attachment_id = wc_rest_set_uploaded_image_as_attachment( $upload, $product_id );
+						if ( wp_attachment_is_image( $attachment_id ) ) {
+							$get_prod->set_image_id( $attachment_id );
+							$get_prod->save();
+							wp_update_post(
+								array(
+									'ID'         => $attachment_id,
+									'post_title' => $itemDetails['Item']['Title'] . ' Main Image',
+								)
+							);
+						}
+					}
+				}
+
+				if ( is_array( $itemDetails['Item']['PictureDetails']['PictureURL'] ) ) {
+					if ( count( $itemDetails['Item']['PictureDetails']['PictureURL'] ) != 1 ) {
+						if ( isset( $itemDetails['Item']['PictureDetails']['PictureURL'] ) ) {
+							unset( $itemDetails['Item']['PictureDetails']['PictureURL'][0] );
+
+							$itemDetails['Item']['PictureDetails']['PictureURL'] = array_values( $itemDetails['Item']['PictureDetails']['PictureURL'] );
+							if ( isset( $itemDetails['Item']['PictureDetails']['PictureURL'][0] ) ) {
+								$attach_ids = array();
+
+								$product = wc_get_product( $product_id );
+								foreach ( $itemDetails['Item']['PictureDetails']['PictureURL'] as $key11 => $value11 ) {
+									$image_url = $value11; // Define the image URL here
+
+									if ( ! empty( $image_url ) ) {
+
+										$upload = wc_rest_upload_image_from_url( esc_url_raw( $image_url ) );
+										if ( ! is_wp_error( $upload ) ) {
+											$attachment_id = wc_rest_set_uploaded_image_as_attachment( $upload, $product_id );
+											if ( wp_attachment_is_image( $attachment_id ) ) {
+												$attach_ids[] = $attachment_id;
+
+												wp_update_post(
+													array(
+														'ID' => $attachment_id,
+														'post_title' => $itemDetails['Item']['Title'] . ' Gallery Image ' . $key11,
+													)
+												);
+
+											}
+										}
+									}
+								}
+
+								$product->set_gallery_image_ids( $attach_ids );
+								$product->save();
+
+							} else {
+
+								$attach_ids   = array();
+								$attach_ids[] = $itemDetails['Item']['PictureDetails']['PictureURL'];
+								update_post_meta( $product_id, '_product_image_gallery', implode( ',', $attach_ids ) );
+							}
+						}
+					}
+				}
+
+				if ( isset( $itemDetails['Item']['Variations'] ) ) {
+					wp_set_object_terms( $product_id, 'variable', 'product_type' );
+					update_post_meta( $product_id, '_sku', $itemDetails['Item']['SKU'] );
+					$data = array();
+					if ( ! isset( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'][0] ) ) {
+						$tempNameValueList = array();
+						$tempNameValueList = $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'];
+						unset( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'] );
+						$itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'][] = $tempNameValueList;
+					}
+					if ( isset( $itemDetails['Item']['Variations']['VariationSpecificsSet'] ) ) {
+						foreach ( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'] as $key => $ebay_attr ) {
+							$data['attribute_names'][] = $ebay_attr['Name'];
+						}
+						$data['attribute_position'][] = 0;
+						$visibility_values            = array();
+						$use_for_variation            = array();
+						$values                       = array();
+						foreach ( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'] as $key => $value ) {
+							if ( is_array( $value['Value'] ) ) {
+								$values[] = implode( '|', $value['Value'] );
+							} else {
+								$values[] = $value['Value'];
+							}
+							$visibility_values[] = 1;
+							$use_for_variation[] = 1;
+
+						}
+						$values                       = array_unique( $values );
+						$data['attribute_values'][]   = $values;
+						$data['attribute_visibility'] = $visibility_values;
+						$data['attribute_variation']  = $use_for_variation;
+					} else {
+						$data['attribute_names'][]      = $itemDetails['Item']['Variations']['Variation']['VariationSpecifics']['NameValueList']['Name'];
+						$data['attribute_position'][]   = 0;
+						$values                         = array();
+						$values[]                       = $itemDetails['Item']['Variations']['Variation']['VariationSpecifics']['NameValueList']['Value'];
+						$values                         = array_unique( $values );
+						$data['attribute_values'][]     = implode( '|', $values );
+						$data['attribute_visibility'][] = 1;
+						$data['attribute_variation'][]  = 1;
+					}
+					if ( isset( $data['attribute_names'], $data['attribute_values'] ) ) {
+						$attribute_names         = $data['attribute_names'];
+						$attribute_values        = $data['attribute_values'][0];
+						$attribute_visibility    = isset( $data['attribute_visibility'] ) ? $data['attribute_visibility'] : array();
+						$attribute_variation     = isset( $data['attribute_variation'] ) ? $data['attribute_variation'] : array();
+						$attribute_position      = $data['attribute_position'];
+						$attribute_names_max_key = max( array_keys( $attribute_names ) );
+						for ( $i = 0; $i <= $attribute_names_max_key; $i++ ) {
+							if ( empty( $attribute_names[ $i ] ) || ! isset( $attribute_values[ $i ] ) ) {
+								continue;
+							}
+							$attribute_id   = 0;
+							$attribute_name = wc_clean( $attribute_names[ $i ] );
+							if ( 'pa_' === substr( $attribute_name, 0, 3 ) ) {
+								$attribute_id = wc_attribute_taxonomy_id_by_name( $attribute_name );
+							}
+							$options = isset( $attribute_values[ $i ] ) ? $attribute_values[ $i ] : '';
+							if ( is_array( $options ) ) {
+								$options = wp_parse_id_list( $options );
+							} else {
+								$options = wc_get_text_attributes( $options );
+							}
+
+							if ( empty( $options ) ) {
+								continue;
+							}
+							$attribute = new WC_Product_Attribute();
+							$attribute->set_id( $attribute_id );
+							$attribute->set_name( $attribute_name );
+							$attribute->set_options( $options );
+							$attribute->set_position( $attribute_position[0] );
+							$attribute->set_visible( isset( $attribute_visibility[ $i ] ) );
+							$attribute->set_variation( isset( $attribute_variation[ $i ] ) );
+							$attributes[] = $attribute;
+						}
+					}
+					$product_type = 'variable';
+					$classname    = WC_Product_Factory::get_product_classname( $product_id, $product_type );
+					$product      = new $classname( $product_id );
+					$product->set_attributes( $attributes );
+					$product->save();
+					$this->insert_product_variations( $product_id, $itemDetails['Item']['Variations'] );
+
+					update_post_meta( $product_id, '_umb_ebay_listing_type', $itemDetails['Item']['ListingType'] );
+					update_post_meta( $product_id, '_umb_ebay_listing_duration', $itemDetails['Item']['ListingDuration'] );
+					update_post_meta( $product_id, '_umb_ebay_dispatch_time', $itemDetails['Item']['DispatchTimeMax'] );
+					update_post_meta( $product_id, '_umb_ebay_category', $itemDetails['Item']['PrimaryCategory']['CategoryID'] );
+
+					update_post_meta( $product_id, 'ced_umb_ebay_ebay_status', 'PUBLISHED' );
+					update_post_meta( $product_id, 'ced_ebay_product_data', $itemDetails['Item'] );
+					if ( isset( $itemDetails['Item']['ProductListingDetails']['UPC'] ) ) {
+						update_post_meta( $product_id, 'ced_ebay_product_upc', $itemDetails['Item']['ProductListingDetails']['UPC'] );
+					}
+
+					if ( isset( $itemDetails['Item']['ProductListingDetails']['BrandMPN']['MPN'] ) ) {
+						update_post_meta( $product_id, 'ced_ebay_product_mpn', $itemDetails['Item']['ProductListingDetails']['BrandMPN']['MPN'] );
+					}
+
+					if ( isset( $itemDetails['Item']['ProductListingDetails']['BrandMPN']['Brand'] ) ) {
+						update_post_meta( $product_id, 'ced_ebay_product_brand', $itemDetails['Item']['ProductListingDetails']['BrandMPN']['Brand'] );
+					}
+
+					if ( isset( $itemDetails['Item']['ItemSpecifics']['NameValueList'] ) && ! isset( $itemDetails['Item']['ItemSpecifics']['NameValueList'][0] ) ) {
+						$tempNameValueList = array();
+						$tempNameValueList = $itemDetails['Item']['ItemSpecifics']['NameValueList'];
+						unset( $itemDetails['Item']['ItemSpecifics']['NameValueList'] );
+						$itemDetails['Item']['ItemSpecifics']['NameValueList'][] = $tempNameValueList;
+					}
+					if ( ! empty( $itemDetails['Item']['ItemSpecifics']['NameValueList'] ) ) {
+						foreach ( $itemDetails['Item']['ItemSpecifics']['NameValueList'] as $key => $attributes ) {
+
+							delete_transient( 'wc_attribute_taxonomies' );
+							WC_Cache_Helper::incr_cache_prefix( 'woocommerce-attributes' );
+							$attributeName = $attributes['Name'];
+
+							if ( 'Year' == $attributes['Name'] ) {
+								$attributeSlug = $attributes['Name'] . '-attr';
+							} elseif ( 'Type' == $attributes['Name'] ) {
+								$attributeSlug = $attributes['Name'] . '-attr';
+							} else {
+								$attributeSlug = $attributes['Name'];
+							}
+							if ( 28 < strlen( $attributeSlug ) ) {
+								$attributeSlug = substr( $attributeSlug, 0, 10 );
+							}
+							$attributeLabels = wp_list_pluck( wc_get_attribute_taxonomies(), 'attribute_label', 'attribute_name' );
+							$attributeWCName = array_search( $attributeSlug, $attributeLabels, true );
+
+							if ( ! $attributeWCName ) {
+								$attributeWCName = wc_sanitize_taxonomy_name( $attributeSlug );
+							}
+
+							$attributeId = wc_attribute_taxonomy_id_by_name( $attributeWCName );
+							if ( ! $attributeId ) {
+								$taxonomyName = wc_attribute_taxonomy_name( $attributeWCName );
+								unregister_taxonomy( $taxonomyName );
+								$attributeId = wc_create_attribute(
+									array(
+										'name'         => $attributeName,
+										'slug'         => $attributeSlug,
+										'type'         => 'select',
+										'order_by'     => 'menu_order',
+										'has_archives' => 0,
+									)
+								);
+
+								register_taxonomy(
+									$taxonomyName,
+									/**
+										 * Taxonomy objects
+										 *
+										 * @since 1.0.0
+										 */
+									apply_filters(
+										'woocommerce_taxonomy_objects_' . $taxonomyName,
+										array(
+											'product',
+										)
+									),
+									/**
+										 * Taxonomy args
+										 *
+										 * @since 1.0.0
+										 */
+									apply_filters(
+										'woocommerce_taxonomy_args_' . $taxonomyName,
+										array(
+											'labels'       => array(
+												'name' => $attributeSlug,
+											),
+											'hierarchical' => false,
+											'show_ui'      => false,
+											'query_var'    => true,
+											'rewrite'      => false,
+										)
+									)
+								);
+							}
+
+							$taxonomy = $attributes['Name'];
+							if ( strlen( $taxonomy ) > 28 ) {
+								$taxonomy = substr( $taxonomy, 0, 10 );
+							}
+							$taxonomyName = wc_attribute_taxonomy_name( $taxonomy );
+							if ( 'Year' == $taxonomy ) {
+								$taxonomyName = $taxonomyName . '-attr';
+							}
+							if ( 'Type' == $taxonomy ) {
+								$taxonomyName = $taxonomyName . '-attr';
+							}
+							if ( strlen( $taxonomyName ) > 28 ) {
+								$taxonomyName = substr( $taxonomyName, 0, 10 );
+							}
+							if ( ! empty( $attributes['Value'] ) && is_array( $attributes['Value'] ) ) {
+								$term_id = array();
+								foreach ( $attributes['Value'] as $key => $attr_terms ) {
+									$termArrayName = $attr_terms;
+									$termArraySlug = $attr_terms;
+									$term          = get_term_by( 'slug', $termArrayName, $taxonomyName );
+									if ( ! $term ) {
+										$term = wp_insert_term(
+											$termArrayName,
+											$taxonomyName,
+											array(
+												'slug' => $termArraySlug,
+											)
+										);
+										if ( isset( $term->error_data['term_exists'] ) ) {
+											$term_id = $term->error_data['term_exists'];
+										} elseif ( is_array( $term ) ) {
+												$term_id[] = $term['term_id'];
+										} else {
+											$term_id[] = $term->term_id;
+										}
+									} else {
+										$term_id[] = $term->term_id;
+									}
+								}
+							}
+							if ( ! empty( $attributes['Value'] ) && ! is_array( $attributes['Value'] ) ) {
+								$termName = $attributes['Value'];
+								$termSlug = $attributes['Value'];
+								$term     = get_term_by( 'slug', $termSlug, $taxonomyName );
+								if ( ! $term ) {
+									$term = wp_insert_term(
+										$termName,
+										$taxonomyName,
+										array(
+											'slug' => $termSlug,
+										)
+									);
+									if ( isset( $term->error_data['term_exists'] ) ) {
+										$term_id = $term->error_data['term_exists'];
+									} elseif ( is_array( $term ) ) {
+											$term_id = $term['term_id'];
+									} else {
+										$term_id = $term->term_id;
+									}
+								} else {
+									$term_id = $term->term_id;
+								}
+							}
+							$product_attributes = (array) $product->get_attributes();
+							if ( array_key_exists( $taxonomy, $product_attributes ) ) {
+								foreach ( $product_attributes as $key1 => $product_attribute ) {
+									if ( $key1 == $taxonomy ) {
+										if ( is_array( $term_id ) ) {
+											$product_attribute->set_options( $term_id );
+										} else {
+											$product_attribute->set_options( array( $term_id ) );
+										}
+										$product_attributes[ $key1 ] = $product_attribute;
+										break;
+									}
+								}
+								$product->set_attributes( $product_attributes );
+							} else {
+								$prod_attribute = new WC_Product_Attribute();
+
+								$prod_attribute->set_id( count( $product_attributes ) + 1 );
+								$prod_attribute->set_name( $taxonomyName );
+								if ( is_array( $term_id ) ) {
+									$prod_attribute->set_options( $term_id );
+								} else {
+									$prod_attribute->set_options( array( $term_id ) );
+								}
+								$prod_attribute->set_position( count( $product_attributes ) + 1 );
+								$prod_attribute->set_visible( true );
+								$prod_attribute->set_variation( false );
+								$product_attributes[] = $prod_attribute;
+
+								$product->set_attributes( $product_attributes );
+							}
+						}
+
+						$product->save();
+
+					}
+
+					if ( isset( $itemDetails['Item']['ConditionDisplayName'] ) && ! empty( $itemDetails['Item']['ConditionDisplayName'] ) ) {
+						WC_Cache_Helper::incr_cache_prefix( 'woocommerce-attributes' );
+						$attributeName = 'Condition';
+
+						$attributeSlug = 'Condition';
+
+						$attributeLabels = wp_list_pluck( wc_get_attribute_taxonomies(), 'attribute_label', 'attribute_name' );
+						$attributeWCName = array_search( $attributeSlug, $attributeLabels, true );
+
+						if ( ! $attributeWCName ) {
+							$attributeWCName = wc_sanitize_taxonomy_name( $attributeSlug );
+						}
+
+						$attributeId = wc_attribute_taxonomy_id_by_name( $attributeWCName );
+						if ( ! $attributeId ) {
+							$taxonomyName = wc_attribute_taxonomy_name( $attributeWCName );
+							unregister_taxonomy( $taxonomyName );
+							$attributeId = wc_create_attribute(
+								array(
+									'name'         => $attributeName,
+									'slug'         => $attributeSlug,
+									'type'         => 'select',
+									'order_by'     => 'menu_order',
+									'has_archives' => 0,
+								)
+							);
+							/**
+							 * Woocommerce_taxonomy_objects.
+							 *
+							 * @since 1.0.0
+							 */
+							register_taxonomy(
+								$taxonomyName,
+								/**
+										 * Taxonomy objects
+										 *
+										 * @since 1.0.0
+										 */
+								apply_filters(
+									'woocommerce_taxonomy_objects_' . $taxonomyName,
+									array(
+										'product',
+									)
+								),
+								/**
+										 * Taxonomy args
+										 *
+										 * @since 1.0.0
+										 */
+								apply_filters(
+									'woocommerce_taxonomy_args_' . $taxonomyName,
+									array(
+										'labels'       => array(
+											'name' => $attributeSlug,
+										),
+										'hierarchical' => false,
+										'show_ui'      => false,
+										'query_var'    => true,
+										'rewrite'      => false,
+									)
+								)
+							);
+						}
+
+						$taxonomy = 'Condition';
+
+						$taxonomyName = wc_attribute_taxonomy_name( $taxonomy );
+
+						if ( strlen( $taxonomyName ) > 28 ) {
+							$taxonomyName = substr( $taxonomyName, 0, 10 );
+						}
+						$termName = $itemDetails['Item']['ConditionDisplayName'];
+						$termSlug = $itemDetails['Item']['ConditionDisplayName'];
+						$term     = get_term_by( 'slug', $termSlug, $taxonomyName );
+						if ( ! $term ) {
+							$term = wp_insert_term(
+								$termName,
+								$taxonomyName,
+								array(
+									'slug' => $termSlug,
+								)
+							);
+							if ( isset( $term->error_data['term_exists'] ) ) {
+								$term_id = $term->error_data['term_exists'];
+							} elseif ( is_array( $term ) ) {
+									$term_id = $term['term_id'];
+							} else {
+								$term_id = $term->term_id;
+							}
+						} else {
+							$term_id = $term->term_id;
+						}
+
+						wp_set_object_terms( $term_id, $itemDetails['Item']['ConditionDisplayName'], 'pa_condition' );
+						$get_attribute      = get_term_by( 'name', $itemDetails['Item']['ConditionDisplayName'], 'pa_condition' );
+						$product_attributes = $product->get_attributes();
+
+						// Set the new attribute value
+
+						$prod_attribute = new WC_Product_Attribute();
+						$prod_attribute->set_id( count( $product_attributes ) + 1 );
+						$prod_attribute->set_name( $taxonomyName );
+						if ( is_array( $term_id ) ) {
+							$prod_attribute->set_options( $term_id );
+						} else {
+							$prod_attribute->set_options( array( $term_id ) );
+						}
+						$prod_attribute->set_position( count( $product_attributes ) + 1 );
+						$prod_attribute->set_visible( true );
+						$prod_attribute->set_variation( false );
+						$product_attributes[] = $prod_attribute;
+
+						$product->set_attributes( $product_attributes );
+
+						$product->save();
+					}
+				} else {
+					wp_set_object_terms( $product_id, 'simple', 'product_type' );
+					$simpleProduct = wc_get_product( $product_id );
+					update_post_meta( $product_id, '_visibility', 'visible' );
+					if ( ( $itemDetails['Item']['Quantity'] - $itemDetails['Item']['SellingStatus']['QuantitySold'] ) > 0 ) {
+						update_post_meta( $product_id, '_stock_status', 'instock' );
+						update_post_meta( $product_id, '_stock', $itemDetails['Item']['Quantity'] - $itemDetails['Item']['SellingStatus']['QuantitySold'] );
+						update_post_meta( $product_id, '_umb_stock', $itemDetails['Item']['Quantity'] - $itemDetails['Item']['SellingStatus']['QuantitySold'] );
+					} else {
+						update_post_meta( $product_id, '_stock_status', 'outofstock' );
+						update_post_meta( $product_id, '_umb_stock', 0 );
+					}
+
+					update_post_meta( $product_id, '_sku', $itemDetails['Item']['SKU'] );
+					update_post_meta( $product_id, '_manage_stock', 'yes' );
+					update_post_meta( $product_id, 'total_sales', '0' );
+					update_post_meta( $product_id, '_downloadable', 'no' );
+					update_post_meta( $product_id, '_sale_price', '' );
+					update_post_meta( $product_id, '_purchase_note', '' );
+					update_post_meta( $product_id, '_featured', 'no' );
+					update_post_meta( $product_id, '_regular_price', $itemDetails['Item']['StartPrice'] );
+					update_post_meta( $product_id, '_price', $itemDetails['Item']['StartPrice'] );
+					$prod_update_price = wc_get_product( $product_id );
+					$prod_update_price->save();
+					update_post_meta( $product_id, '_umb_ebay_price', $itemDetails['Item']['StartPrice'] );
+					update_post_meta( $product_id, '_umb_ebay_listing_type', $itemDetails['Item']['ListingType'] );
+					update_post_meta( $product_id, '_umb_ebay_listing_duration', $itemDetails['Item']['ListingDuration'] );
+					update_post_meta( $product_id, '_umb_ebay_dispatch_time', $itemDetails['Item']['DispatchTimeMax'] );
+					update_post_meta( $product_id, '_umb_ebay_category', $itemDetails['Item']['PrimaryCategory']['CategoryID'] );
+
+					update_post_meta( $product_id, 'ced_umb_ebay_ebay_status', 'PUBLISHED' );
+					update_post_meta( $product_id, 'ced_ebay_product_data', $itemDetails['Item'] );
+					if ( isset( $itemDetails['Item']['ProductListingDetails']['UPC'] ) ) {
+						update_post_meta( $product_id, 'ced_ebay_product_upc', $itemDetails['Item']['ProductListingDetails']['UPC'] );
+					}
+
+					if ( isset( $itemDetails['Item']['ProductListingDetails']['BrandMPN']['MPN'] ) ) {
+						update_post_meta( $product_id, 'ced_ebay_product_mpn', $itemDetails['Item']['ProductListingDetails']['BrandMPN']['MPN'] );
+					}
+
+					if ( isset( $itemDetails['Item']['ProductListingDetails']['BrandMPN']['Brand'] ) ) {
+						update_post_meta( $product_id, 'ced_ebay_product_brand', $itemDetails['Item']['ProductListingDetails']['BrandMPN']['Brand'] );
+					}
+
+					if ( isset( $itemDetails['Item']['ItemSpecifics']['NameValueList'] ) && ! isset( $itemDetails['Item']['ItemSpecifics']['NameValueList'][0] ) ) {
+						$tempNameValueList = array();
+						$tempNameValueList = $itemDetails['Item']['ItemSpecifics']['NameValueList'];
+						unset( $itemDetails['Item']['ItemSpecifics']['NameValueList'] );
+						$itemDetails['Item']['ItemSpecifics']['NameValueList'][] = $tempNameValueList;
+					}
+					if ( ! empty( $itemDetails['Item']['ItemSpecifics']['NameValueList'] ) ) {
+						foreach ( $itemDetails['Item']['ItemSpecifics']['NameValueList'] as $key => $attributes ) {
+
+							delete_transient( 'wc_attribute_taxonomies' );
+							WC_Cache_Helper::incr_cache_prefix( 'woocommerce-attributes' );
+							$attributeName = $attributes['Name'];
+
+							if ( 'Year' == $attributes['Name'] ) {
+								$attributeSlug = $attributes['Name'] . '-attr';
+							} elseif ( 'Type' == $attributes['Name'] ) {
+								$attributeSlug = $attributes['Name'] . '-attr';
+							} else {
+								$attributeSlug = $attributes['Name'];
+							}
+							if ( 28 < strlen( $attributeSlug ) ) {
+								$attributeSlug = substr( $attributeSlug, 0, 10 );
+							}
+							$attributeLabels = wp_list_pluck( wc_get_attribute_taxonomies(), 'attribute_label', 'attribute_name' );
+							$attributeWCName = array_search( $attributeSlug, $attributeLabels, true );
+
+							if ( ! $attributeWCName ) {
+								$attributeWCName = wc_sanitize_taxonomy_name( $attributeSlug );
+							}
+
+							$attributeId = wc_attribute_taxonomy_id_by_name( $attributeWCName );
+							if ( ! $attributeId ) {
+								$taxonomyName = wc_attribute_taxonomy_name( $attributeWCName );
+								unregister_taxonomy( $taxonomyName );
+								$attributeId = wc_create_attribute(
+									array(
+										'name'         => $attributeName,
+										'slug'         => $attributeSlug,
+										'type'         => 'select',
+										'order_by'     => 'menu_order',
+										'has_archives' => 0,
+									)
+								);
+								/**
+								 * Woocommerce_taxonomy_objects.
+								 *
+								 * @since 1.0.0
+								 */
+								register_taxonomy(
+									$taxonomyName,
+									/**
+										 * Taxonomy objects
+										 *
+										 * @since 1.0.0
+										 */
+									apply_filters(
+										'woocommerce_taxonomy_objects_' . $taxonomyName,
+										array(
+											'product',
+										)
+									),
+									/**
+										 * Taxonomy args
+										 *
+										 * @since 1.0.0
+										 */
+									apply_filters(
+										'woocommerce_taxonomy_args_' . $taxonomyName,
+										array(
+											'labels'       => array(
+												'name' => $attributeSlug,
+											),
+											'hierarchical' => false,
+											'show_ui'      => false,
+											'query_var'    => true,
+											'rewrite'      => false,
+										)
+									)
+								);
+							}
+
+							$taxonomy = $attributes['Name'];
+							if ( strlen( $taxonomy ) > 28 ) {
+								$taxonomy = substr( $taxonomy, 0, 10 );
+							}
+							$taxonomyName = wc_attribute_taxonomy_name( $taxonomy );
+							if ( 'Year' == $taxonomy ) {
+								$taxonomyName = $taxonomyName . '-attr';
+							}
+							if ( 'Type' == $taxonomy ) {
+								$taxonomyName = $taxonomyName . '-attr';
+							}
+							if ( strlen( $taxonomyName ) > 28 ) {
+								$taxonomyName = substr( $taxonomyName, 0, 10 );
+							}
+							if ( ! empty( $attributes['Value'] ) && is_array( $attributes['Value'] ) ) {
+								$term_id = array();
+								foreach ( $attributes['Value'] as $key => $attr_terms ) {
+									$termArrayName = $attr_terms;
+									$termArraySlug = $attr_terms;
+									$term          = get_term_by( 'slug', $termArrayName, $taxonomyName );
+									if ( ! $term ) {
+										$term = wp_insert_term(
+											$termArrayName,
+											$taxonomyName,
+											array(
+												'slug' => $termArraySlug,
+											)
+										);
+										if ( isset( $term->error_data['term_exists'] ) ) {
+											$term_id = $term->error_data['term_exists'];
+										} elseif ( is_array( $term ) ) {
+												$term_id[] = $term['term_id'];
+										} else {
+											$term_id[] = $term->term_id;
+										}
+									} else {
+										$term_id[] = $term->term_id;
+									}
+								}
+							}
+							if ( ! empty( $attributes['Value'] ) && ! is_array( $attributes['Value'] ) ) {
+								$termName = $attributes['Value'];
+								$termSlug = $attributes['Value'];
+								$term     = get_term_by( 'slug', $termSlug, $taxonomyName );
+								if ( ! $term ) {
+									$term = wp_insert_term(
+										$termName,
+										$taxonomyName,
+										array(
+											'slug' => $termSlug,
+										)
+									);
+									if ( isset( $term->error_data['term_exists'] ) ) {
+										$term_id = $term->error_data['term_exists'];
+									} elseif ( is_array( $term ) ) {
+											$term_id = $term['term_id'];
+									} else {
+										$term_id = $term->term_id;
+									}
+								} else {
+									$term_id = $term->term_id;
+								}
+							}
+							$product_attributes = (array) $simpleProduct->get_attributes();
+							if ( array_key_exists( $taxonomy, $product_attributes ) ) {
+								foreach ( $product_attributes as $key1 => $product_attribute ) {
+									if ( $key1 == $taxonomy ) {
+										if ( is_array( $term_id ) ) {
+											$product_attribute->set_options( $term_id );
+										} else {
+											$product_attribute->set_options( array( $term_id ) );
+										}
+										$product_attributes[ $key1 ] = $product_attribute;
+										break;
+									}
+								}
+								$simpleProduct->set_attributes( $product_attributes );
+							} else {
+								$prod_attribute = new WC_Product_Attribute();
+
+								$prod_attribute->set_id( count( $product_attributes ) + 1 );
+								$prod_attribute->set_name( $taxonomyName );
+								if ( is_array( $term_id ) ) {
+									$prod_attribute->set_options( $term_id );
+								} else {
+									$prod_attribute->set_options( array( $term_id ) );
+								}
+								$prod_attribute->set_position( count( $product_attributes ) + 1 );
+								$prod_attribute->set_visible( true );
+								$prod_attribute->set_variation( false );
+								$product_attributes[] = $prod_attribute;
+
+								$simpleProduct->set_attributes( $product_attributes );
+							}
+						}
+
+						$simpleProduct->save();
+
+					}
+
+					if ( isset( $itemDetails['Item']['ConditionDisplayName'] ) && ! empty( $itemDetails['Item']['ConditionDisplayName'] ) ) {
+						// delete_transient( 'wc_attribute_taxonomies' );
+						WC_Cache_Helper::incr_cache_prefix( 'woocommerce-attributes' );
+						$attributeName = 'Condition';
+
+						$attributeSlug = 'Condition';
+
+						$attributeLabels = wp_list_pluck( wc_get_attribute_taxonomies(), 'attribute_label', 'attribute_name' );
+						$attributeWCName = array_search( $attributeSlug, $attributeLabels, true );
+
+						if ( ! $attributeWCName ) {
+							$attributeWCName = wc_sanitize_taxonomy_name( $attributeSlug );
+						}
+
+						$attributeId = wc_attribute_taxonomy_id_by_name( $attributeWCName );
+						if ( ! $attributeId ) {
+							$taxonomyName = wc_attribute_taxonomy_name( $attributeWCName );
+							unregister_taxonomy( $taxonomyName );
+							$attributeId = wc_create_attribute(
+								array(
+									'name'         => $attributeName,
+									'slug'         => $attributeSlug,
+									'type'         => 'select',
+									'order_by'     => 'menu_order',
+									'has_archives' => 0,
+								)
+							);
+
+							/**
+							 * Woocommerce_taxonomy_objects.
+							 *
+							 * @since 1.0.0
+							 */
+							register_taxonomy(
+								$taxonomyName,
+								/**
+										 * Taxonomy objects
+										 *
+										 * @since 1.0.0
+										 */
+								apply_filters(
+									'woocommerce_taxonomy_objects_' . $taxonomyName,
+									array(
+										'product',
+									)
+								),
+								/**
+										 * Taxonomy args
+										 *
+										 * @since 1.0.0
+										 */
+								apply_filters(
+									'woocommerce_taxonomy_args_' . $taxonomyName,
+									array(
+										'labels'       => array(
+											'name' => $attributeSlug,
+										),
+										'hierarchical' => false,
+										'show_ui'      => false,
+										'query_var'    => true,
+										'rewrite'      => false,
+									)
+								)
+							);
+						}
+
+						$taxonomy = 'Condition';
+
+						$taxonomyName = wc_attribute_taxonomy_name( $taxonomy );
+
+						if ( strlen( $taxonomyName ) > 28 ) {
+							$taxonomyName = substr( $taxonomyName, 0, 10 );
+						}
+						$termName = $itemDetails['Item']['ConditionDisplayName'];
+						$termSlug = $itemDetails['Item']['ConditionDisplayName'];
+						$term     = get_term_by( 'slug', $termSlug, $taxonomyName );
+						if ( ! $term ) {
+							$term = wp_insert_term(
+								$termName,
+								$taxonomyName,
+								array(
+									'slug' => $termSlug,
+								)
+							);
+							if ( isset( $term->error_data['term_exists'] ) ) {
+								$term_id = $term->error_data['term_exists'];
+							} elseif ( is_array( $term ) ) {
+									$term_id = $term['term_id'];
+							} else {
+								$term_id = $term->term_id;
+							}
+						} else {
+							$term_id = $term->term_id;
+						}
+
+						wp_set_object_terms( $term_id, $itemDetails['Item']['ConditionDisplayName'], 'pa_condition' );
+						$get_attribute      = get_term_by( 'name', $itemDetails['Item']['ConditionDisplayName'], 'pa_condition' );
+						$product_attributes = $simpleProduct->get_attributes();
+
+						// Set the new attribute value
+
+						$prod_attribute = new WC_Product_Attribute();
+
+						$prod_attribute->set_id( count( $product_attributes ) + 1 );
+						$prod_attribute->set_name( $taxonomyName );
+						if ( is_array( $term_id ) ) {
+							$prod_attribute->set_options( $term_id );
+						} else {
+							$prod_attribute->set_options( array( $term_id ) );
+						}
+						$prod_attribute->set_position( count( $product_attributes ) + 1 );
+						$prod_attribute->set_visible( true );
+						$prod_attribute->set_variation( false );
+						$product_attributes[] = $prod_attribute;
+
+						$simpleProduct->set_attributes( $product_attributes );
+
+						$simpleProduct->save();
+					}
+				}
+				$update_prod = wc_get_product( $product_id );
+				$update_prod->set_status( 'publish' );
+				$update_prod->save();
+			}
+			if ( false == $isPhpInvoked ) {
+				$response = array(
+					'status' => 'Bulk Import Successful',
+					'title'  => $itemDetails['Item']['Title'],
+				);
+				wp_send_json( $response );
+			}
+		} else {
+			$response['status'] = __( 'Please select any product for import!', 'ced-umb-ebay' );
+			wp_send_json( $response );
+		}
+	}
+
+
+
+	public function ced_ebay_oauth_authorization() {
+		$check_ajax = check_ajax_referer( 'ced-ebay-ajax-seurity-string', 'ajax_nonce' );
+		if ( $check_ajax ) {
+			$site_id          = isset( $_POST['site_id'] ) ? sanitize_text_field( $_POST['site_id'] ) : '';
+			$login_mode       = isset( $_POST['login_mode'] ) ? sanitize_text_field( $_POST['login_mode'] ) : '';
+			$oAuthFile        = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedOAuthAuthorization.php';
+			$renderDependency = $this->renderDependency( $oAuthFile );
+			if ( 'production' == $login_mode || '' == $login_mode ) {
+				update_option( 'ced_ebay_mode_of_operation', 'production' );
+			}
+			if ( $renderDependency ) {
+				$cedAuthorization        = new Ced_Ebay_OAuth_Authorization();
+				$cedAuhorizationInstance = $cedAuthorization->get_instance();
+				$authURL                 = $cedAuhorizationInstance->doOAuthAuthorization( $site_id );
+				echo json_encode( $authURL );
+				die;
+			}
+		}
+	}
+
+
+
+
+
+
 	public function ced_ebay_recurring_bulk_upload_manager( $args ) {
 		$fetchCurrentAction = current_action();
 		if ( strpos( $fetchCurrentAction, 'wp_ajax_nopriv_' ) !== false ) {
 			$user_id = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : false;
-			$site_id = isset( $_GET['sid'] ) ? wc_clean( $_GET['sid'] ) : false;
+			$site_id = isset( $_GET['site_id'] ) ? wc_clean( $_GET['site_id'] ) : false;
 		}
 		if ( ! empty( $args ) && isset( $args['user_id'] ) && isset( $args['site_id'] ) ) {
 			$user_id          = $args['user_id'];
@@ -2954,7 +4943,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 						),
 					),
 					'group'  => 'ced_ebay_bulk_upload_' . $user_id,
-					'status' => \ActionScheduler_Store::STATUS_PENDING,
+					'status' => ActionScheduler_Store::STATUS_PENDING,
 				),
 				'ARRAY_A'
 			);
@@ -3285,7 +5274,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 										array(
 											'args'   => array( 'data' => $scheduler_args ),
 											'group'  => 'ced_ebay_bulk_upload_' . $user_id,
-											'status' => \ActionScheduler_Store::STATUS_PENDING,
+											'status' => ActionScheduler_Store::STATUS_PENDING,
 										),
 										'ARRAY_A'
 									);
@@ -3591,9 +5580,12 @@ class EBay_Integration_For_Woocommerce_Admin {
 		if ( $check_ajax ) {
 			$user_id         = isset( $_POST['userid'] ) ? sanitize_text_field( $_POST['userid'] ) : '';
 			$site_id         = isset( $_POST['site_id'] ) ? sanitize_text_field( $_POST['site_id'] ) : '';
-			$remote_shop_id       = ced_ebay_get_shop_data( $user_id, $site_id );
-		
-			if ( empty( $remote_shop_id )  ) {
+			$shop_data       = ced_ebay_get_shop_data( $user_id, $site_id );
+			$is_site_primary = false;
+			if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] && isset( $shop_data['is_site_primary'] ) && true == $shop_data['is_site_primary'] ) {
+				$is_site_primary = true;
+			}
+			if ( empty( $shop_data ) || true !== $shop_data['is_site_valid'] ) {
 				wp_send_json_error(
 					array(
 						'status'  => 'error',
@@ -3606,6 +5598,11 @@ class EBay_Integration_For_Woocommerce_Admin {
 				if ( isset( $connected_accounts[ $user_id ][ $site_id ] ) ) {
 					unset( $connected_accounts[ $user_id ][ $site_id ] );
 					if ( 0 == count( $connected_accounts[ $user_id ] ) ) {
+						$access_token_arr = ! empty( get_option( 'ced_ebay_user_access_token' ) ) ? get_option( 'ced_ebay_user_access_token' ) : array();
+						if ( isset( $access_token_arr[ $user_id ] ) ) {
+							unset( $access_token_arr[ $user_id ] );
+							update_option( 'ced_ebay_user_access_token', $access_token_arr );
+						}
 						unset( $connected_accounts[ $user_id ] );
 					}
 					update_option( 'ced_ebay_connected_accounts', $connected_accounts );
@@ -3651,6 +5648,108 @@ class EBay_Integration_For_Woocommerce_Admin {
 			}
 		}
 	}
+
+	public function ced_ebay_fetch_oauth_access_code() {
+		$check_ajax = check_ajax_referer( 'ced-ebay-ajax-seurity-string', 'ajax_nonce' );
+		if ( $check_ajax ) {
+			$user_id    = isset( $_POST['userid'] ) ? sanitize_text_field( $_POST['userid'] ) : '';
+			$accessCode = isset( $_POST['accessCode'] ) ? wp_kses( $_POST['accessCode'], '' ) : '';
+			if ( isset( $user_id ) && isset( $accessCode ) ) {
+
+				$this->ced_ebay_save_user_access_token( $user_id, $accessCode, 'get_user_token' );
+			}
+		}
+	}
+
+	public function ced_ebay_refresh_access_token_schedule_action( $user_id_array ) {
+		$user_id          = $user_id_array['user_id'];
+		$access_token_arr = get_option( 'ced_ebay_user_access_token' );
+		if ( ! empty( $access_token_arr ) ) {
+			foreach ( $access_token_arr as $key => $value ) {
+				$check_if_token_valid = ced_ebay_pre_flight_check( $key );
+				if ( ! $check_if_token_valid ) {
+					// check if the token has expired
+					if ( ! empty( get_option( 'ced_ebay_pre_flight_check_response_' . $key ) ) ) {
+						$api_response = get_option( 'ced_ebay_pre_flight_check_response_' . $key );
+						if ( ! empty( $api_response ) && is_array( $api_response ) ) {
+							if ( ! empty( $api_response['Errors'] ) && '931' == $api_response['Errors']['ErrorCode'] ) {
+								delete_transient( 'ced_ebay_user_access_token_' . $key );
+							}
+						}
+					}
+				}
+				$tokenValue = get_transient( 'ced_ebay_user_access_token_' . $key );
+				if ( false === $tokenValue || null == $tokenValue || empty( $tokenValue ) ) {
+					$user_refresh_token = $value['refresh_token'];
+					$this->ced_ebay_save_user_access_token( $key, $user_refresh_token, 'refresh_user_token' );
+				}
+			}
+		}
+	}
+
+	public function ced_ebay_save_user_access_token( $user_id, $accessCode, $action ) {
+		$shop_data = ced_ebay_get_shop_data( $user_id );
+		if ( ! empty( $shop_data ) ) {
+			$siteID = $shop_data['site_id'];
+			$token  = $shop_data['access_token'];
+		}
+		$oAuthFile        = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedOAuthAuthorization.php';
+		$renderDependency = $this->renderDependency( $oAuthFile );
+		if ( $renderDependency ) {
+			$cedAuthorization        = new Ced_Ebay_WooCommerce_Core\Ced_Ebay_OAuth_Authorization();
+			$cedAuhorizationInstance = $cedAuthorization->get_instance();
+			if ( 'get_user_token' == $action ) {
+				$accessCodeResponse = $cedAuhorizationInstance->fetchOAuthUserAccessToken( $accessCode, $siteID, 'authorization_code' );
+				$accessCodeResponse = json_decode( $accessCodeResponse );
+				$responseArr        = get_option( 'ced_ebay_access_token_response' );
+				if ( ! is_array( $responseArr ) ) {
+					$responseArr = array();
+				}
+				$responseArr[ $user_id ] = $accessCodeResponse;
+				update_option( 'ced_ebay_access_token_response', $responseArr );
+				if ( ! empty( $accessCodeResponse->access_token ) ) {
+					$accessToken  = $accessCodeResponse->access_token;
+					$refreshToken = $accessCodeResponse->refresh_token;
+					$tokenArr     = get_option( 'ced_ebay_user_access_token' );
+					if ( ! is_array( $tokenArr ) ) {
+						$tokenArr = array();
+					}
+					$tokenArr[ $user_id ] = array(
+						'access_token'  => $accessToken,
+						'refresh_token' => $refreshToken,
+					);
+					update_option( 'ced_ebay_user_access_token', $tokenArr );
+					set_transient( 'ced_ebay_user_access_token_' . $user_id, $accessToken, 2 * HOUR_IN_SECONDS );
+
+					echo 'Success';
+					die;
+				} else {
+					echo 'Failed';
+					die;
+				}
+			} elseif ( 'refresh_user_token' == $action ) {
+				$accessCodeResponse = $cedAuhorizationInstance->fetchOAuthUserAccessToken( $accessCode, $siteID, 'refresh_token' );
+				$accessCodeResponse = json_decode( $accessCodeResponse );
+				$newTokenArr        = get_option( 'ced_ebay_user_access_token' );
+				$newAccessToken     = $accessCodeResponse->access_token;
+				if ( ! empty( $accessCodeResponse->error ) ) {
+					wc_get_logger()->info( wc_print_r( $accessCodeResponse, true ), array( 'source' => 'ced_ebay_refresh_token' ) );
+					return;
+				}
+				if ( ! is_array( $newTokenArr ) ) {
+					$newTokenArr = array();
+				}
+				if ( isset( $newTokenArr[ $user_id ] ) ) {
+					$newTokenArr[ $user_id ]['access_token'] = $newAccessToken;
+					set_transient( 'ced_ebay_user_access_token_' . $user_id, $newAccessToken, 2 * HOUR_IN_SECONDS );
+				}
+				update_option( 'ced_ebay_access_token_response', $newTokenArr );
+				update_option( 'ced_ebay_user_access_token', $newTokenArr );
+				return;
+			}
+		}
+	}
+
 	public function ced_ebay_fulfill_order() {
 		$check_ajax = check_ajax_referer( 'ced-ebay-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
@@ -3715,6 +5814,163 @@ class EBay_Integration_For_Woocommerce_Admin {
 		}
 	}
 
+	public function ced_ebay_add_query_vars_filter( $vars ) {
+		$vars[] = 'code';
+		return $vars;
+	}
+
+	public function ced_ebay_onWpAdminInit() {
+		$current_uri = home_url( add_query_arg( null, null ) );
+		$path        = parse_url( $current_uri, PHP_URL_QUERY );
+		$user_id     = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
+		$channel     = isset( $_GET['channel'] ) ? sanitize_text_field( $_GET['channel'] ) : '';
+		if ( '' !== $path && ! is_null( $path ) ) {
+			$params = array();
+			parse_str( $path, $params );
+			$access_code             = isset( $params['code'] ) ? $params['code'] : '';
+			$bigcom_parms            = isset( $params['bigcom'] ) ? $params['bigcom'] : '';
+			$oauth_error_description = isset( $params['error_description'] ) ? $params['error_description'] : '';
+			$site_id                 = str_replace( 'ced_woo_ebay_', '', $bigcom_parms );
+			if ( '' !== $site_id && '' !== $access_code ) {
+				echo '<h1>Please wait while we are redirecting you to complete Authentication!</h1>';
+				$this->ced_ebay_fetch_user_data_using_access_token( $access_code, $site_id );
+			}
+		}
+		if ( ! empty( $user_id ) ) {
+			// Workaround for removing scheduled inventory sync action if instant sync webhook is on.
+			// Since turning on instant stock sync webhook, for some reason, doesn't remove scheduled inventory sync action.
+			if ( function_exists( 'as_has_scheduled_action' ) ) {
+				if ( class_exists( 'WC_Webhook' ) ) {
+					$get_webhook_id = ! empty( get_option( 'ced_ebay_prduct_update_webhook_id_' . $user_id, true ) ) ? get_option( 'ced_ebay_prduct_update_webhook_id_' . $user_id, true ) : false;
+					if ( $get_webhook_id ) {
+						$webhook        = new WC_Webhook( $get_webhook_id );
+						$webhook_status = $webhook->get_status();
+						if ( 'active' == $webhook_status ) {
+							if ( as_has_scheduled_action( 'ced_ebay_inventory_scheduler_job_' . $user_id ) ) {
+								$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+								if ( ! empty( $renderDataOnGlobalSettings ) && is_array( $renderDataOnGlobalSettings ) ) {
+									if ( ! empty( $renderDataOnGlobalSettings ) && is_array( $renderDataOnGlobalSettings ) ) {
+										foreach ( $renderDataOnGlobalSettings as $key => $global_setting ) {
+											if ( $user_id == $key ) {
+												if ( '0' == $global_setting['ced_ebay_inventory_schedule_info'] ) {
+													as_unschedule_all_actions( 'ced_ebay_inventory_scheduler_job_' . $user_id );
+													break;
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			if ( function_exists( 'as_has_scheduled_action' ) && function_exists( 'as_schedule_recurring_action' ) ) {
+				if ( ! as_has_scheduled_action( 'ced_ebay_refresh_access_token_schedule', array( 'data' => array( 'user_id' => $user_id ) ) ) && 'ebay' == $channel ) {
+					$isActionScheduled = as_schedule_recurring_action( time(), '7000', 'ced_ebay_refresh_access_token_schedule', array( 'data' => array( 'user_id' => $user_id ) ) );
+				}
+			}
+
+			$access_token_arr = get_option( 'ced_ebay_user_access_token' );
+			if ( ! empty( $access_token_arr ) ) {
+				foreach ( $access_token_arr as $key => $value ) {
+					$tokenValue = get_transient( 'ced_ebay_user_access_token_' . $key );
+					if ( false === $tokenValue || null == $tokenValue || empty( $tokenValue ) ) {
+						$user_refresh_token = $value['refresh_token'];
+						$this->ced_ebay_save_user_access_token( $key, $user_refresh_token, 'refresh_user_token' );
+					}
+				}
+			}
+		}
+	}
+
+	public function ced_ebay_fetch_user_data_using_access_token( $access_code, $siteID ) {
+		$oAuthFile        = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedOAuthAuthorization.php';
+		$renderDependency = $this->renderDependency( $oAuthFile );
+		if ( $renderDependency ) {
+			$cedAuthorization        = new Ced_Ebay_WooCommerce_Core\Ced_Ebay_OAuth_Authorization();
+			$cedAuhorizationInstance = $cedAuthorization->get_instance();
+			$accessCodeResponse      = $cedAuhorizationInstance->fetchOAuthUserAccessToken( $access_code, $siteID, 'authorization_code' );
+			$accessCodeResponse      = json_decode( $accessCodeResponse );
+			if ( ! empty( $accessCodeResponse->access_token ) ) {
+				$file             = CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayAuthorization.php';
+				$renderDependency = $this->renderDependency( $file );
+				if ( $renderDependency ) {
+					$cedAuthorization        = new Ced_Ebay_WooCommerce_Core\Ebayauthorization();
+					$cedAuhorizationInstance = $cedAuthorization->get_instance();
+					$userDetails             = $cedAuhorizationInstance->getUserData( $accessCodeResponse->access_token, $siteID );
+					if ( empty( $userDetails ) ) {
+						wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=setup-ebay&error=seller_store_data_error' );
+					}
+					$primaryEBaySite = '';
+					require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
+					$ebayConfig         = new Ced_Ebay_WooCommerce_Core\Ebayconfig();
+					$ebayConfigInstance = $ebayConfig->get_instance();
+					$ebaySites          = $ebayConfigInstance->getEbaycountrDetail( $siteID );
+					if ( is_array( $ebaySites ) && ! empty( $ebaySites ) ) {
+						$listing_tld = isset( $ebaySites['tld'] ) && ! empty( $ebaySites['tld'] ) ? $ebaySites['tld'] : '.com';
+						$user_id     = $userDetails['UserID'];
+						if ( ! empty( $listing_tld ) && ! empty( $user_id ) ) {
+							update_option( 'ced_ebay_listing_url_tld_' . $user_id . '>' . $siteID, $listing_tld );
+						}
+					}
+
+					if ( '' == $user_id || '' == $siteID ) {
+						update_option( 'ced_ebay_oauth_error_description', 'Failed to fetch eBay User ID or Site ID!' );
+						wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=setup-ebay&error=oauth_error' );
+						return;
+					}
+
+					$accessToken  = $accessCodeResponse->access_token;
+					$refreshToken = $accessCodeResponse->refresh_token;
+
+					$tokenArr = get_option( 'ced_ebay_user_access_token' );
+					if ( ! is_array( $tokenArr ) ) {
+						$tokenArr = array();
+					}
+					$tokenArr[ $user_id ] = array(
+						'user_id'       => $user_id,
+						'access_token'  => $accessToken,
+						'refresh_token' => $refreshToken,
+						'site_id'       => $siteID,
+						'location'      => $userDetails['Site'],
+						'seller_email'  => $userDetails['Email'],
+						'eiastoken'     => $userDetails['EIASToken'],
+						'seller_data'   => $userDetails,
+					);
+
+					$connected_ebay_accounts                                  = ! empty( get_option( 'ced_ebay_connected_accounts' ) ) ? get_option( 'ced_ebay_connected_accounts', true ) : array();
+					$connected_ebay_accounts[ $user_id ][ $siteID ]['status'] = 'connected';
+					if ( isset( $userDetails['Site'] ) && isset( $ebaySites['name'] ) && $userDetails['Site'] == $ebaySites['name'] ) {
+						$connected_ebay_accounts[ $user_id ][ $siteID ]['is_primary_site'] = true;
+					} else {
+						$connected_ebay_accounts[ $user_id ][ $siteID ]['is_primary_site'] = false;
+					}
+					update_option( 'ced_ebay_connected_accounts', $connected_ebay_accounts );
+					$file             = CED_EBAY_DIRPATH . 'admin/ebay/class-ebay.php';
+					$renderDependency = $this->renderDependency( $file );
+					if ( $renderDependency ) {
+						$cedeBay           = new \Class_Ced_EBay_Manager();
+						$cedebayInstance   = $cedeBay->get_instance();
+						$seller_prefrences = $cedebayInstance->ced_ebay_get_seller_preferences( $user_id, $tokenArr[ $user_id ]['access_token'], $tokenArr[ $user_id ]['site_id'] );
+						$ebay_tax_table    = $cedebayInstance->ced_ebay_get_tax_table( $user_id, $tokenArr[ $user_id ]['access_token'], $tokenArr[ $user_id ]['site_id'] );
+					}
+					update_option( 'ced_ebay_user_access_token', $tokenArr );
+					set_transient( 'ced_ebay_user_access_token_' . $user_id, $accessToken, 2 * HOUR_IN_SECONDS );
+					if ( function_exists( 'as_has_scheduled_action' ) && function_exists( 'as_schedule_recurring_action' ) ) {
+						if ( ! as_has_scheduled_action( 'ced_ebay_refresh_access_token_schedule', array( 'data' => array( 'user_id' => $user_id ) ) ) ) {
+							as_schedule_recurring_action( time(), '7000', 'ced_ebay_refresh_access_token_schedule', array( 'data' => array( 'user_id' => $user_id ) ) );
+						}
+					}
+					wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=setup-ebay&user_id=' . $user_id . '&site_id=' . $siteID );
+
+				}
+			} elseif ( isset( $accessCodeResponse->error ) ) {
+				update_option( 'ced_ebay_oauth_error_description', $accessCodeResponse->error_description );
+				wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=setup-ebay&error=oauth_error' );
+			}
+		}
+	}
 
 	public function ced_ebay_add_woo_order_views( $views ) {
 		if ( ! current_user_can( 'edit_others_pages' ) ) {
@@ -3898,13 +6154,365 @@ class EBay_Integration_For_Woocommerce_Admin {
 		return $metakeys;
 	}
 
-	
+	public function ced_ebay_sync_seller_event() {
+		$this->ced_ebay_onWpAdminInit();
+		$logger             = wc_get_logger();
+		$context            = array( 'source' => 'ced_ebay_sync_seller_event' );
+		$fetchCurrentAction = current_action();
+		if ( strpos( $fetchCurrentAction, 'wp_ajax_nopriv_' ) !== false ) {
+			$user_id = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : false;
+		} else {
+			$user_id = str_replace( 'ced_ebay_sync_seller_event_job_', '', $fetchCurrentAction );
+		}
+		$shop_data = ced_ebay_get_shop_data( $user_id );
+		if ( ! empty( $shop_data ) ) {
+			$siteID      = $shop_data['site_id'];
+			$token       = $shop_data['access_token'];
+			$getLocation = $shop_data['location'];
+		}
+		$file             = CED_EBAY_DIRPATH . 'admin/ebay/class-ebay.php';
+		$renderDependency = $this->renderDependency( $file );
+		if ( $renderDependency ) {
+			$cedeBay         = new Class_Ced_EBay_Manager();
+			$cedebayInstance = $cedeBay->get_instance();
+			$page_number     = ! empty( get_option( 'ced_ebay_seller_event_pagination_' . $user_id ) ) ? get_option( 'ced_ebay_seller_event_pagination_' . $user_id, true ) : 1;
+			$result          = $cedebayInstance->ced_ebay_get_seller_events( $token, $siteID, $page_number );
+			if ( 'api-error' != $result && 'request-file-not-found' != $result ) {
+				$logger->info( wc_print_r( 'Page Number ' . $page_number, true ), $context );
+				++$page_number;
+				update_option( 'ced_ebay_seller_event_pagination_' . $user_id, $page_number );
+				$logger->info( 'Getting Data from api', $context );
+
+				if ( ! empty( $result['ItemArray']['Item'] ) ) {
+					$logger->info( 'Getting Item array in Data', $context );
+					if ( ! isset( $result['ItemArray']['Item'][0] ) ) {
+						$temp_item_list = array();
+						$temp_item_list = $result['ItemArray']['Item'];
+						unset( $result['ItemArray']['Item'] );
+						$result['ItemArray']['Item'][] = $temp_item_list;
+					}
+
+					foreach ( $result['ItemArray']['Item'] as $key => $value ) {
+						$ID = false;
+						if ( isset( $value['ItemID'] ) && ! empty( $value['ItemID'] ) ) {
+							$logger->info( 'Item ID - ' . wc_print_r( $value['ItemID'], true ), $context );
+							$store_products = get_posts(
+								array(
+									'numberposts'  => -1,
+									'post_type'    => 'product',
+									'meta_key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $siteID,
+									'meta_value'   => $value['ItemID'],
+									'meta_compare' => '=',
+								)
+							);
+							$localItemID    = wp_list_pluck( $store_products, 'ID' );
+							if ( ! empty( $localItemID ) ) {
+								$ID = $localItemID[0];
+							}
+
+							if ( empty( $ID ) ) {
+								$logger->info( 'Product Not found on Woo', $context );
+								continue;
+							} else {
+								$logger->info( 'Found woo product in woo - ' . wc_print_r( $ID, true ), $context );
+								$product = wc_get_product( $ID );
+								update_post_meta( $ID, 'ced_ebay_stock_ebay_to_woo_running', 'Running' );
+
+								if ( $product->is_type( 'simple' ) && empty( $value['Variations'] ) ) {
+									if ( ( $value['Quantity'] - $value['SellingStatus']['QuantitySold'] ) > 0 ) {
+										$available_quantity = $value['Quantity'] - $value['SellingStatus']['QuantitySold'];
+										$logger->info( 'WOO quantity ' . wc_print_r( $product->get_stock_quantity(), true ) . '| EBAY quantity ' . wc_print_r( $value['Quantity'], true ) . '| quantity sold ' . wc_print_r( $value['SellingStatus']['QuantitySold'], true ) . ' | available quantity ' . wc_print_r( $available_quantity, true ), $context );
+										$current_woo_quantity = $product->get_stock_quantity();
+										if ( ! empty( $current_woo_quantity ) ) {
+											if ( $current_woo_quantity == $available_quantity ) {
+												$logger->info( 'Woo quantity and ebay quantity is same', $context );
+												delete_post_meta( $ID, 'ced_ebay_stock_ebay_to_woo_running' );
+												continue;
+											}
+										}
+										$logger->info( 'Updating quantity', $context );
+										$product->set_manage_stock( true );
+										$product->set_stock_quantity( $value['Quantity'] - $value['SellingStatus']['QuantitySold'] );
+										$product->set_stock_status( 'instock' );
+										$product->save();
+									} else {
+										$logger->info( 'ebay quantity is zero Product out of stock', $context );
+										$product->set_stock_quantity( 0 );
+										$product->set_stock_status( 'outofstock' );
+										$product->save();
+									}
+								} elseif ( $product->is_type( 'variable' ) ) {
+									$logger->info( wc_print_r( 'Variable Product', true ), $context );
+									if ( ! isset( $value['Variations']['Variation'][0] ) ) {
+										$temp_array = array();
+										$temp_array = $value['Variations']['Variation'];
+										unset( $value['Variations']['Variation'] );
+										$value['Variations']['Variation'][] = $temp_array;
+
+									}
+									if ( isset( $value['Variations']['Variation'][0] ) && ! empty( $value['Variations']['Variation'][0] ) ) {
+										$product_variations = $value['Variations']['Variation'];
+										foreach ( $product_variations as $key => $variation ) {
+											$variation_sku = $variation['SKU'];
+											$logger->info( wc_print_r( 'Variation SKU -> ' . $variation_sku, true ), $context );
+
+											if ( $variation_sku ) {
+												$variation_prod_id = wc_get_product_id_by_sku( $variation_sku );
+												$logger->info( 'Variation_id ' . wc_print_r( $variation_prod_id, true ), $context );
+												if ( $variation_prod_id ) {
+													$var_product = wc_get_product( $variation_prod_id );
+												} else {
+													continue;
+												}
+											} else {
+												continue;
+											}
+											$logger->info( 'Quantity - ' . wc_print_r( $variation['Quantity'] - $variation['SellingStatus']['QuantitySold'], true ), $context );
+											if ( $variation['Quantity'] - $variation['SellingStatus']['QuantitySold'] > 0 ) {
+												if ( ! is_wp_error( $var_product ) ) {
+													$var_product->set_stock_quantity( $variation['Quantity'] - $variation['SellingStatus']['QuantitySold'] );
+													$var_product->save();
+												} else {
+													$logger->info( 'Error while fetching Variation product', $context );
+												}
+											} else {
+												$var_product->set_stock_quantity( 0 );
+												$var_product->save();
+											}
+										}
+									} else {
+										$logger->info( 'SIngle variation', $context );
+									}
+								}
+							}
+						}
+					}
+				} else {
+					update_option( 'ced_ebay_seller_event_pagination_' . $user_id, 1 );
+					$logger->info( 'Item array is empty', $context );
+					return;
+				}
+			} else {
+				update_option( 'ced_ebay_seller_event_pagination_' . $user_id, 1 );
+				$logger->info( 'Error in api call', $context );
+				return;
+			}
+		}
+	}
 
 
-	
-	
+	public function ced_ebay_existing_products_sync_manager( $user_id = '', $site_id = '' ) {
+		$logger = wc_get_logger();
+		$this->ced_ebay_onWpAdminInit();
+		$context            = array( 'source' => 'ebay-existing-products-sync' );
+		$fetchCurrentAction = current_action();
+		if ( strpos( $fetchCurrentAction, 'wp_ajax_nopriv_' ) !== false ) {
+			$user_id = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : '';
+			$site_id = isset( $_GET['site_id'] ) ? wc_clean( $_GET['site_id'] ) : '';
+		}
 
-	
+		$ced_ebay_manager = $this->ced_ebay_manager;
+		$shop_data        = ced_ebay_get_shop_data( $user_id, $site_id );
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$siteID = $site_id;
+			$token  = $shop_data['access_token'];
+		} else {
+			return false;
+		}
+		$pre_flight_check = ced_ebay_pre_flight_check( $user_id );
+		if ( ! $pre_flight_check ) {
+			return;
+		}
+		$page = ! empty( get_option( 'ced_ebay_get_products_page_' . $user_id . '>' . $siteID ) ) ? get_option( 'ced_ebay_get_products_page_' . $user_id . '>' . $siteID ) : 1;
+		if ( empty( $page ) ) {
+			$page = 1;
+		}
+		$access_token_arr = get_option( 'ced_ebay_user_access_token' );
+		if ( ! empty( $access_token_arr ) ) {
+			foreach ( $access_token_arr as $key => $value ) {
+				$tokenValue = get_transient( 'ced_ebay_user_access_token_' . $key );
+				if ( false === $tokenValue || null == $tokenValue || empty( $tokenValue ) ) {
+					$user_refresh_token = $value['refresh_token'];
+					$this->ced_ebay_save_user_access_token( $key, $user_refresh_token, 'refresh_user_token' );
+				}
+			}
+		}
+		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+		$count              = 0;
+		$PageNumber         = $page;
+		$length             = 200;
+		$mainXml            = '
+		<?xml version="1.0" encoding="utf-8"?>
+		<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+		<RequesterCredentials>
+		<eBayAuthToken>' . $token . '</eBayAuthToken>
+		</RequesterCredentials>
+		<ActiveList>
+		<Sort>TimeLeft</Sort>
+		<Pagination>
+		<EntriesPerPage>' . $length . '</EntriesPerPage>
+		<PageNumber>' . $PageNumber . '</PageNumber>
+		</Pagination>
+		</ActiveList>`
+		</GetMyeBaySellingRequest>';
+		$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+		$activelist         = $ebayUploadInstance->get_active_products( $mainXml );
+		$logger->info( wc_print_r( '>>>>>> Page Number ' . $PageNumber . '/' . $activelist['ActiveList']['PaginationResult']['TotalNumberOfPages'] . ' <<<<<<<<', true ), $context );
+		if ( ! empty( $activelist['ActiveList']['PaginationResult']['TotalNumberOfPages'] ) ) {
+			if ( $PageNumber > $activelist['ActiveList']['PaginationResult']['TotalNumberOfPages'] ) {
+				$logger->info( 'Reached end of list. Resetting page.', $context );
+				update_option( 'ced_ebay_get_products_page_' . $user_id . '>' . $siteID, 1 );
+				return;
+			}
+		}
+
+		if ( isset( $activelist['ActiveList']['ItemArray']['Item'] ) && ! empty( $activelist['ActiveList']['ItemArray']['Item'] ) ) {
+			if ( ! empty( $activelist['ActiveList']['ItemArray']['Item'] ) && ! isset( $activelist['ActiveList']['ItemArray']['Item'][0] ) ) {
+				$temp = $activelist['ActiveList']['ItemArray']['Item'];
+				unset( $activelist['ActiveList']['ItemArray']['Item'] );
+				$activelist['ActiveList']['ItemArray']['Item'][] = $temp;
+			}
+			foreach ( $activelist['ActiveList']['ItemArray']['Item'] as $item_value ) {
+				$ItemID = $item_value['ItemID'];
+				if ( isset( $item_value['Variations']['Variation'] ) && ! empty( $item_value['Variations']['Variation'] ) ) {
+					if ( ! isset( $item_value['Variations']['Variation'][0] ) ) {
+						$temp = $item_value['Variations']['Variation'];
+						unset( $item_value['Variations']['Variation'] );
+						$item_value['Variations']['Variation'][] = $temp;
+					}
+					foreach ( $item_value['Variations']['Variation'] as $key => $value ) {
+						$eby_sku_var = ! empty( $value['SKU'] ) ? $value['SKU'] : '';
+						if ( isset( $eby_sku_var ) && ! empty( $eby_sku_var ) ) {
+							$args           = array(
+								'post_type'  => 'product_variation',
+								'meta_query' => array(
+									array(
+										'key'   => '_sku',
+										'value' => $eby_sku_var,
+									),
+								),
+							);
+							$variation_post = get_posts( $args );
+							if ( ! empty( $variation_post ) ) {
+								$variation_post_id = $variation_post[0]->ID;
+								$logger->info( wc_print_r( $eby_sku_var, true ) . ' (eBay SKU) ->  ' . wc_print_r( $ItemID, true ) . ' (eBay Item ID) -> ' . wc_print_r( $variation_post_id, true ) . ' (Woo Variation ID) ', $context );
+								if ( isset( $variation_post_id ) && ! empty( $variation_post_id ) ) {
+									update_post_meta( $variation_post_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, $ItemID );
+									$var_product = wc_get_product( $variation_post_id );
+
+									$parent_id = $var_product->get_parent_id();
+									if ( isset( $parent_id ) && ! empty( $parent_id ) ) {
+										update_post_meta( $parent_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, $ItemID );
+										update_post_meta( $parent_id, 'ced_ebay_synced_by_user_id', $user_id );
+
+									}
+								}
+							}
+						}
+					}
+				} else {
+					$eby_sku_simple = ! empty( $item_value['SKU'] ) ? $item_value['SKU'] : '';
+					if ( isset( $eby_sku_simple ) && ! empty( $eby_sku_simple ) ) {
+						$args        = array(
+							'post_type'    => 'product',
+							'post_status'  => 'publish',
+							'numberposts'  => -1,
+							'meta_key'     => '_sku',
+							'meta_value'   => $eby_sku_simple,
+							'meta_compare' => '=',
+						);
+						$woo_product = get_posts( $args );
+						$woo_product = wp_list_pluck( $woo_product, 'ID' );
+						if ( ! empty( $woo_product ) ) {
+							$simple_post_id = $woo_product[0];
+						} else {
+							continue;
+						}
+						if ( ! empty( $simple_post_id ) ) {
+							$logger->info( wc_print_r( $eby_sku_simple, true ) . ' (eBay SKU) ->  ' . wc_print_r( $ItemID, true ) . ' (eBay Item ID) -> ' . wc_print_r( $simple_post_id, true ) . ' (Woo Product ID) ', $context );
+							update_post_meta( $simple_post_id, '_ced_ebay_listing_id_' . $user_id . '>' . $siteID, $ItemID );
+							update_post_meta( $simple_post_id, 'ced_ebay_synced_by_user_id', $user_id );
+
+						}
+					}
+				}
+			}
+			++$page;
+			update_option( 'ced_ebay_get_products_page_' . $user_id . '>' . $siteID, $page );
+		} else {
+			$page = 0;
+			update_option( 'ced_ebay_get_products_page_' . $user_id . '>' . $siteID, $page );
+		}
+	}
+	public function ced_ebay_modify_product_data_for_upload() {
+		$check_ajax = check_ajax_referer( 'ced-ebay-ajax-seurity-string', 'ajax_nonce' );
+		if ( $check_ajax ) {
+			$product_id           = isset( $_POST['productId'] ) ? sanitize_text_field( $_POST['productId'] ) : '';
+			$product_title        = isset( $_POST['prodTitle'] ) ? sanitize_text_field( $_POST['prodTitle'] ) : '';
+			$store_category_value = isset( $_POST['store_category_value'] ) ? sanitize_text_field( $_POST['store_category_value'] ) : '';
+			$store_category_name  = isset( $_POST['store_category_name'] ) ? sanitize_text_field( $_POST['store_category_name'] ) : '';
+			$user_id              = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
+			if ( empty( $product_id ) ) {
+				echo json_encode(
+					array(
+						'status'  => 'error',
+						'message' => 'Failed to fetch product!',
+					)
+				);
+				die;
+			}
+			if ( empty( $product_title ) ) {
+				echo json_encode(
+					array(
+						'status'  => 'error',
+						'message' => 'Please enter a title.',
+					)
+				);
+				die;
+			}
+			$add_new_title = update_post_meta( $product_id, 'ced_ebay_alt_prod_title_' . $product_id . '_' . $user_id, $product_title );
+			if ( $add_new_title ) {
+				echo json_encode(
+					array(
+						'status'  => 'success',
+						'message' => 'Title Modifed. Please close the popup and proceed to upload the product.',
+					)
+				);
+				die;
+			}
+
+			$add_store_category_value = update_post_meta( $product_id, 'ced_ebay_prod_store_cat_value_' . $product_id . '_' . $user_id, $store_category_value );
+			$add_store_category_name  = update_post_meta( $product_id, 'ced_ebay_prod_store_cat_name_' . $product_id . '_' . $user_id, $store_category_name );
+
+		}
+	}
+
+	public function ced_ebay_get_modifed_product_details() {
+		$check_ajax = check_ajax_referer( 'ced-ebay-ajax-seurity-string', 'ajax_nonce' );
+		if ( $check_ajax ) {
+			$product_id = isset( $_POST['productId'] ) ? sanitize_text_field( $_POST['productId'] ) : '';
+			$user_id    = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
+			if ( empty( $product_id ) ) {
+				echo json_encode(
+					array(
+						'status'  => 'error',
+						'message' => 'Failed to fetch product!',
+					)
+				);
+				die;
+			}
+			$get_alt_title = get_post_meta( $product_id, 'ced_ebay_alt_prod_title_' . $product_id . '_' . $user_id, true );
+			if ( $get_alt_title && ! empty( $get_alt_title ) ) {
+				echo json_encode(
+					array(
+						'status' => 'success',
+						'data'   => $get_alt_title,
+					)
+				);
+				die;
+			}
+		}
+	}
 
 
 	public function renderDependency( $file ) {
@@ -3916,7 +6524,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 	}
 	public function loadDependency() {
 		require_once CED_EBAY_DIRPATH . 'admin/ebay/class-ebay.php';
-		$this->ced_ebay_manager = \Ced\Ebay\Class_Ced_EBay_Manager::get_instance();
+		$this->ced_ebay_manager = Class_Ced_EBay_Manager::get_instance();
 
 		require_once ABSPATH . '/wp-admin/includes/file.php';
 	}
@@ -3970,15 +6578,10 @@ class EBay_Integration_For_Woocommerce_Admin {
 			wp_mkdir_p( $wp_upload_dir, 0777 );
 		}
 
-		$rsid = ced_ebay_get_shop_data( $user_id, $site_id );
-		if(empty($rsid)){
-			wp_send_json_error(
-				array(
-					'message' => 'Invalid eBay Account',
-				)
-			);
+		$shop_data = ced_ebay_get_shop_data( $user_id, $site_id );
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$token = $shop_data['access_token'];
 		}
-		
 
 		$fileCategory = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedGetcategories.php';
 		$fileFields   = CED_EBAY_DIRPATH . 'admin/partials/products_fields.php';
@@ -4001,15 +6604,8 @@ class EBay_Integration_For_Woocommerce_Admin {
 		if ( ! empty( $available_attribute ) ) {
 			$categoryAttributes = $available_attribute;
 		} else {
-			$ebayCategoryInstance    = CedGetCategories::get_instance( $site_id, $rsid );
+			$ebayCategoryInstance    = CedGetCategories::get_instance( $site_id, $token );
 			$categoryAttributes      = $ebayCategoryInstance->_getCatSpecifics( $profile_category_id );
-			if(is_wp_error($categoryAttributes)){
-				wp_send_json_error(
-					array(
-						'message' => $categoryAttributes->get_error_message(),
-					)
-				);
-			}
 			$categoryAttributes_json = json_encode( $categoryAttributes );
 			$cat_specifics_file      = $wp_upload_dir . 'ebaycat_' . $profile_category_id . '.json';
 			if ( file_exists( $cat_specifics_file ) ) {
@@ -4018,21 +6614,18 @@ class EBay_Integration_For_Woocommerce_Admin {
 			file_put_contents( $cat_specifics_file, $categoryAttributes_json );
 		}
 
-		$ebayCategoryInstance = CedGetCategories::get_instance( $site_id, $rsid );
+		$ebayCategoryInstance = CedGetCategories::get_instance( $site_id, $token );
+		$limit                = array( 'ConditionEnabled', 'ConditionValues' );
 		$getCatFeatures       = $ebayCategoryInstance->_getCatFeatures( $profile_category_id, array() );
-		if(is_wp_error($getCatFeatures)){
-			wp_send_json_error(
-				array(
-					'message' => $getCatFeatures->get_error_message(),
-				)
-			);
-		}
 		$getCatFeatures_json  = json_encode( $getCatFeatures );
 		$cat_features_file    = $wp_upload_dir . 'ebaycatfeatures_' . $profile_category_id . '.json';
+		// $getCatFeatures = file_get_contents( $cat_features_file );
+		// $getCatFeatures = json_decode($getCatFeatures, true);
 		if ( file_exists( $cat_features_file ) ) {
 			wp_delete_file( $cat_features_file );
 		}
 		file_put_contents( $cat_features_file, $getCatFeatures_json );
+		$getCatFeatures = isset( $getCatFeatures['Category'] ) ? $getCatFeatures['Category'] : false;
 
 		$productFieldInstance = CedeBayProductsFields::get_instance();
 		$addedMetaKeys        = get_option( 'CedUmbProfileSelectedMetaKeys', false );
@@ -4417,10 +7010,9 @@ class EBay_Integration_For_Woocommerce_Admin {
 														echo '</tr>';
 													}
 												}
-												if ( isset( $getCatFeatures[0] ) && ! empty( $getCatFeatures[0] ) ) {
-													$getCatFeatures = $getCatFeatures[0];
+												if ( isset( $getCatFeatures ) && ! empty( $getCatFeatures ) ) {
 													$isText = false;
-													if ( isset( $getCatFeatures['itemConditions'] ) ) {
+													if ( isset( $getCatFeatures['ConditionValues'] ) ) {
 														$isText   = true;
 														$field_id = 'Condition';
 														if ( isset( $getCatFeatures['SpecialFeatures']['Condition'] ) && ! isset( $getCatFeatures['SpecialFeatures']['Condition'][0] ) ) {
@@ -4430,23 +7022,24 @@ class EBay_Integration_For_Woocommerce_Admin {
 															$getCatFeatures['SpecialFeatures']['Condition'][] = $tempSpecialFeatures;
 														}
 														if ( ! empty( $getCatFeatures['SpecialFeatures']['Condition'] ) && is_array( $getCatFeatures['SpecialFeatures']['Condition'] ) ) {
-															$valueForDropdown = array_merge( $getCatFeatures['itemConditions'], $getCatFeatures['SpecialFeatures']['Condition'] );
+															// $valueForDropdown = $getCatFeatures['ConditionValues']['Condition'] + $getCatFeatures['SpecialFeatures']['Condition'];
+															$valueForDropdown = array_merge( $getCatFeatures['ConditionValues']['Condition'], $getCatFeatures['SpecialFeatures']['Condition'] );
 														} else {
-															$valueForDropdown = $getCatFeatures['itemConditions'];
+															$valueForDropdown = $getCatFeatures['ConditionValues']['Condition'];
 														}
 														$tempValueForDropdown = array();
 														if ( isset( $valueForDropdown[0] ) ) {
 															foreach ( $valueForDropdown as $key => $value ) {
-																$tempValueForDropdown[ $value['conditionId'] ] = $value['conditionDescription'];
+																$tempValueForDropdown[ $value['ID'] ] = $value['DisplayName'];
 															}
 														} else {
-															$tempValueForDropdown[ $valueForDropdown['conditionId'] ] = $valueForDropdown['conditionDescription'];
+															$tempValueForDropdown[ $valueForDropdown['ID'] ] = $valueForDropdown['DisplayName'];
 														}
 														$valueForDropdown = $tempValueForDropdown;
 														$name             = 'Condition';
 														$default          = isset( $profile_category_data[ $profile_category_id . '_' . $name ] ) ? $profile_category_data[ $profile_category_id . '_' . $name ] : '';
 														$default          = isset( $default['default'] ) ? $default['default'] : '';
-														if ( isset( $getCatFeatures['itemConditionRequired'] ) ) {
+														if ( isset( $getCatFeatures['ConditionEnabled'] ) && ( 'Enabled' == $getCatFeatures['ConditionEnabled'] || 'Required' == $getCatFeatures['ConditionEnabled'] ) ) {
 															$required                                       = true;
 															$catFeatureSavingForvalidation[ $categoryID ][] = 'Condition';
 															$productFieldInstance->renderDropdownHTML(
@@ -4641,9 +7234,10 @@ class EBay_Integration_For_Woocommerce_Admin {
 			$user_id     = isset( $_POST['user_id'] ) ? sanitize_text_field( wp_unslash( $_POST['user_id'] ) ) : '';
 			$site_id     = isset( $_POST['site_id'] ) ? sanitize_text_field( wp_unslash( $_POST['site_id'] ) ) : '';
 			$click_event = isset( $_POST['click_event'] ) ? sanitize_text_field( wp_unslash( $_POST['click_event'] ) ) : '';
-			$remote_shop   = ced_ebay_get_shop_data( $user_id, $site_id );
-			if ( ! empty( $remote_shop ) && isset($remote_shop['remote_shop_id']) ) {
-				$rsid = $remote_shop['remote_shop_id'];
+			$shop_data   = ced_ebay_get_shop_data( $user_id, $site_id );
+			if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+				$siteID = $site_id;
+				$token  = $shop_data['access_token'];
 			} else {
 				wp_send_json_error(
 					array(
@@ -4653,19 +7247,11 @@ class EBay_Integration_For_Woocommerce_Admin {
 			}
 			$totalEbayListings = ! empty( get_option( 'ced_ebay_total_listings_' . $user_id ) ) ? get_option( 'ced_ebay_total_listings_' . $user_id ) : 0;
 			if ( empty( $totalEbayListings ) ) {
-				$ebayUploadInstance = EbayUpload::get_instance( $rsid );
-				$fetch_activelist         = $ebayUploadInstance->get_active_products( 1,10 );
-				if ( isset( $fetch_activelist['ActiveList']['PaginationResult']['TotalNumberOfEntries'] ) && 0 < $fetch_activelist['ActiveList']['PaginationResult']['TotalNumberOfEntries'] && 'Success' == $fetch_activelist['Ack'] ) {
-					$totalListingsOnEbay = absint( $fetch_activelist['ActiveList']['PaginationResult']['TotalNumberOfEntries'] );
-					update_option( 'ced_ebay_total_listings_' . $user_id, $totalListingsOnEbay );
-				} else {
-					wp_send_json_error(
-						array(
-							'message' => 'Unable to start the product import since there are no active listings in your eBay account.',
-						)
-					);
-				}
-				
+				wp_send_json_error(
+					array(
+						'message' => 'Unable to start the product import since there are no active listings in your eBay account.',
+					)
+				);
 			}
 
 			$args = array(
@@ -4676,7 +7262,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 			);
 			if ( 'start_import' == $click_event ) {
 				if ( function_exists( 'as_schedule_recurring_action' ) ) {
-					$schedule_action = as_schedule_recurring_action( strtotime( 'now' ), 360, 'ced_ebay_import_products_action', $args, 'ced_ebay_product_importer_' . $user_id );
+					$schedule_action = as_schedule_recurring_action( strtotime( 'now' ), 360, 'ced_ebay_import_products_manager_for_loader', $args, 'ced_ebay_product_importer_' . $user_id );
 				}
 				update_option( 'ced_ebay_importer_progress_status_' . $user_id . '>' . $site_id, 'running' );
 				wp_send_json_success(
@@ -4697,30 +7283,46 @@ class EBay_Integration_For_Woocommerce_Admin {
 		}
 	}
 
-	public function ced_ebay_import_products_action_manager( $args ) {
+	public function ced_ebay_import_products_manager_for_loader( $args ) {
 		$user_id = isset( $args['user_id'] ) ? wc_clean( $args['user_id'] ) : '';
-		$siteID = isset( $args['site_id'] ) ? wc_clean( $args['site_id'] ) : '';
+		$site_id = isset( $args['site_id'] ) ? wc_clean( $args['site_id'] ) : '';
 		$logger  = wc_get_logger();
+		$this->ced_ebay_onWpAdminInit();
 		$context = array( 'source' => 'ced-ebay-product-import' );
 		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
 		$fetchCurrentAction = current_action();
 		if ( strpos( $fetchCurrentAction, 'wp_ajax_nopriv_' ) !== false ) {
 			$user_id = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : '';
-			$siteID = isset( $_GET['sid'] ) ? wc_clean( $_GET['sid'] ) : '';
+			$site_id = isset( $_GET['site_id'] ) ? wc_clean( $_GET['site_id'] ) : '';
 		}
-		$remote_shop        = ced_ebay_get_shop_data( $user_id, $siteID );
-		if ( ! empty( $shop_data ) && isset($remote_shop['remote_shop_id']) ) {
-			$rsid = $remote_shop['remote_shop_id'];
+		$ced_ebay_manager = $this->ced_ebay_manager;
+		$shop_data        = ced_ebay_get_shop_data( $user_id, $site_id );
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$siteID = $site_id;
+			$token  = $shop_data['access_token'];
 		} else {
-			update_option( 'ced_ebay_product_importer_product_error_' . $user_id . '>' . $siteID, 'Invalid remote shop' );
+			update_option( 'ced_ebay_product_importer_product_error_' . $user_id . '>' . $siteID, 'Site Data is Invalid' );
 			return false;
 		}
 
 		$page_number        = get_option( 'ced_ebay_product_import_pagination_' . $user_id . '>' . $siteID ) ? get_option( 'ced_ebay_product_import_pagination_' . $user_id . '>' . $siteID ) : 1;
 		$length             = 25;
-		
-		$ebayUploadInstance = EbayUpload::get_instance( $rsid );
-		$activelist         = $ebayUploadInstance->get_active_products( $page_number, $length );
+		$mainXml            = '
+				<?xml version="1.0" encoding="utf-8"?>
+				<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+				<RequesterCredentials>
+				<eBayAuthToken>' . $token . '</eBayAuthToken>
+				</RequesterCredentials>
+				<ActiveList>
+				<Sort>TimeLeft</Sort>
+				<Pagination>
+				<EntriesPerPage>' . $length . '</EntriesPerPage>
+				<PageNumber>' . $page_number . '</PageNumber>
+				</Pagination>
+				</ActiveList>
+				</GetMyeBaySellingRequest>';
+		$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+		$activelist         = $ebayUploadInstance->get_active_products( $mainXml );
 		if ( isset( $activelist['ActiveList']['PaginationResult']['TotalNumberOfPages'] ) && isset( $activelist['ActiveList']['PaginationResult']['TotalNumberOfEntries'] ) && ! empty( $activelist['ActiveList']['PaginationResult']['TotalNumberOfPages'] ) && ! empty( $activelist['ActiveList']['PaginationResult']['TotalNumberOfEntries'] ) ) {
 			update_option( 'ced_ebay_product_import_total_pages_' . $user_id . '>' . $siteID, $activelist['ActiveList']['PaginationResult']['TotalNumberOfPages'] );
 			update_option( 'ced_ebay_product_import_total_entries_' . $user_id . '>' . $siteID, $activelist['ActiveList']['PaginationResult']['TotalNumberOfEntries'] );
@@ -4737,7 +7339,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 			update_option( 'ced_ebay_total_listings_' . $user_id, $total_ebay_listings );
 		}
 
-		$meta_key                = '_ced_ebay_importer_listing_id_' . $user_id . '>' . $siteID;
+		$meta_key                = '_ced_ebay_importer_listing_id_' . $user_id . '>' . $site_id;
 		$alreadyImportedProducts = get_posts(
 			array(
 				'meta_query'     => array(
@@ -4866,8 +7468,6 @@ class EBay_Integration_For_Woocommerce_Admin {
 							'page_number'    => $page_number,
 							'item_id'        => $itemId_array,
 							'user_id'        => $user_id,
-							'site_id'	     => $siteID,
-							'rsid'			 => $rsid
 						);
 						$this->schedule_import_task->push_to_queue( $data );
 				}
@@ -4907,7 +7507,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 			update_option( 'ced_ebay_importer_progress_status_' . $user_id . '>' . $site_id, '' );
 			update_option( 'ced_ebay_product_import_total_pages_' . $user_id . '>' . $site_id, '' );
 			update_option( 'ced_ebay_product_import_total_entries_' . $user_id . '>' . $site_id, '' );
-			$this->schedule_import_task->cancel_process();
+			// $this->schedule_import_task->delete_all();
 			wp_send_json_success( array( 'status' => true ) );
 
 		}
@@ -4917,7 +7517,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 	public function ced_ebay_product_importer_heartbeat_footer_js() {
 		if ( 'woocommerce_page_sales_channel' == get_current_screen()->id && isset( $_GET['section'] ) && 'overview' == $_GET['section'] ) {
 			$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-			$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+			$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 			if ( empty( $user_id ) || '' == $site_id ) {
 				return false;
 			}
@@ -4931,7 +7531,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 					'args'   => array(
 						'data' => $scheduler_args,
 					),
-					'status' => \ActionScheduler_Store::STATUS_RUNNING,
+					'status' => ActionScheduler_Store::STATUS_RUNNING,
 				),
 				'ARRAY_A'
 			);
@@ -4948,7 +7548,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 							$(document).on( 'heartbeat-send', function(e, data) {
 								data['ced_ebay_import_percent'] = 'ced_ebay_importer_percentage';
 								data['ced_ebay_user_id'] = '<?php echo isset( $_GET['user_id'] ) ? esc_attr( wc_clean( $_GET['user_id'] ) ) : ''; ?>';
-								data['ced_ebay_site_id'] = '<?php echo isset( $_GET['sid'] ) ? esc_attr( wc_clean( $_GET['sid'] ) ) : ''; ?>';
+								data['ced_ebay_site_id'] = '<?php echo isset( $_GET['site_id'] ) ? esc_attr( wc_clean( $_GET['site_id'] ) ) : ''; ?>';
 							});
 
 			// Listen for the custom event "heartbeat-tick" on $(document).
@@ -4973,7 +7573,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 												event : 'finished',
 												action: 'ced_ebay_stop_import_loader',
 												user_id : '<?php echo isset( $_GET['user_id'] ) ? esc_attr( wc_clean( $_GET['user_id'] ) ) : ''; ?>',
-												site_id : '<?php echo isset( $_GET['sid'] ) ? esc_attr( wc_clean( $_GET['sid'] ) ) : ''; ?>',
+												site_id : '<?php echo isset( $_GET['site_id'] ) ? esc_attr( wc_clean( $_GET['site_id'] ) ) : ''; ?>',
 												ajax_nonce: ajaxNonce,
 											},
 											success: function(response) {
@@ -5009,7 +7609,7 @@ class EBay_Integration_For_Woocommerce_Admin {
 		if ( ! $is_action_scheduled ) {
 			return $response;
 		} else {
-			$time_stamp = (int) as_next_scheduled_action( 'ced_ebay_import_products_action', null, 'ced_ebay_product_importer_' . $user_id );
+			$time_stamp = (int) as_next_scheduled_action( 'ced_ebay_import_products_manager_for_loader', null, 'ced_ebay_product_importer_' . $user_id );
 		}
 
 		if ( 'ced_ebay_importer_percentage' == $data['ced_ebay_import_percent'] ) {

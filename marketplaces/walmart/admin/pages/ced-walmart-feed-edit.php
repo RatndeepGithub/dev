@@ -7,21 +7,17 @@ $ced_walmart_import_data = get_option( 'ced_walmart_import_data' . $store_id . w
 if ( isset( $ced_walmart_import_data[ $feed_id ]['feedStatus'] ) && ( 'ERROR' == $ced_walmart_import_data[ $feed_id ]['feedStatus'] || 'PROCESSED' == $ced_walmart_import_data[ $feed_id ]['feedStatus'] ) ) {
 	$response = $ced_walmart_import_data[ $feed_id ]['feedData'];
 } elseif ( $feed_id ) {
-	$ced_walmart_process_request_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-process-request.php';
-	include_file( $ced_walmart_process_request_file );
-	$ced_walmart_process_instance = Ced_Walmart_Remote_Request::get_instance();
-	$actions                      = 'feed';
-	$query_args                   = array(
-		'feed_id'   => esc_attr( $feed_id ),
-		'includeDetails' => 'true'
-	);
+	$ced_walmart_curl_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-curl-request.php';
+	include_file( $ced_walmart_curl_file );
+	$ced_walmart_curl_instance = Ced_Walmart_Curl_Request::get_instance();
+	$actions                   = 'feeds/' . esc_attr( $feed_id ) . '?includeDetails=true';
 	/** Refresh token hook for walmart
 	 *
 	 * @since 1.0.0
 	 */
 	do_action( 'ced_walmart_refresh_token', $store_id );
-	$ced_walmart_process_instance->store_id = $store_id;
-	$response                               = $ced_walmart_process_instance->ced_walmart_process_request( $actions );
+	$ced_walmart_curl_instance->store_id = $store_id;
+	$response                            = $ced_walmart_curl_instance->ced_walmart_get_request( $actions );
 	if ( isset( $response['errors'] ) ) {
 		$message = isset( $response['errors']['error']['description'] ) ? $response['errors']['error']['description'] : 'There is issue with Walmart Api . Try later';
 		echo '<h2><' . esc_attr( $message ) . '/h2>';
@@ -51,12 +47,12 @@ if ( isset( $response['error'] ) ) {
 	}
 	echo '</tbody>';
 	echo '</table>';
-} elseif ( isset( $response['result']['feedId'] ) ) {
+} elseif ( isset( $response['feedId'] ) ) {
 	$ced_walmart_import_data                           = get_option( 'ced_walmart_import_data', array() );
-	$ced_walmart_import_data[ $feed_id ]['feedStatus'] = $response['result']['feedStatus'];
-	$ced_walmart_import_data[ $feed_id ]['feedData']   = $response['result'];
+	$ced_walmart_import_data[ $feed_id ]['feedStatus'] = $response['feedStatus'];
+	$ced_walmart_import_data[ $feed_id ]['feedData']   = $response;
 	update_option( 'ced_walmart_import_data', $ced_walmart_import_data );
-	$response_meta                      = $response['result'];
+	$response_meta                      = $response;
 	$feed_info_array                    = array();
 	$feed_info_array['feedId']          = $response_meta['feedId'];
 	$feed_info_array['feedStatus']      = $response_meta['feedStatus'];
@@ -97,7 +93,7 @@ if ( isset( $response['error'] ) ) {
 		echo '</table>';
 
 		$table_header = array( __( 'Product SKU', 'walmart-woocommerce-integration' ), __( 'Product Status', 'walmart-woocommerce-integration' ), __( 'Errors', 'walmart-woocommerce-integration' ) );
-	if ( is_array( $response['result']['itemDetails']['itemIngestionStatus'] ) && ! empty( $response['result']['itemDetails']['itemIngestionStatus'] ) ) {
+	if ( is_array( $response['itemDetails']['itemIngestionStatus'] ) && ! empty( $response['itemDetails']['itemIngestionStatus'] ) ) {
 		echo '<br/>';
 		echo '<h2 class="ced_umb_setting_header ced_umb_bottom_margin">Feed Details</h2>';
 		echo '<table class="wp-list-table widefat fixed striped">';
@@ -109,7 +105,7 @@ if ( isset( $response['error'] ) ) {
 		echo '</tr>';
 		echo '</thead>';
 		echo '<tbody>';
-		foreach ( $response['result']['itemDetails']['itemIngestionStatus'] as $value ) {
+		foreach ( $response['itemDetails']['itemIngestionStatus'] as $value ) {
 			echo '<tr>';
 			echo '<td class="manage-column">' . esc_attr( $value['sku'] ) . '</td>';
 			echo '<td class="manage-column">' . esc_attr( $value['ingestionStatus'] ) . '</td>';

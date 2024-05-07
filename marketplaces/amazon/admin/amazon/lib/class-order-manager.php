@@ -64,7 +64,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 			if ( file_exists( $amzonCurlRequest ) ) {
 				require_once $amzonCurlRequest;
 				$this->amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-			}
+			} 
 		}
 
 
@@ -105,9 +105,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 			$post_type   = get_post_type( $post );
 			$order_types = wc_get_order_types();
 
-			$page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
-
-			if ( in_array( $post_type, $order_types ) || 'wc-orders' == $page ) {
+			if ( in_array( $post_type, $order_types ) ) {
 				add_meta_box( 'ced-amazon-order-manager', __( 'Manage Amazon orders', 'amazon-for-woocommerce' ) . wc_help_tip( __( 'Please send shipping confirmation or order cancellation request.', 'amazon-for-woocommerce' ) ), array( $this, 'ced_amazon_order_manager_box' ) );
 			}
 		}
@@ -120,14 +118,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 		 * @link  http://www.cedcommerce.com/
 		 */
 		public function ced_amazon_order_manager_box() {
-
 			global $post;
 			$order_id = isset( $post->ID ) ? intval( $post->ID ) : '';
-
-			if ( empty( $order_id ) ) {
-				$order_id = isset( $_GET['id'] ) ? sanitize_text_field( $_GET['id'] ) : '';
-			}
-
 			if ( ! is_null( $order_id ) ) {
 				$order = wc_get_order( $order_id );
 				if ( ! is_wp_error( $order ) && '' !== $order ) {
@@ -147,34 +139,33 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 		 * @name fetchOrders
 		 * @since 1.0.0
 		 */
-		public function fetchOrders( $mplocation = '', $cron = true, $seller_mp_key = '', $params = array() ) {
-
-			$cronVal = '';
-			if ( $cron ) {
-				$cronVal = 'Cron is enabled';
-			} else {
-				$cronVal = 'Cron is not enabled';
-			}
+		public function fetchOrders( $mplocation = '', $cron = true, $amazon_order_id = '', $seller_mp_key = '' ) {
 
 			if ( CedAmazonHOPS::custom_orders_table_usage_is_enabled() ) {
 				$this->create_amz_order_hops = true;
 			}
 
 			// Log file name
-			$logger  = wc_get_logger();
-			$context = array( 'source' => 'ced_amazon_order_fetch' );
-			$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
+			$log_date = gmdate( 'Y-m-d' );
+			$log_name = 'order_api_' . $log_date . '.txt';
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
-				$logger->info( $cronVal . " Mplocation or seller id is missing while order sync! \n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Mplocation or seller id is missing while order sync! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'order' );
 				return;
 			}
 
 			// throttle check
-			$ced_amazon_orders_throttle = get_transient( 'ced_amazon_orders_throttle' );
+			$ced_amazon_orders_throttle = get_transient('ced_amazon_orders_throttle') ;
 			if ( $ced_amazon_orders_throttle ) {
-				$logger->info( $cronVal . " API call limit exceeded. Please try after 5 mins.! \n\n\n", $context );
+
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "API call limit exceeded. Please try after 5 mins.! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'catalog' );
 				return;
+				
 			}
 
 			$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', false );
@@ -185,25 +176,44 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 			}
 
 			if ( empty( $shop_data ) ) {
-				$logger->info( $cronVal . " Seller API is missing. \n\n\n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Seller API is missing. \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'order' );
 				return;
 			}
 
-			$global_setting_data = get_option( 'ced_amazon_global_settings', false );
-			$time_limit          = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_order_sync_time_limit'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_order_sync_time_limit'] : 24;
-			$time_limit          = gmdate( 'Y-m-d\Th:i:s\Z', strtotime( $time_limit ) );
-			$time_limit          = "-$time_limit hours";
 
+			$global_setting_data = get_option( 'ced_amazon_global_settings', false );
+			$time_limit   = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_order_sync_time_limit'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_order_sync_time_limit'] : 24;
+
+		
+			$time_limit = "-$time_limit hours";
+
+
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $time_limit ) ) {
-				$logger->info( $cronVal . " Refresh token/marketplace id/time limit are missing. \n\n\n", $context );
+			$time_limit = gmdate( 'Y-m-d\Th:i:s\Z', strtotime( $time_limit ) );
+
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $time_limit ) ) {
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Refresh token/marketplace id/time limit are missing. \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'order' );
 				return;
+			}
+
+			// Check if order next token is save in option
+			$next_token = get_option( 'ced_amazon_fetch_order_next_token_' . $mplocation );
+			if ( empty( $next_token ) ) {
+				$next_token = null;
 			}
 
 			$marketplace_ids = array( $marketplace_id );
 
 			try {
+
 
 				set_time_limit( 600 );
 				wp_raise_memory_limit( -1 );
@@ -212,42 +222,21 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 				$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 				// Order list
-				if ( ! empty( $params['amz_order_id'] ) ) {
-					$order_topic = 'order?amazon_order_id' . $params['amz_order_id'];
-					$order_data  = array(
-						'contract_id' => $contract_id,
-						'mode'        => $params['mode'],
-					);
-				} else {
 
-					$orders_query_params = array(
-						'last_updated_after' => $time_limit,
-						'order_statuses'     => 'Unshipped,PartiallyShipped,Shipped',
-						'next_token'         => isset( $params['next_token'] ) ? $params['next_token'] : '',
-					);
+				$order_topic = 'webapi/amazon/orders';
+				$order_keys  = array(
+					'marketplace_id'     => $marketplace_ids,
+					'seller_id'          => $seller_mp_key,
+					'token'              => $refresh_token,
+					'last_updated_after' => $time_limit,
+					'order_statuses'     => array( 'Unshipped', 'PartiallyShipped', 'Shipped' ),
+					'next_token'         => $next_token,
+					'contract_id'        => $contract_id,
+				);
 
-					$ced_amz_fulfill_chn = ! empty( $global_setting_data[ $seller_mp_key ]['fulfillment_channels'] ) ? $global_setting_data[ $seller_mp_key ]['fulfillment_channels'] : '';
-					if ( 'MFN' == $ced_amz_fulfill_chn || 'AFN' == $ced_amz_fulfill_chn ) {
-						$orders_query_params['fulfillment_channels'] = $ced_amz_fulfill_chn;
-					}
+				
+				$order_reponse_main = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $order_topic, $order_keys, 'POST');
 
-					$order_topic = 'orders?' . http_build_query( $orders_query_params );
-					$order_data  = array(
-						'contract_id' => $contract_id,
-						'mode'        => $params['mode'],
-					);
-
-				}
-
-				// echo '<pre>';
-				// print_r($order_data);
-
-				$order_reponse_main = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $order_topic, $order_data, 'GET' );
-				$logger->info( wc_print_r( $order_reponse_main, true ), $context );
-
-				// echo '<pre>';
-				// print_r($order_reponse_main);
-				// die;
 
 				$code = wp_remote_retrieve_response_code( $order_reponse_main );
 				if ( 429 == $code ) {
@@ -255,36 +244,28 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 				}
 
 				if ( is_wp_error( $order_reponse_main ) ) {
+					// Save error in log
+					ced_amazon_log_data( $order_reponse_main, $log_name, 'order' );
 					return;
 				}
 
 				$order_reponse = json_decode( $order_reponse_main['body'], true );
 				$order_reponse = $order_reponse['data'];
-
 				if ( isset( $order_reponse['success'] ) && 'false' == $order_reponse['success'] ) {
+					// Save error in log
+					ced_amazon_log_data( $order_reponse_main, $log_name, 'order' );
 					return;
-				}
-
-				if ( ! empty( $params['amz_order_id'] ) ) {
-					$order_reponse['payload']['Orders'][0] = $order_reponse['payload'];
 				}
 
 				$orderlists = $order_reponse['payload']['Orders'];
 
 				// Save next token for order fetch (when order response are more than 100)
 				if ( isset( $order_reponse['payload']['NextToken'] ) ) {
-
-					$is_scheduled2 = wp_schedule_single_event( time(), 'ced_amz_fetch_next_page_orders', array( $order_reponse['payload']['NextToken'], $mplocation, $seller_id ) );
-
-					$logger2  = wc_get_logger();
-					$context2 = array( 'source' => 'ced_amazon_order_fetch' );
-
-					if ( $is_scheduled2 ) {
-						$logger2->info( 'ced_amz_fetch_next_page_orders is scheduled for next time', $context2 );
-					} else {
-						$logger2->info( 'unable to schuled ced_amz_fetch_next_page_orders is scheduled for next time', $context2 );
-					}
+					$order_next_token = $order_reponse['payload']['NextToken'];
+				} else {
+					$order_next_token = '';
 				}
+				update_option( 'ced_amazon_fetch_order_next_token_' . $mplocation, $order_next_token );
 
 				$counter = 1;
 
@@ -297,21 +278,31 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 
 						$amazon_order_detail = $orderlist;
 
-						$exist_order_id = $this->is_umb_order_exists( $amazon_order_detail['AmazonOrderId'] );
-						if ( $exist_order_id ) {
-							continue;
+						// Fetch only 5 orders via manually fetch request
+						if ( ! $cron ) {
+							if ( 5 < $counter ) {
+								return;
+							}
+							$exist_order_id = $this->is_umb_order_exists( $amazon_order_detail['AmazonOrderId'] );
+							if ( $exist_order_id ) {
+								continue;
+							}
 						}
 
 						$site_url = str_replace( array( 'http://', 'https://' ), array( '', '' ), get_site_url() );
 						if ( ! empty( $site_url ) && ! empty( $amazon_order_detail['AmazonOrderId'] ) ) {
+
 							$amazon_order_detail['BuyerEmail'] = $amazon_order_detail['AmazonOrderId'] . '@' . $site_url;
+
 						}
 
-						if ( '_sandbox' == $params['mode'] ) {
-							$amazon_order_detail['BuyerEmail'] = '';
-						}
+						
 
-						$amzCurrencyCode                  = isset( $amazon_order_detail['OrderTotal'] ) && isset( $amazon_order_detail['OrderTotal']['CurrencyCode'] ) ? $amazon_order_detail['OrderTotal']['CurrencyCode'] : '';
+						// newly added code starts
+						   $amzCurrencyCode = isset( $amazon_order_detail['OrderTotal'] ) && isset( $amazon_order_detail['OrderTotal']['CurrencyCode'] ) ? $amazon_order_detail['OrderTotal']['CurrencyCode'] : '';
+						// newly added code ends
+						
+
 						$amazon_order_detail['BuyerName'] = isset( $amazon_order_detail['BuyerInfo']['BuyerName'] ) ? $amazon_order_detail['BuyerInfo']['BuyerName'] : '';
 
 						$amazonorderid      = isset( $amazon_order_detail['AmazonOrderId'] ) ? $amazon_order_detail['AmazonOrderId'] : '';
@@ -322,18 +313,18 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 						/*explode first name and last name*/
 
 						// list( $shipping_firstname, $shipping_lastname ) = explode( ' ', $ShipToFirstName, 2 );
-						if ( ! empty( $ShipToFirstName ) ) {
-							$shippingNameArray  = explode( ' ', $ShipToFirstName, 2 );
-							$shipping_firstname = isset( $shippingNameArray[0] ) ? $shippingNameArray[0] : '';
-							$shipping_lastname  = isset( $shippingNameArray[1] ) ? $shippingNameArray[1] : '';
+						if ( !empty( $ShipToFirstName ) ) {
+							$shippingNameArray   = explode( ' ', $ShipToFirstName, 2 );
+							$shipping_firstname  = isset( $shippingNameArray[0] ) ?  $shippingNameArray[0] : '';
+							$shipping_lastname   = isset( $shippingNameArray[1] ) ?  $shippingNameArray[1] : '';
 						}
 
-						$ShipToFirstName = sanitize_user( $shipping_firstname, true );
-						$ShipToLastName  = sanitize_user( $shipping_lastname, true );
-						$first_buyername = sanitize_user( $shipping_firstname, true );
-						$last_buyername  = sanitize_user( $shipping_lastname, true );
-						$ShipToAddress1  = isset( $amazon_order_detail['ShippingAddress']['AddressLine1'] ) ? $amazon_order_detail['ShippingAddress']['AddressLine1'] : '';
-						$ShipToAddress2  = isset( $amazon_order_detail['ShippingAddress']['AddressLine2'] ) ? $amazon_order_detail['ShippingAddress']['AddressLine2'] : '';
+						$ShipToFirstName                                = sanitize_user( $shipping_firstname, true );
+						$ShipToLastName                                 = sanitize_user( $shipping_lastname, true );
+						$first_buyername                                = sanitize_user( $shipping_firstname, true );
+						$last_buyername                                 = sanitize_user( $shipping_lastname, true );
+						$ShipToAddress1                                 = isset( $amazon_order_detail['ShippingAddress']['AddressLine1'] ) ? $amazon_order_detail['ShippingAddress']['AddressLine1'] : '';
+						$ShipToAddress2                                 = isset( $amazon_order_detail['ShippingAddress']['AddressLine2'] ) ? $amazon_order_detail['ShippingAddress']['AddressLine2'] : '';
 						if ( ! empty( $ShipToAddress2 ) && empty( $ShipToAddress1 ) ) {
 							$ShipToAddress1 = $ShipToAddress2;
 							$ShipToAddress2 = '';
@@ -376,7 +367,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 							'postcode'   => $ShipToZipCode,
 							'country'    => $ShipToCountry,
 							'phone'      => $ShipToPhone,
-						);
+						); 
 
 						$userdata['first_name'] = $buyername;
 						$userdata['user_login'] = $buyername;
@@ -387,14 +378,18 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 
 						// Get Order items
 
-						$order_topic = 'order-items?amazon_order_id=' . $amazonorderid;
-						$order_data  = array(
-							'order_id'    => $amazonorderid,
-							'contract_id' => $contract_id,
-						);
+						$order_topic = 'webapi/amazon/get_order_items';
 
-						$order_item_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $order_topic, $order_data, 'GET' );
-						$logger->info( wc_print_r( $order_item_reponse, true ), $context );
+						$order_keys  =  array(
+								'marketplace_id' => $marketplace_id,
+								'seller_id'      => $seller_mp_key,
+								'token'          => $refresh_token,
+								'order_id'       => $amazonorderid,
+								'contract_id'    => $contract_id,
+							);
+
+						
+						$order_item_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $order_topic, $order_keys, 'POST');
 
 						$code = wp_remote_retrieve_response_code( $order_item_reponse );
 						if ( 429 == $code ) {
@@ -402,14 +397,13 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 						}
 
 						if ( is_wp_error( $order_item_reponse ) ) {
+							// Save error in log
+							ced_amazon_log_data( $order_item_reponse, $log_name, 'order' );
 							return;
 						}
-
 						$order_item_reponse = json_decode( $order_item_reponse['body'], true );
 						$order_item_reponse = $order_item_reponse['data'];
 						$amzitemlistitems   = $order_item_reponse['payload']['OrderItems'];
-
-						$amzitemlistitems = apply_filters( 'ced_amazon_order_lineitem_modifications', $amzitemlistitems, $salesChannel );
 
 						$orderlineitems = array();
 
@@ -419,10 +413,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 							$promotion_discount = 0;
 							foreach ( $amzitemlistitems as $linenu => $amzitemlistitem ) {
 								$sku = $amzitemlistitem['SellerSKU'];
-
-								if ( '_sandbox' == $params['mode'] ) {
-									$sku = $ced_amz_sandbox_credentials['sku'];
-								}
 
 								if ( $sku ) {
 									$metaKey  = '_sku';
@@ -452,7 +442,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 
 								$product = wc_get_product( $product_id );
 								if ( ! is_object( $product ) ) {
-									$logger->info( $cronVal . " SKU: $sku does not exist in woo. \n", $context );
+									// Save error in log
+									$log_message  = ced_woo_timestamp() . "\n";
+									$log_message .= "SKU: $sku does not exist in woo. \n\n\n";
+									ced_amazon_log_data( $log_message, $log_name, 'order' );
 									continue;
 								}
 								$product_qty = $amzitemlistitem['QuantityOrdered'];
@@ -482,25 +475,26 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 									$promotion_discount += $amzitemlistitem['PromotionDiscount']['Amount'];
 								}
 
+
 								// newly added code starts
 
-								$global_setting_data       = get_option( 'ced_amazon_global_settings', false );
-								$ced_amazon_order_currency = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] : '';
+								$global_setting_data = get_option( 'ced_amazon_global_settings', false );
+								$ced_amazon_order_currency   = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] : '';
 
-								if ( ! empty( $ced_amazon_order_currency ) && '1' == $ced_amazon_order_currency ) {
-
-									// woo currecny
-									$ced_amazon_currency_convert_rate = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_currency_convert_rate'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_currency_convert_rate'] : 1;
-
-									$product_price = $product_price * $ced_amazon_currency_convert_rate;
-									$product_tax   = $product_tax * $ced_amazon_currency_convert_rate;
+								if ( !empty( $ced_amazon_order_currency ) && '1' == $ced_amazon_order_currency ) {
+								
+									// woo currecny 
+									$ced_amazon_currency_convert_rate  = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_currency_convert_rate'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_currency_convert_rate'] : 1;
+								
+									$product_price  = $product_price * $ced_amazon_currency_convert_rate;
+									$product_tax    = $product_tax * $ced_amazon_currency_convert_rate;
 
 									$shipping_price = $shipping_price * $ced_amazon_currency_convert_rate;
 									$shipping_tax   = $shipping_tax * $ced_amazon_currency_convert_rate;
 
-									$promotion_discount = $promotion_discount * $ced_amazon_currency_convert_rate;
-
-								}
+									$promotion_discount  = $promotion_discount * $ced_amazon_currency_convert_rate;
+									
+								} 
 
 								// newly added code ends
 
@@ -516,10 +510,14 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 								$orderlineitems[] = $item;
 
 							}
+
 						}
 
 						if ( empty( $orderlineitems ) ) {
-							$logger->info( $cronVal . " Amazon Order $amazonorderid SKU does not exist in woo. \n\n\n", $context );
+							// Save error in log
+							$log_message  = ced_woo_timestamp() . "\n";
+							$log_message .= "Amazon Order $amazonorderid SKU does not exist in woo. \n\n\n";
+							ced_amazon_log_data( $log_message, $log_name, 'order' );
 							continue;
 						}
 
@@ -561,11 +559,11 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 
 						$OrderNumber = isset( $amazon_order_detail['AmazonOrderId'] ) ? $amazon_order_detail['AmazonOrderId'] : '';
 
-						$order_id = $this->create_order( $address, $OrderItemsInfo, 'Amazon', $amazonOrderMeta, $mplocation, $seller_mp_key, $cronVal );
+						$order_id = $this->create_order( $address, $OrderItemsInfo, 'Amazon', $amazonOrderMeta, $mplocation, $seller_mp_key );
 
-						$order = wc_get_order( $order_id );
+						$order = wc_get_order( $order_id);
 						if ( $this->create_amz_order_hops ) {
-
+							
 							$order->update_meta_data( 'ced_amazon_order_countory_code', $mplocation );
 							$order->update_meta_data( 'ced_umb_order_sales_channel', $salesChannel );
 							$order->update_meta_data( 'ced_umb_amazon_fulfillment_channel', $fulfillmentChannel );
@@ -579,6 +577,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 							update_post_meta( $order_id, 'ced_umb_amazon_fulfillment_channel', $fulfillmentChannel );
 						}
 
+						
+						
 						$order_status        = 'wc-processing';
 						$amazon_order_status = 'Created';
 
@@ -590,7 +590,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 							$order_status        = 'wc-completed';
 							$amazon_order_status = 'Shipped';
 						}
-
+						
 						if ( $this->create_amz_order_hops ) {
 							$order->update_meta_data( '_amazon_umb_order_status', $amazon_order_status );
 							$order->save();
@@ -656,14 +656,18 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 				} else {
 
 					// Save error in log
-					$logger->info( $cronVal . " No orders found. \n\n\n", $context );
+					$log_message  = ced_woo_timestamp() . "\n";
+					$log_message .= "No orders found. \n\n\n";
+					ced_amazon_log_data( $log_message, $log_name, 'order' );
+
 					if ( ! $cron ) {
 						return false;
 					}
 				}
 			} catch ( Exception $e ) {
-				$logger->info( wc_print_r( 'An error occured', true ), $context );
-				$logger->info( wc_print_r( $e->getMessage(), true ), $context );
+				echo 'Exception when calling order endpoint: ', esc_attr( $e->getMessage() ), PHP_EOL;
+				// Save error in log
+				ced_amazon_log_data( $e->getMessage(), $log_name, 'order' );
 			}
 		}
 
@@ -680,15 +684,15 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 		 * @param array() $orderMeta
 		 * @link  http://www.cedcommerce.com/
 		 */
-		public function create_order( $address = array(), $OrderItemsInfo = array(), $frameworkName = 'UMB', $orderMeta = array(), $mplocation = '', $seller_mp_key = '', $cronVal = 'Cron is empty' ) {
+		public function create_order( $address = array(), $OrderItemsInfo = array(), $frameworkName = 'UMB', $orderMeta = array(), $mplocation = '', $seller_mp_key = '' ) {
+
 
 			set_time_limit( 600 );
 			wp_raise_memory_limit( -1 );
 
 			// Log file name
-			$logger  = wc_get_logger();
-			$context = array( 'source' => 'ced_amazon_order_fetch' );
-			$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
+			$log_date = gmdate( 'Y-m-d' );
+			$log_name = 'order_api_' . $log_date . '.txt';
 
 			global $ced_umb_helper_amaz;
 
@@ -704,9 +708,9 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 				$order_id    = $this->is_umb_order_exists( $OrderNumber );
 
 				if ( $order_id ) {
-					$order = wc_get_order( $order_id );
+					
 					if ( $this->create_amz_order_hops ) {
-
+						
 						$order->update_meta_data( 'ced_amazon_order_countory_code', $mplocation );
 						$order->update_meta_data( 'ced_amazon_order_seller_id', $seller_mp_key );
 
@@ -741,6 +745,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 							$UnitTax   = isset( $ItemInfo['UnitTax'] ) ? floatval( $ItemInfo['UnitTax'] ) : 0;
 
 							$_product = wc_get_product( $ProID );
+
 
 							$productIdsToUpdate[] = $ProID;
 							if ( is_wp_error( $_product ) ) {
@@ -777,13 +782,19 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 									/* ORDER CREATED IN WOOCOMMERCE */
 
 									if ( is_wp_error( $order ) ) {
-										$logger->info( $cronVal . " There is an error while create order. \n\n\n", $context );
+										// Save error in log
+										$log_message  = ced_woo_timestamp() . "\n";
+										$log_message .= "There is an error while create order. \n\n\n";
+										ced_amazon_log_data( $log_message, $log_name, 'order' );
 										continue;
 									} elseif ( false === $order ) {
 										continue;
 									} else {
-
-										$order_id      = $order->get_id();
+										if ( WC()->version < '3.0.0' ) {
+											$order_id = $order->id;
+										} else {
+											$order_id = $order->get_id();
+										}
 										$order_created = true;
 									}
 								}
@@ -793,18 +804,9 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 									$total_items_amount += ( $UnitPrice * $Qty );
 								}
 
-								// $_product->set_price( $UnitPrice );
-								// $item_id = $order->add_product( $_product, $Qty );
 
-								$item_id = $order->add_product(
-									$_product,
-									$Qty,
-									array(
-										'subtotal' => $Qty * $UnitPrice,
-										'total'    => $Qty * $UnitPrice,
-									)
-								);
-								$order->save();
+								$_product->set_price( $UnitPrice );
+								$item_id = $order->add_product( $_product, $Qty );
 
 								// Add line item tax if woo tax is false
 								if ( ! empty( $item_id ) && 0 < $UnitTax && ! $woo_tax ) {
@@ -833,7 +835,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 								if ( isset( $stock_quantity ) && is_numeric( $stock_quantity ) ) {
 									if ( $stock_quantity > 0 ) {
 										$update_stock_quantity = $stock_quantity - $Qty;
-
+										
 										if ( $this->create_amz_order_hops ) {
 											$order->update_meta_data( 'quantity', $update_stock_quantity );
 											$order->save();
@@ -848,7 +850,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 					}
 
 					if ( ! $order_created ) {
-						$logger->info( $cronVal . " Order not created, please check!! \n\n\n", $context );
+						// Save error in log
+						$log_message  = ced_woo_timestamp() . "\n";
+						$log_message .= "Order not created, please check!! \n\n\n";
+						ced_amazon_log_data( $log_message, $log_name, 'order' );
 						return false;
 					}
 
@@ -857,6 +862,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 						wc_reduce_stock_levels( $order_id );
 					}
 
+					
 					if ( $this->create_amz_order_hops ) {
 						$order->update_meta_data( '_umb_order_id', $OrderNumber );
 						$order->save();
@@ -864,6 +870,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 					} else {
 						update_post_meta( $order_id, '_umb_order_id', $OrderNumber );
 					}
+
 
 					$seller_id                = $seller_mp_key;
 					$inventory_sync_frequency = get_option( 'ced_amazon_inventory_scheduler_job_' . $seller_id );
@@ -887,6 +894,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 					$ShippingTax    = isset( $OrderItemsInfo['ShippingTax'] ) ? $OrderItemsInfo['ShippingTax'] : 0;
 					$DiscountAmount = isset( $OrderItemsInfo['DiscountAmount'] ) ? $OrderItemsInfo['DiscountAmount'] : 0;
 					$ShipService    = isset( $OrderItemsInfo['ShipService'] ) ? $OrderItemsInfo['ShipService'] : '';
+
 
 					// Add amazon tax if woo tax is false
 					if ( $tax_amount > 0 && ! $woo_tax ) {
@@ -924,18 +932,25 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 					$order->set_total( $DiscountAmount, 'cart_discount' );
 					$order->calculate_totals( $woo_tax );
 
-					$amzCurrencyCode          = isset( $orderMeta['amzCurrencyCode'] ) ? $orderMeta['amzCurrencyCode'] : '';
-					$ced_amazon_currency_code = get_option( 'ced_amazon_currency_code', '' );
 
-					if ( ! empty( $amzCurrencyCode ) && empty( $ced_amazon_currency_code ) ) {
-						update_option( 'ced_amazon_currency_code', $amzCurrencyCode );
+					// newly added code starts
+					$amzCurrencyCode          = isset( $orderMeta['amzCurrencyCode'] ) ? $orderMeta['amzCurrencyCode'] : '';
+					$ced_amazon_currency_code =  get_option( 'ced_amazon_currency_code', '');
+
+					if ( !empty($amzCurrencyCode) && empty( $ced_amazon_currency_code ) ) {
+						update_option( 'ced_amazon_currency_code', $amzCurrencyCode );  
 					}
 
-					$global_setting_data       = get_option( 'ced_amazon_global_settings', false );
-					$ced_amazon_order_currency = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] : '';
+					//  newly added code ends
 
-					if ( ! empty( $ced_amazon_order_currency ) && '1' == $ced_amazon_order_currency ) {
 
+					// newly added code starts
+
+						$global_setting_data = get_option( 'ced_amazon_global_settings', false );
+						$ced_amazon_order_currency   = ! empty( $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] ) ? $global_setting_data[ $seller_mp_key ]['ced_amazon_order_currency'] : '';
+
+					if ( !empty( $ced_amazon_order_currency ) && '1' == $ced_amazon_order_currency ) {
+						
 						$order->set_currency( get_option( 'woocommerce_currency' ) );
 
 					} else {
@@ -943,14 +958,17 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 						$order->set_currency( $amzCurrencyCode );
 					}
 
-					if ( $this->create_amz_order_hops ) {
+					// newly added code ends
 
+
+					if ( $this->create_amz_order_hops ) {
+						
 						$order->update_meta_data( '_umb_order_id', $OrderNumber );
-						$order->update_meta_data( '_is_amazon_order', 1 );
+						$order->update_meta_data(  '_is_amazon_order', 1 );
 						// $order->update_meta_data(  '_amazon_umb_order_status', 1 );
-						$order->update_meta_data( '_umb_marketplace', $frameworkName );
-						$order->update_meta_data( 'ced_amazon_order_countory_code', $mplocation );
-						$order->update_meta_data( 'ced_amazon_order_seller_id', $seller_mp_key );
+						$order->update_meta_data(  '_umb_marketplace', $frameworkName );
+						$order->update_meta_data(  'ced_amazon_order_countory_code', $mplocation );
+						$order->update_meta_data(  'ced_amazon_order_seller_id', $seller_mp_key );
 
 						$order->save();
 
@@ -966,8 +984,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 					if ( count( $orderMeta ) ) {
 						foreach ( $orderMeta as $oKey => $oValue ) {
 							if ( $this->create_amz_order_hops ) {
-
-								$order->update_meta_data( $oKey, $oValue );
+						
+								$order->update_meta_data(  $oKey, $oValue );
 								$order->save();
 
 							} else {
@@ -978,10 +996,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 
 					$order->save();
 
-					$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
-					$log_message .= $cronVal . " Amazon order $OrderNumber has been created with woo order id $order_id. \n\n\n";
-					$logger->info( wc_print_r( $log_message, true ), $context );
-
+					// Save error in log
+					$log_message  = ced_woo_timestamp() . "\n";
+					$log_message .= "Amazon order $OrderNumber has been created with woo order id $order_id. \n\n\n";
+					ced_amazon_log_data( $log_message, $log_name, 'order' );
 				}
 
 				return $order_id;
@@ -1000,25 +1018,32 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 		public function is_umb_order_exists( $order_number = 0 ) {
 			global $wpdb;
 			if ( $order_number ) {
-				if ( $this->create_amz_order_hops ) {
+
+				if ( $this->create_amz_order_hops ) { 
+				
 					$args = array(
-						'return'       => 'ids',
-						'meta_key'     => '_umb_order_id',
-						'meta_value'   => $order_number,
-						'meta_compare' => '=',
+						'return'        => 'ids',
+						'meta_key'      => '_umb_order_id', 
+						'meta_value'    => $order_number, 
+						'meta_compare'  => '=', 
 					);
 
 					$order_id = wc_get_orders( $args );
+
 					if ( isset( $order_id[0] ) ) {
 						return $order_id[0];
 					}
+
 				} else {
 
 					$order_id = $wpdb->get_results( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='_umb_order_id' AND meta_value=%s LIMIT 1", $order_number ), 'ARRAY_A' );
 					if ( $order_id ) {
 						return $order_id;
 					}
+
 				}
+
+
 			}
 
 			return false;
@@ -1074,13 +1099,23 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 			$ShipName = isset( $ShipParams['ShipService'] ) ? esc_attr( $ShipParams['ShipService'] ) : 'UMB Default Shipping';
 			$ShipCost = isset( $ShipParams['ShippingCost'] ) ? floatval( $ShipParams['ShippingCost'] ) : 0;
 
-			$item_id = wc_add_order_item(
-				$order->get_id(),
-				array(
-					'order_item_name' => $ShipName,
-					'order_item_type' => 'shipping',
-				)
-			);
+			if ( WC()->version < '3.0.0' ) {
+				$item_id = wc_add_order_item(
+					$order->id,
+					array(
+						'order_item_name' => $ShipName,
+						'order_item_type' => 'shipping',
+					)
+				);
+			} else {
+				$item_id = wc_add_order_item(
+					$order->get_id(),
+					array(
+						'order_item_name' => $ShipName,
+						'order_item_type' => 'shipping',
+					)
+				);
+			}
 
 			if ( ! $item_id ) {
 				return false;
@@ -1089,23 +1124,40 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Order_Manager' ) ) :
 			wc_add_order_item_meta( $item_id, 'method_id', $ShipName );
 			wc_add_order_item_meta( $item_id, 'cost', wc_format_decimal( $ShipCost ) );
 
-			$global_setting_data       = get_option( 'ced_amazon_global_settings', false );
-			$ced_amazon_order_currency = ! empty( $global_setting_data[ $location_for_seller ]['ced_amazon_order_currency'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_order_currency'] : '';
+			// newly added code starts
 
-			if ( ! empty( $ced_amazon_order_currency ) && '1' == $ced_amazon_order_currency ) {
+			$global_setting_data = get_option( 'ced_amazon_global_settings', false );
+			$ced_amazon_order_currency   = ! empty( $global_setting_data[ $location_for_seller ]['ced_amazon_order_currency'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_order_currency'] : '';
 
-				$ced_amazon_currency_convert_rate = ! empty( $global_setting_data[ $location_for_seller ]['ced_amazon_currency_convert_rate'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_currency_convert_rate'] : 1;
-				$symbol                           = get_woocommerce_currency_symbol();
+			if ( !empty( $ced_amazon_order_currency ) && '1' == $ced_amazon_order_currency ) {
+			   
+				$ced_amazon_currency_convert_rate  = ! empty( $global_setting_data[ $location_for_seller ]['ced_amazon_currency_convert_rate'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_currency_convert_rate'] : 1;
+				$symbol          =  get_woocommerce_currency_symbol(); 
 
 			} else {
-				$currency_code = ! empty( $global_setting_data[ $location_for_seller ]['ced_amazon_store_currency'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_store_currency'] : '';
-				$symbol        = ! empty( $currency_code ) ? get_woocommerce_currency_symbol( $currency_code ) : '';
+				$currency_code   = ! empty( $global_setting_data[ $location_for_seller ]['ced_amazon_store_currency'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_store_currency'] : '';
+				$symbol          = !empty( $currency_code ) ? get_woocommerce_currency_symbol( $currency_code ) : ''; 
 			}
 
-			$order_id       = $order->get_id();
-			$order_shipping = get_post_meta( $order_id, '_order_shipping', true );
-			$order->set_shipping_total( $order_shipping + wc_format_decimal( $ShipCost ) );
-			$order->save();
+			// newly added code ends
+
+			if ( WC()->version < '3.0.0' ) {
+				// Update total
+				$order->set_total( $order->order_shipping + wc_format_decimal( $ShipCost ), 'shipping' );
+
+				// newly added code starts
+				$order = wc_get_order( $orderID );
+				$total = $order->get_total() ;
+				$total = $total * $ced_amazon_currency_convert_rate;
+				$order->set_total( $total ) ;
+				// newly added code ends
+
+			} else {
+				$order_id       = $order->get_id();
+				$order_shipping = get_post_meta( $order_id, '_order_shipping', true );
+				$order->set_shipping_total( $order_shipping + wc_format_decimal( $ShipCost ) );
+				$order->save();
+			}
 
 			return $item_id;
 		}

@@ -1,5 +1,5 @@
 <?php
-namespace Ced\Ebay;
+namespace Ced_Ebay_WooCommerce_Core;
 
 if ( ! class_exists( 'Ebayauthorization' ) ) {
 	class Ebayauthorization {
@@ -7,7 +7,21 @@ if ( ! class_exists( 'Ebayauthorization' ) ) {
 
 		private static $_instance;
 
+		public $devID;
+		public $appID;
+		public $certID;
+		public $serverUrl;
+		public $loginURL;
+		public $runame;
+		public $compatLevel;
 		public $siteID;
+		public $oauthLoginUrl;
+		public $oauthCodeGrantUrl;
+
+		public $oAuthScope;
+
+		public $accountURL;
+
 		/**
 		 * Get_instance Instance.
 		 *
@@ -30,26 +44,45 @@ if ( ! class_exists( 'Ebayauthorization' ) ) {
 		 */
 		public function __construct() {
 			$this->loadDepenedency();
+			$this->devID             = $this->ebayConfigInstance->devID;
+			$this->appID             = $this->ebayConfigInstance->appID;
+			$this->certID            = $this->ebayConfigInstance->certID;
+			$this->serverUrl         = $this->ebayConfigInstance->serverUrl;
+			$this->loginURL          = $this->ebayConfigInstance->loginURL;
+			$this->runame            = $this->ebayConfigInstance->runame;
+			$this->oauthLoginUrl     = $this->ebayConfigInstance->oauthLoginUrl;
+			$this->oauthCodeGrantUrl = $this->ebayConfigInstance->oauthCodeGrantUrl;
+			$this->oAuthScope        = $this->ebayConfigInstance->oAuthScope;
+			$this->accountURL        = $this->ebayConfigInstance->accountURL;
+			$this->compatLevel       = isset( $compatLevel ) ? $compatLevel : '';
 			$this->siteID            = isset( $siteID ) ? $siteID : '';
 		}
 
 
 		public function getOAuthUrl( $siteID ) {
-			// $redirectTo = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=setup-ebay';
-			$redirectTo = urlencode(remove_query_arg( array( 'sandbox','add-new-account','login_mode' ), wc_get_current_admin_url() ));
-			if(!empty(get_option('ced_ebay_mode_of_operation')) && 'sandbox' == get_option('ced_ebay_mode_of_operation', true)){
-				$is_sandbox = true; 
-			} else {
-				$is_sandbox = false;
-			}
-			// $oauthUrl = 'https://api.cedcommerce.com/cedcommerce-validator/v1/auth?marketplace=ebay&site_id='.$siteID.'&domain='.get_site_url().'&home_redirect_url='.$redirectTo.'&sandbox='.$is_sandbox;
-			$oauthUrl = 'https://api.cedcommerce.com/cedcommerce-validator/v1/auth?marketplace=ebay&site_id='.$siteID.'&domain=http://localhost:8888/wordpress&home_redirect_url='.$redirectTo.'&sandbox='.$is_sandbox;
+			$oauthUrl = $this->oauthLoginUrl . '?prompt=login&client_id=' . $this->appID . '&redirect_uri=' . $this->runame . '&response_type=code&scope=' . $this->oAuthScope . '&state=' . get_admin_url() . 'admin.php?bigcom=ced_woo_ebay_' . $siteID;
 			return $oauthUrl;
 		}
 
-		
+		public function oauthRequestAccessToken( $code, $siteID, $grantType ) {
+			$cedRequest = new \Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, '' );
+			if ( 'refresh_token' == $grantType ) {
+				$requestBody = 'grant_type=' . $grantType . '&refresh_token=' . $code . '&scope=' . $this->oAuthScope;
 
-		
+			} else {
+				$requestBody = 'grant_type=' . $grantType . '&code=' . $code . '&redirect_uri=' . $this->runame;
+			}
+			$response = $cedRequest->sendHttpRequestForOAuth( $code, $requestBody );
+			return $response;
+		}
+
+		public function getAuthurl( $sesId ) {
+			if ( '' != $sesId ) {
+				$authURl = $this->loginURL . '?SignIn&runame=' . $this->runame . "&SessID=$sesId";
+				return $authURl;
+			}
+			return false;
+		}
 		public function getUserData( $access_token, $siteID ) {
 			if ( defined( 'EBAY_INTEGRATION_FOR_WOOCOMMERCE_VERSION' ) ) {
 				$plugin_version = EBAY_INTEGRATION_FOR_WOOCOMMERCE_VERSION;
@@ -61,7 +94,7 @@ if ( ! class_exists( 'Ebayauthorization' ) ) {
 			  </RequesterCredentials>
 			</GetUserRequest>';
 			$verb           = 'GetUser';
-			$cedRequest     = new Ced\Ebay\Cedrequest( $siteID, $verb );
+			$cedRequest     = new \Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, $verb );
 			$response       = $cedRequest->sendHttpRequest( $requestXmlBody );
 			$wp_folder      = wp_upload_dir();
 			$wp_upload_dir  = $wp_folder['basedir'];
@@ -109,7 +142,25 @@ if ( ! class_exists( 'Ebayauthorization' ) ) {
 		}
 
 		public function getStoreData( $siteID, $user_id ) {
-			
+			$shop_data = ced_ebay_get_shop_data( $user_id );
+			if ( ! empty( $shop_data ) ) {
+				$siteID = $shop_data['site_id'];
+				$token  = $shop_data['access_token'];
+			}
+			$requestXmlBody = '<?xml version="1.0" encoding="utf-8"?>
+			<GetStoreRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+				<RequesterCredentials>
+					<eBayAuthToken>' . $token . '</eBayAuthToken>
+				</RequesterCredentials>
+			</GetStoreRequest>';
+			$verb           = 'GetStore';
+			$cedRequest     = new \Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, $verb );
+			$response       = $cedRequest->sendHttpRequest( $requestXmlBody );
+			if ( isset( $response['Ack'] ) && 'Success' == $response['Ack'] ) {
+				update_option( 'ced_ebay_store_data_' . $response['Store']['URLPath'], $response );
+				return $response;
+			}
+			return false;
 		}
 
 		public $ebayConfigInstance;

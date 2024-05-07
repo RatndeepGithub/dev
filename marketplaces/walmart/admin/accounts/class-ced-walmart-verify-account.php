@@ -111,17 +111,17 @@ class Ced_Walmart_Verify_Account {
 
 	public function ced_walmart_get_store_product_count() {
 
-		$ced_walmart_process_request_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-process-request.php';
-		include_file( $ced_walmart_process_request_file );
-		$ced_walmart_process_instance = Ced_Walmart_Remote_Request::get_instance();
-		$action                       = 'product';
-		$query_args                   = array(
+		$ced_walmart_curl_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-curl-request.php';
+		include_file( $ced_walmart_curl_file );
+		$ced_walmart_curl_instance = Ced_Walmart_Curl_Request::get_instance();
+		$action                    = 'items';
+		$query_args                = array(
 			'publishedStatus' => 'PUBLISHED',
 		);
-		$response                     = $ced_walmart_process_instance->ced_walmart_process_request( $action, array(), $query_args, 'GET' );
-		$count                        = 0;
-		if ( isset( $response['result']['totalItems'] ) && ! empty( $response['result']['totalItems'] ) ) {
-			$count = $response['result']['totalItems'];
+		$response                  = $ced_walmart_curl_instance->ced_walmart_get_request( $action, '', $query_args );
+		$count                     = 0;
+		if ( isset( $response['totalItems'] ) && ! empty( $response['totalItems'] ) ) {
+			$count = $response['totalItems'];
 		}
 		return $count;
 	}

@@ -46,9 +46,9 @@
 					var parent_id     = $( this ).data( "parentid" );
 					var name          = $( this ).data( "name" );
 					var level         = $( this ).data( "level" );
-					var secondlevel   = level + 1;
+					var fileLevel     = level + 1;
 					$( '#_umb_etsy_category' ).attr( 'value', selectedValue );
-					const jsonData = await ced_etsy_getJsonData( secondlevel );
+					const jsonData = await ced_etsy_getJsonData( fileLevel );
 					if (jsonData) {
 						$( '#ced_etsy_cat_header' ).html( "" );
 						$( '#ced_etsy_cat_header' ).html(
@@ -82,6 +82,7 @@
 						}
 					);
 					$( '#ced_etsy_categories_' + level ).show();
+					// $('#ced_etsy_categories li:gt(0)').show();
 					let label = $( "#ced_etsy_categories_" + level ).attr( 'data-node-value' );
 					$( "#ced_cat_label" ).text( label );
 					if (lastLevalCat.length >= 0 ) {
@@ -101,6 +102,7 @@
 					let val      = $( this ).val();
 					let fullName = $( "#ced_etsy_breadcrumb" ).text();
 					let id       = $( this ).data( 'id' );
+					console.log( 'ced etsy category ID ' + id );
 					$( '#_umb_etsy_category' ).attr( 'value',id );
 					$( '#_umb_etsy_category_name' ).attr( 'value',fullName );
 					if (val.length <= 0) {
@@ -116,6 +118,7 @@
 			)
 
 			async function ced_etsy_getJsonData(level) {
+
 				try {
 					const response = await $.getJSON( etsy_path + "admin/lib/json/categoryLevel-" + level + ".json" );
 					return response;
@@ -137,9 +140,9 @@
 				html += '<ol id="ced_etsy_categories_' + next_level + '" class="ced_etsy_categories" data-level="' + next_level + '" data-node-value="' + name + '">';
 
 				for (const val of data) {
-
 					let parentId = val.parent_id;
 					let id       = val.id;
+
 					if (selectedValue === parentId) {
 						const jsonData = await ced_etsy_getJsonData( level_after_next_level );
 						const check    = await ced_etsy_has_MatchingParent( jsonData, id );
@@ -187,8 +190,6 @@
 					$( this ).children().prop( 'checked', true );
 					let val      = $( this ).data( 'name' );
 					let fullName = $( "#ced_etsy_breadcrumb" ).text();
-					$( '#_umb_etsy_category' ).attr( 'value',$( this ).data( 'id' ) );
-					$( '#_umb_etsy_category_name' ).attr( 'value',fullName );
 					if (val.length <= 0) {
 						lastLevalCat.push( val )
 						ced_etsy_update_breadCrumb()
@@ -198,6 +199,8 @@
 						lastLevalCat.push( val );
 						ced_etsy_update_breadCrumb();
 					}
+					$( '#_umb_etsy_category' ).attr( 'value',$( this ).data( 'id' ) );
+					$( '#_umb_etsy_category_name' ).attr( 'value',fullName );
 				}
 			);
 		}

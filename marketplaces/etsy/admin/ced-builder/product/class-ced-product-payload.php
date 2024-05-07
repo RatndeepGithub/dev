@@ -94,9 +94,6 @@ class Ced_Product_Payload {
 	public $personalization;
 	public $is_upload = false;
 
-	public $set_vars  = array();
-	public $var_array = array();
-
 
 	/**
 	 * ********************************************************
@@ -127,11 +124,6 @@ class Ced_Product_Payload {
 		if ( 'result' === $property_name ) {
 			return $this->response;
 		}
-
-		if ( array_key_exists( $property_name, $this->set_vars ) ) {
-			return $this->set_vars[ $property_name ];
-		}
-
 	}
 
 	/**
@@ -146,10 +138,6 @@ class Ced_Product_Payload {
 		}
 		if ( 'type' === $name || 'p_type' === $name || 'wc_type' === $name ) {
 			$this->product_type = $value;
-		}
-
-		if ( ! array_key_exists( $name, $this->set_vars ) ) {
-			$this->set_vars[ $name ] = $value;
 		}
 	}
 
@@ -247,11 +235,6 @@ class Ced_Product_Payload {
 	 * @return $arguments all possible arguments .
 	 */
 	public function get_formatted_data( $product_id = '', $shop_name = '' ) {
-
-		if ( has_filter( 'ced_etsy_modify_formated_data_for_variations' ) ) {
-			return apply_filters( 'ced_etsy_modify_formated_data_for_variations', $product_id, $shop_name );
-		}
-
 		$this->ced_etsy_check_profile( $product_id, $shop_name );
 
 		$this->product_id       = $product_id;
@@ -292,10 +275,6 @@ class Ced_Product_Payload {
 
 			}
 		};
-
-		if ( has_filter( 'ced_etsy_modify_get_formatted_data', $this->pro_data, $shop_name, $product_id ) ) {
-			return apply_filters( 'ced_etsy_modify_get_formatted_data', $this->pro_data, $shop_name, $product_id );
-		}
 
 		if ( ! $this->is_profile_assing ) {
 			$this->error['has_error'] = true;
@@ -410,12 +389,7 @@ class Ced_Product_Payload {
 
 
 	public function get_quantity() {
-
 		$quantity = isset( $this->pro_data['stock'] ) ? $this->pro_data['stock'] : '';
-		if ( has_filter( 'ced_etsy_modify_pro_quantity', $this->product_id, $this->shop_name ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_quantity', $this->product_id, $this->shop_name );
-		}
-
 		if ( '' === $quantity ) {
 			$quantity = get_post_meta( $this->product_id, '_stock', true );
 			if ( 'variable' == $this->product_type ) {
@@ -439,19 +413,13 @@ class Ced_Product_Payload {
 				 *
 				 * @since 2.0.0
 				 */
-		return ( '' === $quantity ) ? false : apply_filters( 'ced_etsy_quantity', (float) $quantity, $this->product_id, $this->shop_name );
+		return ( '' === $quantity ) ? false : apply_filters( 'ced_etsy_quantity', (int) $quantity, $this->product_id, $this->shop_name );
 	}
 
 	public function get_title() {
-
 		$title = isset( $this->pro_data['title'] ) ? $this->pro_data['title'] : '';
 		$title = ! empty( $title ) ? $title : $this->product['name'];
 		$title = $this->pro_data['title_pre'] . ' ' . $title . ' ' . $this->pro_data['title_post'];
-
-		if ( has_filter( 'ced_etsy_modify_pro_title', $this->product_id, $this->shop_name ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_title', $this->product_id, $this->shop_name );
-		}
-
 		if ( '' != trim( $title ) ) {
 			/** Alter etsy product title
 				 *
@@ -463,31 +431,21 @@ class Ced_Product_Payload {
 	}
 
 	public function get_description() {
-
 		$description = isset( $this->pro_data['description'] ) ? $this->pro_data['description'] : '';
-
-		if ( has_filter( 'ced_etsy_modify_pro_dec' ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_dec', $this->product_id, $this->shop_name );
-		}
-
 		$description = ! empty( $description ) ? $description : $this->product['description'];
 		if ( '' != trim( strip_tags( $description ) ) ) {
 			/** Alter etsy product description
 				 *
 				 * @since 2.0.0
 				 */
-			return apply_filters( 'ced_etsy_description', (string) trim( strip_tags( html_entity_decode( $description, ENT_COMPAT ) ) ), $this->product_id, $this->shop_name );
+			return apply_filters( 'ced_etsy_description', (string) trim( strip_tags( html_entity_decode( $description ) ) ), $this->product_id, $this->shop_name );
 		}
 		return false;
 	}
 
 	public function get_price() {
-
 		$price = isset( $this->pro_data['price'] ) ? $this->pro_data['price'] : '';
 
-		if ( has_filter( 'ced_etsy_modify_pro_price' ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_price', $this->product_id, $this->shop_name );
-		}
 		if ( 'variable' == $this->product_type ) {
 			$variations = $this->prod_obj->get_available_variations();
 			if ( isset( $variations['0']['display_regular_price'] ) ) {
@@ -503,7 +461,7 @@ class Ced_Product_Payload {
 		}
 
 		$price = (float) $price;
-		return (float) 2.2;
+
 		if ( '' != (float) round( $price, 2 ) ) {
 			/** Alter etsy product price
 				 *
@@ -516,29 +474,16 @@ class Ced_Product_Payload {
 
 	public function get_who_made() {
 		$who_made = ! empty( $this->pro_data['who_made'] ) ? $this->pro_data['who_made'] : 'i_did';
-		if ( has_filter( 'ced_etsy_modify_who_made' ) ) {
-			return apply_filters( 'ced_etsy_modify_who_made', $this->product_id, $this->shop_name );
-		}
 		return (string) $who_made;
 	}
 
 	public function get_when_made() {
-
 		$when_made = ! empty( $this->pro_data['when_made'] ) ? $this->pro_data['when_made'] : '2020_2022';
-		if ( has_filter( 'ced_etsy_modify_when_made' ) ) {
-			return apply_filters( 'ced_etsy_modify_when_made', $this->product_id, $this->shop_name );
-		}
-
 		return (string) $when_made;
 	}
 
 	public function get_taxonomy_id() {
-
 		$taxonomy_id = $this->fetch_meta_value( $this->product_id, '_umb_etsy_category' );
-		if ( has_filter( 'ced_etsy_modify_taxonomy_id' ) ) {
-			return apply_filters( 'ced_etsy_modify_taxonomy_id', $this->product_id, $this->shop_name );
-		}
-
 		if ( (int) $taxonomy_id ) {
 			return (int) $taxonomy_id;
 		}
@@ -546,12 +491,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_shipping_profile_id() {
-
 		$shipping_profile = ! empty( $this->pro_data['shipping_profile'] ) ? $this->pro_data['shipping_profile'] : 0;
-		if ( has_filter( 'ced_etsy_modify_shipping_profile_id' ) ) {
-			return apply_filters( 'ced_etsy_modify_shipping_profile_id', $this->product_id, $this->shop_name );
-		}
-
 		if ( doubleval( $shipping_profile ) ) {
 			return doubleval( $shipping_profile );
 		}
@@ -559,24 +499,13 @@ class Ced_Product_Payload {
 	}
 
 	public function get_is_supply() {
-
-		return (bool) true;
 		$product_supply = ( 'true' == $this->pro_data['product_supply'] ) ? 1 : 0;
-		if ( has_filter( 'ced_etsy_modify_is_supply' ) ) {
-			return apply_filters( 'ced_etsy_modify_is_supply', $this->product_id, $this->shop_name );
-		}
-
-		return (bool) $product_supply;
+		return (int) $product_supply;
 	}
 
 
 	public function get_materials() {
-
 		$get_materials = ! empty( $this->pro_data['materials'] ) ? $this->pro_data['materials'] : array();
-		if ( has_filter( 'ced_etsy_modify_materials' ) ) {
-			return apply_filters( 'ced_etsy_modify_materials', $this->product_id, $this->shop_name );
-		}
-
 		$material_info = array();
 		if ( ! empty( $get_materials ) ) {
 			$explode_materials = array_filter( explode( ',', $get_materials ) );
@@ -597,12 +526,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_shop_section_id() {
-
 		$shop_section = ! empty( $this->pro_data['shop_section'] ) ? $this->pro_data['shop_section'] : 0;
-		if ( has_filter( 'ced_etsy_modify_section_id' ) ) {
-			return apply_filters( 'ced_etsy_modify_section_id', $this->product_id, $this->shop_name );
-		}
-
 		if ( (int) $shop_section ) {
 			return (int) $shop_section;
 		}
@@ -610,12 +534,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_tags() {
-
 		$get_tags = ! empty( $this->pro_data['tags'] ) ? $this->pro_data['tags'] : array();
-		if ( has_filter( 'ced_etsy_modify_pro_tags' ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_tags', $this->product_id, $this->shop_name );
-		}
-
 		$tag_info = array();
 		if ( ! empty( $get_tags ) ) {
 			$explode_materials = array_filter( explode( ',', $get_tags ) );
@@ -654,12 +573,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_styles() {
-
 		$get_styles = ! empty( $this->pro_data['styles'] ) ? $this->pro_data['styles'] : array();
-		if ( has_filter( 'ced_etsy_modify_pro_styles' ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_styles', $this->product_id, $this->shop_name );
-		}
-
 		$style_info = array();
 		if ( ! empty( $get_styles ) ) {
 			$explode_materials = array_filter( explode( ',', $get_styles ) );
@@ -680,45 +594,25 @@ class Ced_Product_Payload {
 	}
 
 	public function get_production_partner_ids() {
-
-		$production_partner = ! empty( $this->pro_data['production_partner'] ) ? $this->pro_data['production_partner'] : array();
-		if ( has_filter( 'ced_etsy_modify_pro_production_partner_ids' ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_production_partner_ids', $this->product_id, $this->shop_name );
-		}
-
-		if ( ! empty( $production_partner ) ) {
-			return $production_partner;
+		$shipping_profile = ! empty( $this->pro_data['production_partners'] ) ? $this->pro_data['production_partners'] : array();
+		if ( ! empty( $shipping_profile ) ) {
+			return $shipping_profile;
 		}
 		return false;
 	}
 
 	public function get_processing_min() {
-
 		$processing_min = ! empty( $this->pro_data['processing_min'] ) ? (int) $this->pro_data['processing_min'] : 1;
-		if ( has_filter( 'ced_etsy_modify_pro_processing_min' ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_processing_min', $this->product_id, $this->shop_name );
-		}
-
 		return $processing_min;
 	}
 
 	public function get_processing_max() {
-
 		$processing_max = ! empty( $this->pro_data['processing_max'] ) ? (int) $this->pro_data['processing_max'] : 3;
-		if ( has_filter( 'ced_etsy_modify_pro_processing_max' ) ) {
-			return apply_filters( 'ced_etsy_modify_pro_processing_max', $this->product_id, $this->shop_name );
-		}
-
 		return $processing_max;
 	}
 
 	public function get_item_weight() {
-
 		$item_weight = ! empty( $this->pro_data['item_weight'] ) ? $this->pro_data['item_weight'] : get_post_meta( $this->product_id, '_weight', true );
-		if ( has_filter( 'ced_etsy_modify_item_weight' ) ) {
-			return apply_filters( 'ced_etsy_modify_item_weight', $this->product_id, $this->shop_name );
-		}
-
 		if ( ! empty( $item_weight ) ) {
 			return (float) $item_weight;
 		}
@@ -726,12 +620,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_item_length() {
-
 		$item_length = ! empty( $this->pro_data['item_length'] ) ? $this->pro_data['item_length'] : get_post_meta( $this->product_id, '_length', true );
-		if ( has_filter( 'ced_etsy_modify_item_length' ) ) {
-			return apply_filters( 'ced_etsy_modify_item_length', $this->product_id, $this->shop_name );
-		}
-
 		if ( ! empty( $item_length ) ) {
 			return (float) $item_length;
 		}
@@ -739,12 +628,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_item_width() {
-
 		$item_width = ! empty( $this->pro_data['item_width'] ) ? $this->pro_data['item_width'] : get_post_meta( $this->product_id, '_width', true );
-		if ( has_filter( 'ced_etsy_modify_item_width' ) ) {
-			return apply_filters( 'ced_etsy_modify_item_width', $this->product_id, $this->shop_name );
-		}
-
 		if ( ! empty( $item_width ) ) {
 			return (float) $item_width;
 		}
@@ -752,12 +636,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_item_height() {
-
 		$item_height = ! empty( $this->pro_data['item_height'] ) ? $this->pro_data['item_height'] : get_post_meta( $this->product_id, '_height', true );
-		if ( has_filter( 'ced_etsy_modify_item_height' ) ) {
-			return apply_filters( 'ced_etsy_modify_item_height', $this->product_id, $this->shop_name );
-		}
-
 		if ( ! empty( $item_height ) ) {
 			return (float) $item_height;
 		}
@@ -765,12 +644,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_item_weight_unit() {
-
 		$item_weight_unit = ! empty( $this->pro_data['item_weight_unit'] ) ? $this->pro_data['item_weight_unit'] : get_option( 'woocommerce_weight_unit', '' );
-		if ( has_filter( 'ced_etsy_modify_item_weight_unit' ) ) {
-			return apply_filters( 'ced_etsy_modify_item_weight_unit', $this->product_id, $this->shop_name );
-		}
-
 		if ( ! empty( $item_weight_unit ) ) {
 			return (string) $item_weight_unit;
 		}
@@ -778,12 +652,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_item_dimensions_unit() {
-
 		$item_dimensions_unit = ! empty( $this->pro_data['item_dimensions_unit'] ) ? $this->pro_data['item_dimensions_unit'] : get_option( 'woocommerce_dimension_unit', '' );
-		if ( has_filter( 'ced_etsy_modify_item_dimensions_unit' ) ) {
-			return apply_filters( 'ced_etsy_modify_item_dimensions_unit', $this->product_id, $this->shop_name );
-		}
-
 		if ( ! empty( $item_dimensions_unit ) ) {
 			return (string) $item_dimensions_unit;
 		}
@@ -791,32 +660,17 @@ class Ced_Product_Payload {
 	}
 
 	public function get_is_personalizable() {
-
 		$is_personalizable = ( 'true' == $this->pro_data['is_personalizable'] ) ? 1 : 0;
-		if ( has_filter( 'ced_etsy_modify_personalizable' ) ) {
-			return apply_filters( 'ced_etsy_modify_personalizable', $this->product_id, $this->shop_name );
-		}
-
-		return (bool) $is_personalizable;
+		return (int) $is_personalizable;
 	}
 
 	public function get_personalization_is_required() {
-
 		$personalization_is_required = ( 'true' == $this->pro_data['personalization_is_required'] ) ? 1 : 0;
-		if ( has_filter( 'ced_etsy_modify_personalization_is_required' ) ) {
-			return apply_filters( 'ced_etsy_modify_personalization_is_required', $this->product_id, $this->shop_name );
-		}
-
-		return (bool) $personalization_is_required;
+		return (int) $personalization_is_required;
 	}
 
 	public function get_personalization_char_count_max() {
-
 		$personalization_char_count_max = ! empty( $this->pro_data['personalization_char_count_max'] ) ? $this->pro_data['personalization_char_count_max'] : false;
-		if ( has_filter( 'ced_etsy_modify_personalization_char_count_max' ) ) {
-			return apply_filters( 'ced_etsy_modify_personalization_char_count_max', $this->product_id, $this->shop_name );
-		}
-
 		if ( (int) $personalization_char_count_max ) {
 			return (int) $personalization_char_count_max;
 		}
@@ -824,12 +678,7 @@ class Ced_Product_Payload {
 	}
 
 	public function get_personalization_instructions() {
-
 		$personalization_instructions = ! empty( $this->pro_data['personalization_instructions'] ) ? $this->pro_data['personalization_instructions'] : '';
-		if ( has_filter( 'ced_etsy_modify_personalization_instructions' ) ) {
-			return apply_filters( 'ced_etsy_modify_personalization_instructions', $this->product_id, $this->shop_name );
-		}
-
 		if ( ! empty( $personalization_instructions ) ) {
 			return (string) $personalization_instructions;
 		}
@@ -837,43 +686,24 @@ class Ced_Product_Payload {
 	}
 
 	public function get_is_customizable() {
-		return (bool) true;
 		$is_customizable = ( 'true' == $this->pro_data['is_customizable'] ) ? 1 : 0;
-		if ( has_filter( 'ced_etsy_modify_is_customizable' ) ) {
-			return apply_filters( 'ced_etsy_modify_is_customizable', $this->product_id, $this->shop_name );
-		}
-
 		return (int) $is_customizable;
 	}
 
 	public function get_is_taxable() {
-
 		$is_taxable = ( 'true' == $this->pro_data['is_taxable'] ) ? 1 : 0;
-		if ( has_filter( 'ced_etsy_modify_is_taxable' ) ) {
-			return apply_filters( 'ced_etsy_modify_is_taxable', $this->product_id, $this->shop_name );
-		}
-
-		return (bool) $is_taxable;
+		return (int) $is_taxable;
 	}
 
 	public function get_state() {
-
 		$product_list_type = ! empty( $this->ced_global_settings['product_data']['_ced_etsy_product_list_type']['default'] ) ? $this->ced_global_settings['product_data']['_ced_etsy_product_list_type']['default'] : 'draft';
-		if ( has_filter( 'ced_etsy_modify_state' ) ) {
-			return apply_filters( 'ced_etsy_modify_state', $this->product_id, $this->shop_name );
-		}
-
 		return (string) $product_list_type;
 	}
 
 	public function get_should_auto_renew() {
 
 		$should_auto_renew = ( 'true' == $this->pro_data['should_auto_renew'] ) ? 1 : 0;
-		if ( has_filter( 'ced_etsy_modify_should_auto_renew' ) ) {
-			return apply_filters( 'ced_etsy_modify_should_auto_renew', $this->product_id, $this->shop_name );
-		}
-
-		return (bool) $should_auto_renew;
+		return (int) $should_auto_renew;
 	}
 
 
@@ -893,10 +723,6 @@ class Ced_Product_Payload {
 	 */
 
 	public function ced_variation_details( $product_id = '', $shop_name = '', $is_sync = false ) {
-
-		if ( has_filter( 'ced_etsy_modify_ced_variation_details' ) ) {
-			return apply_filters( 'ced_etsy_modify_ced_variation_details', $product_id, $shop_name, $is_sync );
-		}
 
 		$property_ids = array();
 		$product      = wc_get_product( $product_id );
@@ -947,7 +773,7 @@ class Ced_Product_Payload {
 					$property_value = $termObj->name;
 				}
 
-				$property_id = (int) 513;
+				$property_id = 513;
 				if ( ! $attribute_one_mapped ) {
 					$property_name_one    = ucwords( str_replace( array( 'attribute_pa_', 'attribute_' ), array( '', '' ), $property_name ) );
 					$attribute_one_mapped = true;
@@ -957,20 +783,20 @@ class Ced_Product_Payload {
 					if ( ! $attribute_two_mapped ) {
 						$property_name_two = ucwords( str_replace( array( 'attribute_pa_', 'attribute_' ), array( '', '' ), $property_name ) );
 					}
-					$property_id          = (int) 514;
+					$property_id          = 514;
 					$attribute_two_mapped = true;
 				}
 
 				$property_values[] = array(
 					'property_id'   => (int) $property_id,
-					'value_ids'     => array( (int) $property_id ),
+					'value_ids'     => array( $property_id ),
 					'property_name' => ucwords( str_replace( array( 'attribute_pa_', 'attribute_' ), array( '', '' ), $atr_name ) ),
 					'values'        => array( $property_value ),
 
 				);
 				$var_att_array .= $property_value . '~';
 				$count++;
-				$property_ids[] = (int) $property_id;
+				$property_ids[] = $property_id;
 			}
 
 			if ( isset( $com_to_be_prepared[ strtolower( $var_att_array ) ] ) ) {
@@ -1084,18 +910,13 @@ class Ced_Product_Payload {
 		$property_ids = implode( ',', $property_ids );
 		$payload      = array(
 			'products'          => $offer_info,
-			'price_on_property' => array( $property_ids ),
-			'sku_on_property'   => array( $property_ids ),
+			'price_on_property' => $property_ids,
+			'sku_on_property'   => $property_ids,
 		);
 
 		if ( $manage_at_var_level ) {
-			$payload['quantity_on_property'] = array( $property_ids );
+			$payload['quantity_on_property'] = $property_ids;
 		}
-
-		if ( has_filter( 'ced_etsy_modify_ced_variation_details_payload', $payload ) ) {
-			return apply_filters( 'ced_etsy_modify_ced_variation_details_payload', $payload );
-		}
-
 		return $payload;
 	}
 
@@ -1114,7 +935,7 @@ class Ced_Product_Payload {
 	 * @return $meta data
 	 */
 
-	public function fetch_meta_value( $product_id, $metaKey, $is_variation = false ) {
+	private function fetch_meta_value( $product_id, $metaKey, $is_variation = false ) {
 		if ( isset( $this->is_profile_assing ) && $this->is_profile_assing ) {
 
 			$_product = wc_get_product( $product_id );

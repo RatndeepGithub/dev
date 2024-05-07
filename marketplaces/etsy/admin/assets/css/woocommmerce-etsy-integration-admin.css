@@ -284,52 +284,6 @@
   border: 1px solid #75757580;
   top: 7px;
 }
-
-.ced-trash-button-wrap span.ced-circle {
-  height: 10px;
-  width: 10px;
-  position: absolute;
-  left: 5px;
-  background: #FF8085;
-  border-radius: 50%;
-  border: 1px solid #75757580;
-  top: 7px;
-}
-
-
-.ced-checkout-draft-button-wrap span.ced-circle {
-  height: 10px;
-  width: 10px;
-  position: absolute;
-  left: 5px;
-  background: #FF8085;
-  border-radius: 50%;
-  border: 1px solid #75757580;
-  top: 7px;
-}
-
-.ced-refunded-button-wrap span.ced-circle {
-  height: 10px;
-  width: 10px;
-  position: absolute;
-  left: 5px;
-  background: #FF8085;
-  border-radius: 50%;
-  border: 1px solid #75757580;
-  top: 7px;
-}
-
-.ced-failed-button-wrap span.ced-circle {
-  height: 10px;
-  width: 10px;
-  position: absolute;
-  left: 5px;
-  background: #FF8085;
-  border-radius: 50%;
-  border: 1px solid #75757580;
-  top: 7px;
-}
-
 .ced-processing-button-wrap a {
   background: #EFF4F9;
   color: #1E1E1E;
@@ -375,47 +329,6 @@
   border-radius: 2px;
   font-size: 12px;
 }
-
-.ced-trash-button-wrap a {
-  background: #FFE8E9;
-  padding: 5px 25px;
-  color: #1E1E1E;
-  position: relative;
-  content: '';
-  border-radius: 2px;
-  font-size: 12px;
-}
-
-.ced-checkout-draft-button-wrap a {
-  background: #FFE8E9;
-  padding: 5px 25px;
-  color: #1E1E1E;
-  position: relative;
-  content: '';
-  border-radius: 2px;
-  font-size: 12px;
-}
-
-.ced-failed-button-wrap a {
-  background: #FFE8E9;
-  padding: 5px 25px;
-  color: #1E1E1E;
-  position: relative;
-  content: '';
-  border-radius: 2px;
-  font-size: 12px;
-}
-
-.ced-refunded-button-wrap a {
-  background: #FFE8E9;
-  padding: 5px 25px;
-  color: #1E1E1E;
-  position: relative;
-  content: '';
-  border-radius: 2px;
-  font-size: 12px;
-}
-
 .widefat td {
   vertical-align: middle !important;
 }
@@ -688,7 +601,7 @@ input.ced-checked-button:checked+label::after {
   min-width: 100% !important;
   width: 100% !important;
 }
-.ced_etsy_product_inventory_logs.ced_etsy_logs.widefat {
+.ced_etsy_product_inventory_logs_GoToStar.ced_etsy_logs.widefat {
   box-shadow: unset;
 }
   .ced-category-mapping ol li:first-child {
@@ -931,7 +844,7 @@ input.ced-checked-button:checked + label::after {
   transition: 0.3s;
 }
 #recommended tbody tr td {
-  /*width: 33%;*/
+  width: 33%;
 }
 /*
 .ced-faq-content-wrap {
@@ -1039,7 +952,7 @@ progress { color: #4caf50; }
   max-height: 760px;
   overflow-y: auto;
 }
-.ced_etsy_product_logs.ced_etsy_logs.widefat {
+.ced_etsy_product_logs_GoToStar.ced_etsy_logs.widefat {
   box-shadow: unset;
 }
 .woocommerce table.form-table .select2-container {
@@ -1118,27 +1031,4 @@ progress { color: #4caf50; }
   display: flex;
   justify-content: center;
   margin-left: 200px;
-}
-
-.ced-notification-top-wrap .woocommerce-layout__header {
-  box-shadow: 0 8px 16px 0 rgba(85,93,102,.3);
-  z-index: 2;
-}
-
-img.check_image {
-	padding: 10px;
-	height: 15px;
-	width: 15px;
-}
-
-.field_dropdown{
-  display: flex;
-  align-items: center;
-}
-
-.field_dropdown > span{
-  margin: 0 10px;
-  background: white;
-  border-radius: 50%;
-  cursor: pointer;
 }

@@ -13,10 +13,10 @@
 					<?php
 
 					/**
-					 * Filter for supported marketplaces
-					 *
-					 * @since  1.0.0
-					 */
+		 * Filter for supported marketplaces
+		 *
+		 * @since  1.0.0
+		 */
 					$activeMarketplaces = apply_filters( 'ced_sales_channels_list', array() );
 					foreach ( $activeMarketplaces as $navigation ) {
 						?>
@@ -29,14 +29,14 @@
 									<span style="font-size: 14px; color: #1E1E1E;"><?php echo esc_html( $navigation['name'] ); ?></span>
 									<br>
 								</strong>
-								<?php
+								<?php 
 
 								/**
-								 * Action for displaying connected marketplaces and accounts
-								 *
-								 * @since  1.0.0
-								 */
-								do_action( 'ced_show_connected_accounts', $navigation['menu_link'] );
+		 * Action for displaying connected marketplaces and accounts
+		 *
+		 * @since  1.0.0
+		 */
+								do_action( 'ced_show_connected_accounts', $navigation['menu_link'] ); 
 								?>
 							</td>
 							<td class="sku column-sku" data-colname="<?php esc_attr_e( 'SKU', 'woocommerce-etsy-integration' ); ?>">
@@ -79,11 +79,11 @@
 						</tr>
 						<?php
 
-						/**
-						 * Action for displaying connected marketplaces and accounts details
-						 *
-						 * @since  1.0.0
-						 */
+					/**
+		 * Action for displaying connected marketplaces and accounts details
+		 *
+		 * @since  1.0.0
+		 */
 						do_action( 'ced_show_connected_accounts_details', $navigation['menu_link'] );
 					}
 					?>

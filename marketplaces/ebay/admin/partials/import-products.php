@@ -3,7 +3,9 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
-
+if ( empty( get_option( 'ced_ebay_user_access_token' ) ) ) {
+	wp_redirect( get_admin_url() . 'admin.php?page=ced_ebay' );
+}
 
 if ( ! class_exists( 'WP_List_Table' ) ) {
 	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';

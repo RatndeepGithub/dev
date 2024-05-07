@@ -12,6 +12,16 @@ $options = array(
 		'type'    => 'input',
 		'tooltip' => 'Enter the brand name which you have registered with Amazon',
 	),
+	'item_name'                => array(
+		'name'    => 'Title',
+		'type'    => 'input',
+		'tooltip' => 'Amazon product listings allow for product titles of up to 500 characters or 250 characters for certain items, serving as concise mini-descriptions of the products',
+	),
+	'product_description'      => array(
+		'name'    => 'Description',
+		'type'    => 'input',
+		'tooltip' => 'The product description is a significant part of your Amazon listing. It appears below the title on the product page and can contain about 2000 characters allowing you to describe products in detail',
+	),
 	'manufacturer'             => array(
 		'name'    => 'Manufacturer',
 		'type'    => 'input',
@@ -32,16 +42,20 @@ $options = array(
 		'type'    => 'input',
 		'tooltip' => 'The ASIN or Product ID acts as a digital fingerprint, enabling seamless navigation through vast inventories and aiding in identifying and categorising items',
 	),
+	'standard_price'           => array(
+		'name'    => 'Price',
+		'type'    => 'input',
+		'tooltip' => 'The price of the product you wish to sell on Amazon.',
+	),
+	'quantity'                 => array(
+		'name'    => 'Quantity',
+		'type'    => 'input',
+		'tooltip' => 'This is the number/quantity of the product that you wish to list on Amazon.',
+	),
 	'external_product_id_type' => array(
 		'name'    => ' Product ID Type',
 		'type'    => 'input',
-		'tooltip' => 'Select one of the following options: GCID, UPC, EAN ASIN or ISBN. It\'s one-of-a-kind and is assigned when you add a new product to Amazon\'s list',
-		'options' => array(
-			'GTIN' => 'GTIN',
-			'UPC'  => 'UPC',
-			'EAN'  => 'EAN',
-			'ISBN' => 'ISBN',
-		),
+		'tooltip' => 'A unique code with ten letters and numbers that Amazon gives to each product. It\'s one-of-a-kind and is assigned when you add a new product to Amazon\'s list',
 	),
 
 

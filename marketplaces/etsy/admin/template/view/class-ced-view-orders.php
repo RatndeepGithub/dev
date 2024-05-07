@@ -5,18 +5,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 if ( ! class_exists( 'WP_List_Table' ) ) {
 	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 }
-use Automattic\WooCommerce\Internal\DataStores\Orders\OrdersTableDataStore;
-use Automattic\WooCommerce\Utilities\OrderUtil as CedEtsyHPOS;
 class Ced_Etsy_List_Orders extends WP_List_Table {
-	private $show_from_hpos;
+
 	/** Class constructor */
 	public function __construct() {
-
-		$this->show_from_hpos = false;
-		if ( CedEtsyHPOS::custom_orders_table_usage_is_enabled() ) {
-			$this->show_from_hpos = true;
-		}
-
 		parent::__construct(
 			array(
 				'singular' => __( 'Etsy Order', 'woocommerce-etsy-integration' ), // singular name of the listed records
@@ -74,28 +66,22 @@ class Ced_Etsy_List_Orders extends WP_List_Table {
 	 *
 	 * Function for id column
 	 */
-	public function column_id( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
+	public function column_id( $items ) {
+		foreach ( $items as $key => $value ) {
+			$displayOrders = $value->get_data();
+			$url           = get_edit_post_link( $displayOrders['order_id'], '' );
+			echo '<a href="' . esc_url( $url ) . '" target="_blank">#' . esc_attr( $displayOrders['order_id'] ) . '</a>';
+			break;
 		}
-		$woo_order_url = get_edit_post_link( $orderID, '' );
-		if ( is_null( $woo_order_url ) || empty( $woo_order_url ) || '' === $woo_order_url ) {
-			$woo_order_url = get_admin_url() . 'admin.php?page=wc-orders&action=edit&id=' . $orderID;
-		}
-		echo '<a href="' . esc_url( $woo_order_url ) . '" target="_blank">#' . esc_attr( $orderID ) . '</a>';
 	}
 	/**
 	 *
 	 * Function for name column
 	 */
-	public function column_name( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
-		}
-		$items = wc_get_order( $orderID );
+	public function column_name( $items ) {
 		foreach ( $items as $key => $value ) {
 			$displayOrders = $value->get_data();
-			$productId     = isset( $displayOrders['product_id'] ) ? $displayOrders['product_id'] : 0;
+			$productId     = $displayOrders['product_id'];
 			$url           = get_edit_post_link( $productId, '' );
 			echo '<b><a class="ced_etsy_prod_name" href="' . esc_attr( $url ) . '" target="#">' . esc_attr( $displayOrders['name'] ) . '</a></b></br>';
 
@@ -105,109 +91,113 @@ class Ced_Etsy_List_Orders extends WP_List_Table {
 	 *
 	 * Function for order Id column
 	 */
-	public function column_etsy_order_id( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
+	public function column_etsy_order_id( $items ) {
+		foreach ( $items as $key => $value ) {
+			$displayOrders   = $value->get_data();
+			$orderID         = $displayOrders['order_id'];
+			$details         = wc_get_order( $orderID );
+			$details         = $details->get_data();
+			$order_meta_data = $details['meta_data'];
+			foreach ( $order_meta_data as $key1 => $value1 ) {
+				$order_id = $value1->get_data();
+				if ( 'merchant_order_id' == $order_id['key'] ) {
+					echo '<span>#' . esc_attr( $order_id['value'] ) . '</span>';
+
+				}
+			}
+			break;
 		}
-		if ( $this->show_from_hpos ) {
-			$wc_order      = wc_get_order( $orderID );
-			$etsy_order_id = $wc_order->get_meta( 'merchant_order_id', true );
-		} else {
-			$etsy_order_id = get_post_meta( $orderID, 'merchant_order_id', true );
-		}
-		echo '<span>#' . esc_attr( $etsy_order_id ) . '</span>';
 	}
 	/**
 	 *
 	 * Function for order status column
 	 */
-	public function column_order_status( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
+	public function column_order_status( $items ) {
+		foreach ( $items as $key => $value ) {
+			$displayOrders = $value->get_data();
+			$orderID       = $displayOrders['order_id'];
+			$details       = wc_get_order( $orderID );
+			$status        = $details->get_status();
+			echo '<div class="ced-' . esc_attr( $status ) . '-button-wrap"><a class="ced-' . esc_attr( $status ) . '-link"><span class="ced-circle" style=""></span> ' . esc_attr( ucfirst( $status ) ) . '</a> </div>';
+			break;
 		}
-		$wc_order = wc_get_order( $orderID );
-		$status   = $wc_order->get_status();
-		echo '<div class="ced-' . esc_attr( $status ) . '-button-wrap"><a class="ced-' . esc_attr( $status ) . '-link"><span class="ced-circle" style=""></span> ' . esc_attr( ucfirst( $status ) ) . '</a> </div>';
 	}
 
-	public function column_etsy_order_status( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
+	public function column_etsy_order_status( $items ) {
+		foreach ( $items as $key => $value ) {
+			$displayOrders = $value->get_data();
+			$orderID       = $displayOrders['order_id'];
+			$details       = get_post_meta( $orderID, 'order_detail', true );
+			$is_paid       = $details['is_paid'];
+			$is_shipped    = $details['is_shipped'];
+
+			$status    = 'processing';
+			$etsyStaus = 'Paid';
+			if ( $is_shipped ) {
+				$status    = 'completed';
+				$etsyStaus = 'Shipped';
+			}
+
+			echo '<div class="ced-' . esc_attr( $status ) . '-button-wrap"><a class="ced-' . esc_attr( $status ) . '-link"><span class="ced-circle" style=""></span> ' . esc_attr( ucfirst( $etsyStaus ) ) . '</a> </div>';
+
+			break;
 		}
-		$e_details = array();
-		if ( $this->show_from_hpos ) {
-			$wc_order  = wc_get_order( $orderID );
-			$e_details = $wc_order->get_meta( 'order_detail', true );
-		} else {
-			$e_details = get_post_meta( $orderID, 'order_detail', true );
-		}
-		$is_paid    = isset( $e_details['is_paid'] ) ? $e_details['is_paid'] : '';
-		$is_shipped = isset( $e_details['is_shipped'] ) ? $e_details['is_shipped'] : '';
-		$status     = 'processing';
-		$etsyStaus  = 'Paid';
-		if ( $is_shipped ) {
-			$status    = 'completed';
-			$etsyStaus = 'Shipped';
-		}
-		echo '<div class="ced-' . esc_attr( $status ) . '-button-wrap"><a class="ced-' . esc_attr( $status ) . '-link"><span class="ced-circle" style=""></span> ' . esc_attr( ucfirst( $etsyStaus ) ) . '</a> </div>';
 	}
 
 	/**
 	 *
 	 * Function for Edit order column
 	 */
-	public function column_action( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
+	public function column_action( $items ) {
+		foreach ( $items as $key => $value ) {
+			$displayOrders = $value->get_data();
+			$woo_order_url = get_edit_post_link( $displayOrders['order_id'], '' );
+			echo '<a href="' . esc_url( $woo_order_url ) . '" target="_blank">Edit</a>';
+			break;
 		}
-		$woo_order_url = get_edit_post_link( $orderID, '' );
-		if ( is_null( $woo_order_url ) || empty( $woo_order_url ) || '' === $woo_order_url ) {
-			$woo_order_url = get_admin_url() . 'admin.php?page=wc-orders&action=edit&id=' . $orderID;
-		}
-		echo '<a href="' . esc_url( $woo_order_url ) . '" target="_blank">Edit</a>';
 	}
 	/**
 	 *
 	 * Function for customer name column
 	 */
-	public function column_customer_name( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
+	public function column_customer_name( $items ) {
+		foreach ( $items as $key => $value ) {
+			$displayOrders = $value->get_data();
+			$orderID       = $displayOrders['order_id'];
+			$details       = wc_get_order( $orderID );
+			$details       = $details->get_data();
+			echo '<b>' . esc_attr( $details['billing']['first_name'] ) . '</b>';
+			break;
 		}
-		$details    = wc_get_order( $orderID );
-		$details    = $details->get_data();
-		$first_name = isset( $details['billing']['first_name'] ) ? $details['billing']['first_name'] : '';
-		echo '<b>' . esc_attr( $first_name ) . '</b>';
 	}
 
-	public function column_created( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
+	public function column_created( $items ) {
+		foreach ( $items as $key => $value ) {
+			$displayOrders = $value->get_data();
+			$orderID       = $displayOrders['order_id'];
+			$details       = wc_get_order( $orderID );
+			$details       = $details->get_date_created();
+			echo '<b>' . esc_attr( $details ) . '</b>';
+			break;
 		}
-		$details = wc_get_order( $orderID );
-		$details = $details->get_date_created();
-		echo '<b>' . esc_attr( $details ) . '</b>';
 	}
 
 
-	public function column_items( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
-		}
-		$orders     = wc_get_order( $orderID );
-		$line_items = ! empty( $orders->get_items() ) ? $orders->get_items() : array();
-		return '<a>' . count( $line_items ) . ' items</a>';
+	public function column_items( $items ) {
+		return '<a>' . count( $items ) . ' items</a>';
 	}
 
-	public function column_total( $orderID ) {
-		if ( empty( $orderID ) || null === $orderID || '' === $orderID ) {
-			return false;
-		}
-		$wc_order_info  = wc_get_order( $orderID );
-		$wc_order_total = $wc_order_info->get_total();
+	public function column_total( $items ) {
 		$currencySymbol = get_woocommerce_currency_symbol();
-		echo '<div class="admin-custom-action-button-outer"><div class="admin-custom-action-show-button-outer">';
-		echo esc_attr( $currencySymbol ) . '&nbsp' . esc_attr( $wc_order_total ) . '</div></div>';
+		foreach ( $items as $key => $value ) {
+			$displayOrders = $value->get_data();
+			$orderID       = $displayOrders['order_id'];
+			$details       = wc_get_order( $orderID );
+			$details       = $details->get_total();
+			echo '<div class="admin-custom-action-button-outer"><div class="admin-custom-action-show-button-outer">';
+			echo esc_attr( $currencySymbol ) . '&nbsp' . esc_attr( $details ) . '</div></div>';
+			break;
+		}
 	}
 
 	/**
@@ -263,38 +253,10 @@ class Ced_Etsy_List_Orders extends WP_List_Table {
 	}
 
 	public function get_count() {
-		$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-		$order_ids = array();
-		if ( $this->show_from_hpos ) {
-			$hpos_orders = wc_get_orders(
-				array(
-					'limit'      => -1,
-					'status'     => 'all',
-					'return'     => 'ids',
-					'meta_query' => array(
-						array(
-							'key'        => '_umb_etsy_marketplace',
-							'value'      => 'Etsy',
-							'comparison' => '==',
-						),
-						array(
-							'key'        => 'ced_etsy_order_shop_id',
-							'value'      => $shop_name,
-							'comparison' => '==',
-						),
-						'fields' => 'ids',
-
-					),
-				)
-			);
-			$ced_e_all_ordrs = is_array( $hpos_orders ) ? $hpos_orders : array();
-			return count( $ced_e_all_ordrs );
-		} else {
-			global $wpdb;
-			$orders_post_id = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%s", 'ced_etsy_order_shop_id', $shop_name ), 'ARRAY_A' );
-			return count( $orders_post_id );
-		}
-
+		global $wpdb;
+		$shop_name      = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
+		$orders_post_id = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%s", 'ced_etsy_order_shop_id', $shop_name ), 'ARRAY_A' );
+		return count( $orders_post_id );
 	}
 
 	/*
@@ -303,45 +265,18 @@ class Ced_Etsy_List_Orders extends WP_List_Table {
 	 *
 	 */
 	public function get_orders( $per_page, $current_page ) {
-		$order_ids = array();
-		$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-		if ( $this->show_from_hpos ) {
-			$offset    = ( $current_page - 1 ) * $per_page;
-			$order_ids = wc_get_orders(
-				array(
-					'limit'      => $per_page,
-					'offset'     => $offset,
-					'status'     => 'all',
-					'orderby'    => 'date',
-					'order'      => 'DESC',
-					'return'     => 'ids',
-					'meta_query' => array(
-						array(
-							'key' => '_is_ced_etsy_order',
-						),
-						array(
-							'key'        => '_umb_etsy_marketplace',
-							'value'      => 'Etsy',
-							'comparison' => '==',
-						),
-						array(
-							'key'        => 'ced_etsy_order_shop_id',
-							'value'      => $shop_name,
-							'comparison' => '==',
-						),
-					),
-				)
-			);
-		} else {
-			global $wpdb;
-			$orders_post_id = array();
-			$offset         = ( $current_page - 1 ) * $per_page;
-			$orders_post_id = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%s  order by `post_id` DESC LIMIT %d OFFSET %d", 'ced_etsy_order_shop_id', $shop_name, $per_page, $offset ), 'ARRAY_A' );
-			foreach ( $orders_post_id as $key => $value ) {
-				$order_ids[] = isset( $value['post_id'] ) ? $value['post_id'] : '';
-			}
+		global $wpdb;
+		$shop_name      = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
+		$offset         = ( $current_page - 1 ) * $per_page;
+		$orders_post_id = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%s  order by `post_id` DESC LIMIT %d OFFSET %d", 'ced_etsy_order_shop_id', $shop_name, $per_page, $offset ), 'ARRAY_A' );
+
+		foreach ( $orders_post_id as $key => $value ) {
+			$post_id        = isset( $value['post_id'] ) ? $value['post_id'] : '';
+			$post_details   = wc_get_order( $post_id );
+			$order_detail[] = $post_details->get_items();
 		}
-		return $order_ids;
+		$order_detail = isset( $order_detail ) ? $order_detail : '';
+		return( $order_detail );
 	}
 }
 

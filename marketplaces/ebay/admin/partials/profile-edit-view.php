@@ -4,6 +4,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
 
+if ( empty( get_option( 'ced_ebay_user_access_token' ) ) ) {
+	wp_redirect( get_admin_url() . 'admin.php?page=ced_ebay' );
+}
+
 wp_raise_memory_limit( 'admin' );
 
 $fileHeader   = CED_EBAY_DIRPATH . 'admin/partials/header.php';
@@ -21,20 +25,17 @@ if ( file_exists( $fileFields ) ) {
 	require_once $fileFields;
 }
 $user_id       = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-$site_id       = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+$site_id       = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 $wp_folder     = wp_upload_dir();
 $wp_upload_dir = $wp_folder['basedir'];
 $wp_upload_dir = $wp_upload_dir . '/ced-ebay/category-specifics/' . $user_id . '/' . $site_id . '/';
 if ( ! is_dir( $wp_upload_dir ) ) {
 	wp_mkdir_p( $wp_upload_dir, 0777 );
 }
-$rsid = ced_ebay_get_shop_data( $user_id,$site_id );
-if(empty($rsid)){
-	wp_send_json_error(
-		array(
-			'message' => 'Invalid eBay Account',
-		)
-	);
+$shop_data = ced_ebay_get_shop_data( $user_id );
+if ( ! empty( $shop_data ) ) {
+	$token       = $shop_data['access_token'];
+	$getLocation = $shop_data['location'];
 }
 
 $isProfileSaved = false;
@@ -309,7 +310,7 @@ if ( ! empty( $available_attribute ) ) {
 		update_option( 'ced_ebay_required_item_aspects_for_ebay_category', $required_item_aspects_for_category );
 	}
 } else {
-	$ebayCategoryInstance    = Ced\Ebay\CedGetCategories::get_instance( $site_id, $rsid );
+	$ebayCategoryInstance    = CedGetCategories::get_instance( $site_id, $token );
 	$categoryAttributes      = $ebayCategoryInstance->_getCatSpecifics( $profile_category_id );
 	$categoryAttributes_json = json_encode( $categoryAttributes );
 	if ( ! empty( get_option( 'ced_ebay_required_item_aspects_for_ebay_category' ) ) ) {
@@ -344,23 +345,18 @@ if ( ! empty( $available_attribute ) ) {
 
 
 }
-$ebayCategoryInstance = Ced\Ebay\CedGetCategories::get_instance( $site_id, $rsid );
+$ebayCategoryInstance = CedGetCategories::get_instance( $site_id, $token );
 $limit                = array( 'ConditionEnabled', 'ConditionValues' );
-$getCatFeatures       = $ebayCategoryInstance->_getCatFeatures( $profile_category_id);
-if(is_wp_error($getCatFeatures)){
-	wp_send_json_error(
-		array(
-			'message' => $getCatFeatures->get_error_message(),
-		)
-	);
-}
+$getCatFeatures       = $ebayCategoryInstance->_getCatFeatures( $profile_category_id, array() );
 $getCatFeatures_json  = json_encode( $getCatFeatures );
 $cat_features_file    = $wp_upload_dir . 'ebaycatfeatures_' . $profile_category_id . '.json';
+// $getCatFeatures = file_get_contents( $cat_features_file );
+// $getCatFeatures = json_decode($getCatFeatures, true);
 if ( file_exists( $cat_features_file ) ) {
 	wp_delete_file( $cat_features_file );
 }
 file_put_contents( $cat_features_file, $getCatFeatures_json );
-$getCatFeatures = isset( $getCatFeatures[0] ) ? $getCatFeatures[0] : false;
+$getCatFeatures = isset( $getCatFeatures['Category'] ) ? $getCatFeatures['Category'] : false;
 if ( ! empty( $woo_categories ) && is_array( $woo_categories ) && ! empty( $getCatFeatures['ConditionValues'] ) ) {
 	if ( ! empty( get_option( 'ced_ebay_profiles_assigned_to_categories' ) ) ) {
 		$existingConditionValuesToTermIdsMapping = get_option( 'ced_ebay_profiles_assigned_to_categories', true );
@@ -375,9 +371,9 @@ if ( ! empty( $woo_categories ) && is_array( $woo_categories ) && ! empty( $getC
 			$getCatFeatures['SpecialFeatures']['Condition'][] = $tempSpecialFeatures;
 		}
 		if ( ! empty( $getCatFeatures['SpecialFeatures']['Condition'] ) && is_array( $getCatFeatures['SpecialFeatures']['Condition'] ) ) {
-			$existingConditionValuesToTermIdsMapping[ $wooTermId ] = array_merge( $getCatFeatures['itemConditions'], $getCatFeatures['SpecialFeatures']['Condition'] );
+			$existingConditionValuesToTermIdsMapping[ $wooTermId ] = array_merge( $getCatFeatures['ConditionValues']['Condition'], $getCatFeatures['SpecialFeatures']['Condition'] );
 		} else {
-			$existingConditionValuesToTermIdsMapping[ $wooTermId ] = $getCatFeatures['itemConditions'];
+			$existingConditionValuesToTermIdsMapping[ $wooTermId ] = $getCatFeatures['ConditionValues']['Condition'];
 		}
 	}
 	if ( ! empty( $existingConditionValuesToTermIdsMapping ) && is_array( $existingConditionValuesToTermIdsMapping ) ) {
@@ -387,7 +383,7 @@ if ( ! empty( $woo_categories ) && is_array( $woo_categories ) && ! empty( $getC
 $attribute_data = array();
 
 
-$productFieldInstance = Ced\Ebay\CedeBayProductsFields::get_instance();
+$productFieldInstance = CedeBayProductsFields::get_instance();
 $fields               = $productFieldInstance->ced_ebay_get_custom_products_fields( $user_id, $profile_category_id, $site_id );
 $user_id              = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
 
@@ -416,9 +412,9 @@ if ( $isProfileSaved ) {
 					<?php
 					if ( ! empty( $woo_categories ) && is_array( $woo_categories ) ) {
 						?>
-				<a class="ced-ebay-v2-btn" target="_blank" href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=products-view&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid['remote_shop_id'] . '&profileID=' . $profileID . '&eBayCatID=' . $ebay_cat_id ) ); ?>">
+				<a class="ced-ebay-v2-btn" target="_blank" href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=products-view&user_id=' . $user_id . '&site_id=' . $site_id . '&profileID=' . $profileID . '&eBayCatID=' . $ebay_cat_id ) ); ?>">
 					Filter Products				</a> | 
-					<a class="ced-ebay-v2-btn" href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=product-template&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid['remote_shop_id'] . '&profileID=' . $profileID . '&eBayCatID=' . $ebay_cat_id ) ); ?>">
+					<a class="ced-ebay-v2-btn" href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=product-template&user_id=' . $user_id . '&site_id=' . $site_id . '&profileID=' . $profileID . '&eBayCatID=' . $ebay_cat_id ) ); ?>">
 					Create New Template</a>
 						<?php
 					}
@@ -766,7 +762,7 @@ if ( $isProfileSaved ) {
 					}
 					if ( isset( $getCatFeatures ) && ! empty( $getCatFeatures ) ) {
 						$isText = false;
-						if ( isset( $getCatFeatures['itemConditions'] ) ) {
+						if ( isset( $getCatFeatures['ConditionValues'] ) ) {
 							$field_id = 'Condition';
 							$isText   = true;
 							if ( isset( $getCatFeatures['SpecialFeatures']['Condition'] ) && ! isset( $getCatFeatures['SpecialFeatures']['Condition'][0] ) ) {
@@ -776,23 +772,24 @@ if ( $isProfileSaved ) {
 								$getCatFeatures['SpecialFeatures']['Condition'][] = $tempSpecialFeatures;
 							}
 							if ( ! empty( $getCatFeatures['SpecialFeatures']['Condition'] ) && is_array( $getCatFeatures['SpecialFeatures']['Condition'] ) ) {
-								$valueForDropdown = array_merge( $getCatFeatures['itemConditions'], $getCatFeatures['SpecialFeatures']['Condition'] );
+								// $valueForDropdown = $getCatFeatures['ConditionValues']['Condition'] + $getCatFeatures['SpecialFeatures']['Condition'];
+								$valueForDropdown = array_merge( $getCatFeatures['ConditionValues']['Condition'], $getCatFeatures['SpecialFeatures']['Condition'] );
 							} else {
-								$valueForDropdown = $getCatFeatures['itemConditions'];
+								$valueForDropdown = $getCatFeatures['ConditionValues']['Condition'];
 							}
 							$tempValueForDropdown = array();
 							if ( isset( $valueForDropdown[0] ) ) {
 								foreach ( $valueForDropdown as $key => $value ) {
-									$tempValueForDropdown[ $value['conditionId'] ] = $value['conditionDescription'];
+									$tempValueForDropdown[ $value['ID'] ] = $value['DisplayName'];
 								}
 							} else {
-								$tempValueForDropdown[ $valueForDropdown['conditionId'] ] = $valueForDropdown['conditionDescription'];
+								$tempValueForDropdown[ $valueForDropdown['ID'] ] = $valueForDropdown['DisplayName'];
 							}
 							$valueForDropdown = $tempValueForDropdown;
 							$name             = 'Condition';
 							$default          = isset( $profile_category_data[ $profile_category_id . '_' . $name ] ) ? $profile_category_data[ $profile_category_id . '_' . $name ] : '';
 							$default          = isset( $default['default'] ) ? $default['default'] : '';
-							if ( isset( $getCatFeatures['itemConditionRequired'] )  ) {
+							if ( isset( $getCatFeatures['ConditionEnabled'] ) && ( 'Enabled' == $getCatFeatures['ConditionEnabled'] || 'Required' == $getCatFeatures['ConditionEnabled'] ) ) {
 								$required                                       = true;
 								$catFeatureSavingForvalidation[ $categoryID ][] = 'Condition';
 								$productFieldInstance->renderDropdownHTML(
@@ -856,7 +853,7 @@ if ( $isProfileSaved ) {
 						if ( ! empty( $profile_data ) ) {
 							$data = json_decode( $profile_data['profile_data'], true );
 						}
-						$productFieldInstance = \Ced\Ebay\CedeBayProductsFields::get_instance();
+						$productFieldInstance = CedeBayProductsFields::get_instance();
 						$fields               = $productFieldInstance->ced_ebay_get_profile_framework_specific( $profile_category_id );
 
 						foreach ( $fields as $value ) {

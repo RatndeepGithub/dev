@@ -16,11 +16,6 @@ $shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( $_GET['shop_name
 			);
 			$count     = 1;
 			foreach ( $log_types as $label => $log_type ) {
-				if ( 'ced_etsy_order_logs_' . $shop_name == $log_type ) {
-					 $placeholder = 'Search by Order Id';
-				} else {
-					 $placeholder = 'Search by SKU & Title';
-				}
 				?>
 				<div class="ced-faq-wrapper">
 					<input class="ced-faq-trigger" id="<?php echo esc_attr( $label ); ?>"
@@ -28,11 +23,9 @@ $shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( $_GET['shop_name
 					<label class="ced-faq-title" for="<?php echo esc_attr( $label ); ?>">
 						<?php echo esc_html( $label ); ?>
 					</label>
-					
 					<div class="ced-faq-content-wrap">
 						<div class="ced-faq-content-holder">
 							<div class="ced-form-accordian-wrap">
-								<input type="search" placeholder= "<?php echo esc_attr( $placeholder ); ?>" id="<?php echo esc_attr( $log_type ); ?>" name="search_box_on_timeline" style="float: right;">
 								<div class="wc-progress-form-content woocommerce-importer">
 									<?php
 									$log_info = get_option( $log_type, '' );
@@ -70,6 +63,7 @@ $shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( $_GET['shop_name
 											echo "<td><span class=''>" . esc_html( $info['action'] ) . '</span></td>';
 											echo "<td><span class=''>" . esc_html( $info['time'] ) . '</span></td>';
 											echo "<td><span class=''>" . esc_html( $was_auto ) . '</span></td>';
+											// echo "<td><span class=''>" .  . '</span></td>';
 											echo '<td>';
 											if ( isset( $info['response']['response']['results'] ) || isset( $info['response']['results'] ) || isset( $info['response']['listing_id'] ) || isset( $info['response']['response']['products'] ) || isset( $info['response']['products'] ) || isset( $info['response']['listing_id'] ) ) {
 												echo "<span class='etsy_log_success ced_s_f_log_details row-title ced-sucess'>" . esc_html__( 'Success', 'woocommerce-etsy-integration' ) . '</span>';

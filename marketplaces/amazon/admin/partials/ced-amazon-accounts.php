@@ -17,7 +17,7 @@ if ( isset( $_GET['part'] ) ) {
 
 	if ( in_array( $part, $allowed_parts ) ) {
 
-		switch ( $part ) {
+		switch ($part) {
 			case 'wizard-options':
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/wizard-options.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/wizard-options.php';
@@ -34,12 +34,13 @@ if ( isset( $_GET['part'] ) ) {
 				}
 				break;
 			default:
-				echo '';
+			  echo '';
 		}
-
+		
 		wp_die();
 	}
 }
+
 
 
 $part    = isset( $_GET['part'] ) ? sanitize_text_field( $_GET['part'] ) : '';
@@ -51,55 +52,28 @@ $ced_amazon_sellernext_shop_ids = get_option( 'ced_amazon_sellernext_shop_ids', 
 $contract_data = get_option( 'ced_unified_contract_details', array() );
 $contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
-$subscriptionVerified = 0;
 
-$details    = get_details( $contract_id );
+$details    = get_details($contract_id);
 $planstatus = isset( $details['plan_status'] ) ? $details['plan_status'] : '';
 $end_date   = isset( $details['end_date'] ) ? $details['end_date'] : '';
-$mode       = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-
-if ( '_sandbox' == $mode ) {
-	$subscriptionVerified = 1;
-	$contract_id          = rand( 0, 999 );
-	$planstatus           = 'active';
-}
 
 
-if ( ! empty( $contract_id ) ) {
-
-	if ( $planstatus ) {
-
-		if ( 'active' == $planstatus ) {
-			$subscriptionVerified = 1;
-		} else {
-			$page_query_params = array(
-				'page'    => 'sales_channel',
-				'channel' => 'pricing',
-			);
-			ced_redirect_page( $mode, $page_query_params );
-		}
-	} else {
-		$page_query_params = array(
-			'page'    => 'sales_channel',
-			'channel' => 'pricing',
-		);
-		ced_redirect_page( $mode, $page_query_params );
-	}
-} else {
-	$page_query_params = array(
-		'page'    => 'sales_channel',
-		'channel' => 'pricing',
-	);
-	ced_redirect_page( $mode, $page_query_params );
-}
+$subscriptionVerified = 1;
 
 
 if ( ! $subscriptionVerified ) {
-	$page_query_params = array(
-		'page'    => 'sales_channel',
-		'channel' => 'pricing',
+
+	$pricing_url = add_query_arg(
+		array(
+			'page'    => 'sales_channel',
+			'channel' => 'pricing',
+
+		),
+		admin_url() . 'admin.php'
 	);
-	ced_redirect_page( $mode, $page_query_params );
+
+	wp_safe_redirect( $pricing_url );
+
 
 } elseif ( isset( $_GET['section'] ) ) {
 
@@ -121,7 +95,7 @@ if ( ! $subscriptionVerified ) {
 
 	if ( in_array( $section, $allowed_sections ) ) {
 
-		switch ( $section ) {
+		switch ($section) {
 			case 'overview':
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/overview.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/overview.php';
@@ -138,7 +112,7 @@ if ( ! $subscriptionVerified ) {
 				}
 				break;
 
-
+			
 			case 'products-view':
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/products-view.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/products-view.php';
@@ -153,9 +127,9 @@ if ( ! $subscriptionVerified ) {
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/feed-view.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/feed-view.php';
 				}
-				break;
+				break;  
 
-
+			 
 			case 'settings':
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/settings.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/settings.php';
@@ -170,9 +144,9 @@ if ( ! $subscriptionVerified ) {
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/plans-view.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/plans-view.php';
 				}
-				break;
+				break;    
 
-
+			  
 			case 'add-new-template':
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/add-new-template.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/add-new-template.php';
@@ -182,7 +156,7 @@ if ( ! $subscriptionVerified ) {
 				if ( file_exists( CED_AMAZON_DIRPATH . 'admin/partials/setup-amazon.php' ) ) {
 					require_once CED_AMAZON_DIRPATH . 'admin/partials/setup-amazon.php';
 				}
-				break;
+				break;    
 
 
 			default:
@@ -191,14 +165,16 @@ if ( ! $subscriptionVerified ) {
 				}
 		}
 	}
+
 } else {
 
 	if ( ! session_id() ) {
 		session_start();
 	}
-
-	$sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
-	$current_step      = isset( $sellernextShopIds[ $user_id ] ) && isset( $sellernextShopIds[ $user_id ]['ced_amz_current_step'] ) ? $sellernextShopIds[ $user_id ]['ced_amz_current_step'] : '';
+	$create_user_response = get_option( 'ced_amazon_sellernext_user_creation_response', array() );
+	$user_name            = isset( $create_user_response['email'] ) ? $create_user_response['email'] : 'User';
+	$sellernextShopIds    = get_option( 'ced_amazon_sellernext_shop_ids', array() );
+	$current_step         = isset( $sellernextShopIds[ $user_id ] ) && isset( $sellernextShopIds[ $user_id ]['ced_amz_current_step'] ) ? $sellernextShopIds[ $user_id ]['ced_amz_current_step'] : '';
 
 
 	?>
@@ -252,14 +228,18 @@ if ( ! $subscriptionVerified ) {
 
 							if ( 3 < $ced_amazon_sellernext_shop_ids[ $current_shop['user_id'] ]['ced_amz_current_step'] ) {
 
-								$page_query_params = array(
-									'page'      => 'sales_channel',
-									'channel'   => 'amazon',
-									'section'   => 'overview',
-									'user_id'   => $current_shop['user_id'],
-									'seller_id' => $current_shop['seller_id'],
+								$url = add_query_arg(
+									array(
+										'page'      => 'sales_channel',
+										'channel'   => 'amazon',
+										'section'   => 'overview',
+										'user_id'   => $current_shop['user_id'],
+										'seller_id' => $current_shop['seller_id'],
+
+
+									),
+									admin_url() . 'admin.php'
 								);
-								ced_redirect_page( $mode, $page_query_params );
 
 							} else {
 
@@ -274,39 +254,42 @@ if ( ! $subscriptionVerified ) {
 									$part = 'sconfiguration';
 								}
 
-								$page_query_params = array(
-									'page'      => 'sales_channel',
-									'channel'   => 'amazon',
-									'section'   => 'setup-amazon',
-									'part'      => $part,
-									'user_id'   => $current_shop['user_id'],
-									'seller_id' => $current_shop['seller_id'],
+								$url = add_query_arg(
+									array(
+										'page'      => 'sales_channel',
+										'channel'   => 'amazon',
+										'section'   => 'setup-amazon',
+										'part'      => $part,
+										'user_id'   => $current_shop['user_id'],
+										'seller_id' => $current_shop['seller_id'],
+
+
+									),
+									admin_url() . 'admin.php'
 								);
-
-								ced_redirect_page( $mode, $page_query_params );
-
-								// if( '_sandbox' == $mode ){
-								// $query_args['mode'] = '_sandbox';
-								// }
-
-								// $url = add_query_arg( $query_args, admin_url() . 'admin.php' );
 							}
 
-							// wp_safe_redirect( $url );
+							wp_safe_redirect( $url );
 
 
 						} else {
 
-							$page_query_params = array(
-								'page'    => 'sales_channel',
-								'channel' => 'amazon',
-								'section' => 'setup-amazon',
+							$url = add_query_arg(
+								array(
+									'page'    => 'sales_channel',
+									'channel' => 'amazon',
+									'section' => 'setup-amazon',
+
+								),
+								admin_url() . 'admin.php'
 							);
 
-							ced_redirect_page( $mode, $page_query_params );
+							wp_safe_redirect( $url );
+							exit();
 
 						}
 						?>
+
 
 					</div>
 				</div>

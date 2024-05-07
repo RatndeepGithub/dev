@@ -109,9 +109,9 @@ class Ced_Walmart_Connect_Account {
 
 
 	public function ced_walmart_validate_credentials( $client_id = '', $client_secret = '', $environment = '' ) {
-		$ced_walmart_process_request_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-process-request.php';
-		include_file( $ced_walmart_process_request_file );
-		$ced_walmart_process_instance = Ced_Walmart_Remote_Request::get_instance();
+		$ced_walmart_curl_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-curl-request.php';
+		include_file( $ced_walmart_curl_file );
+		$ced_walmart_curl_instance = Ced_Walmart_Curl_Request::get_instance();
 
 		/**
 		 * Filter for walmart channel id
@@ -128,20 +128,19 @@ class Ced_Walmart_Connect_Account {
 		);
 
 		$action     = 'token';
-		$parameters = array('grant_type' => 'client_credentials');
-		$response   = $ced_walmart_process_instance->ced_walmart_process_request(
+		$parameters = 'grant_type=client_credentials';
+		$response   = $ced_walmart_curl_instance->ced_walmart_get_request(
 			$action,
 			$parameters,
 			array(
 				'client_id'     => $client_id,
 				'client_secret' => $client_secret,
 				'environment'   => strtolower( $environment ),
-			),
-			'POST'
+			)
 		);
 
-		$token      = isset( $response['result']['access_token'] ) ? $response['result']['access_token'] : '';
-		$expries_in = isset( $response['result']['expires_in'] ) ? $response['result']['expires_in'] : '';
+		$token      = isset( $response['access_token'] ) ? $response['access_token'] : '';
+		$expries_in = isset( $response['expires_in'] ) ? $response['expires_in'] : '';
 
 		if ( ! empty( $token ) ) {
 
@@ -185,12 +184,12 @@ class Ced_Walmart_Connect_Account {
 				'status'  => 400,
 				'message' => $message,
 			);
-		} elseif ( isset( $response['error']['error'][0] ) ) {
+		} elseif ( isset( $response['error'][0] ) ) {
 
-			$message = isset( $response['error']['error'][0]['description'] ) ? $response['error']['error'][0]['description'] : '';
+			$message = isset( $response['error'][0]['description'] ) ? $response['error'][0]['description'] : '';
 
 			if ( empty( $message ) ) {
-				$message = isset( $response['error']['error_description'] ) ? $response['error']['error_description'] : '';
+				$message = isset( $response['error_description'] ) ? $response['error_description'] : '';
 
 			}
 			return array(

@@ -30,11 +30,10 @@ class Ced_Walmart_Profiles_List extends WP_List_Table {
 	 * @since 1.0.0
 	 */
 	public function __construct() {
-		
 		parent::__construct(
 			array(
 				'singular' => __( 'Walmart Profile', 'walmart-woocommerce-integration' ),
-				'plural'   => __( 'Walmart Profiles', 'walmart-woocommerce-integration' ),
+				'plural'   => __( 'Walmart  Profiles', 'walmart-woocommerce-integration' ),
 				'ajax'     => false,
 			)
 		);
@@ -90,9 +89,8 @@ class Ced_Walmart_Profiles_List extends WP_List_Table {
 	 * @param      int $per_page    Results per page.
 	 * @param      int $page_number   Page number.
 	 */
-	
 	public function ced_walmart_get_profiles( $per_page = 10, $page_number = 1 ) {
-		$result = get_option( 'ced_mapped_cat_MP_ITEM' );
+		$result = get_option( 'ced_mapped_cat' );
 		$result = json_decode( $result, 1 );
 		if ( is_array( $result ) && isset( $result ) ) {
 			$profile_array = array();
@@ -116,7 +114,7 @@ class Ced_Walmart_Profiles_List extends WP_List_Table {
 	 */
 	public function get_count() {
 
-		$result        = get_option( 'ced_mapped_cat_MP_IEM' );
+		$result        = get_option( 'ced_mapped_cat' );
 		$result        = json_decode( $result, 1 );
 		$profile_array = array();
 		if ( is_array( $result ) && isset( $result ) ) {
@@ -171,7 +169,7 @@ class Ced_Walmart_Profiles_List extends WP_List_Table {
 		$title_formatted    = str_replace( '_', ' ', $title );
 		$request_page       = isset( $_REQUEST['page'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['page'] ) ) : '';
 		$format_cat_for_url = urlencode( $ced_walmart_profile_details['cat_name'] );
-		$url                = admin_url( 'admin.php?page=sales_channel&channel=walmart&section=templates&details=edit&profile_id=' . $format_cat_for_url . '&profile_type=MP_ITEM&store_id=' . $store_id );
+		$url                = admin_url( 'admin.php?page=sales_channel&channel=walmart&section=templates&details=edit&profile_id=' . $format_cat_for_url . '&section=templates&details=edit&store_id=' . $store_id );
 		$actions['edit']    = '<a href=' . $url . '>Edit</a>';
 		return $title_formatted . $this->row_actions( $actions, true );
 	}
@@ -258,13 +256,12 @@ class Ced_Walmart_Profiles_List extends WP_List_Table {
 					array(
 						'section'  => 'templates',
 						'details'  => 'edit',
-						'profile_type' => 'MP_ITEM',
 						'store_id' => ced_walmart_get_current_active_store(),
 					)
 				)
 			);
 			?>
-				" class="button-primary alignright" id="ced_walmart_create_template">Create new template</a>
+						" class="button-primary alignright">Create new template</a>
 			</div>	
 			<div>
 
@@ -321,16 +318,17 @@ class Ced_Walmart_Profiles_List extends WP_List_Table {
 	public function process_bulk_action() {
 
 		if ( isset( $_POST['action'] ) && 'bulk-delete' == $_POST['action'] || isset( $_POST['action2'] ) && 'bulk-delete' == $_POST['action2'] ) {
+
 			if ( ! isset( $_POST['walmart_profiles_actions'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['walmart_profiles_actions'] ) ), 'walmart_profiles' ) ) {
 				return;
 			}
 
 			$sanitized_array = filter_input_array( INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS );
 			$profile_ids     = isset( $sanitized_array['walmart_profile_ids'] ) ? $sanitized_array['walmart_profile_ids'] : array();
-			
+
 			$store_id = isset( $_GET['store_id'] ) ? sanitize_text_field( wp_unslash( $_GET['store_id'] ) ) : '';
 			foreach ( $profile_ids as $index => $profile_id ) {
-				$ced_walmart_profile_details = get_option( 'ced_mapped_cat_MP_ITEM');
+				$ced_walmart_profile_details = get_option( 'ced_mapped_cat' );
 				$ced_walmart_profile_details = json_decode( $ced_walmart_profile_details, 1 );
 				foreach ( $ced_walmart_profile_details['profile'] as $key => $value ) {
 					if ( $key == $profile_id ) {
@@ -338,12 +336,12 @@ class Ced_Walmart_Profiles_List extends WP_List_Table {
 							delete_term_meta( $value_id, 'ced_walmart_category' );
 						}
 						unset( $ced_walmart_profile_details['profile'][ $profile_id ] );
-						delete_option( 'ced_walmart_cat_visible_MP_ITEM_' . $profile_id . '' );
-						delete_option( 'ced_walmart_cat_visible_variable_attr_MP_ITEM_' . $profile_id );
+						delete_option( 'ced_walmart_cat_visible_' . $profile_id );
+						delete_option( 'ced_walmart_cat_visible_variable_attr' . $profile_id );
 						if ( empty( $ced_walmart_profile_details['profile'] ) ) {
-							delete_option( 'ced_mapped_cat_MP_ITEM' );
+							delete_option( 'ced_mapped_cat' );
 						} else {
-							update_option( 'ced_mapped_cat_MP_ITEM', json_encode( $ced_walmart_profile_details ), 1 );
+							update_option( 'ced_mapped_cat', json_encode( $ced_walmart_profile_details ), 1 );
 						}
 					}
 				}

@@ -121,7 +121,7 @@ if ( ! function_exists( 'ced_etsy_woo_missing_notice' ) ) {
 if ( ! function_exists( 'ced_etsy_multichannel_active_notice' ) ) {
 	function ced_etsy_multichannel_active_notice() {
 		// translators: %s: search term !!
-		echo '<div class="notice notice-error is-dismissible"><p>' . sprintf( esc_html( __( 'You already have Multichannel by CedCommerce installed on your website. Click %s to subscribe for Etsy Integration', 'woocommerce-etsy-integration' ) ), '<a href="' . esc_attr( ced_get_navigation_url( 'etsy', array( 'section' => 'pricing' ) ) ) . '">Here</a>' ) . '</p></div>';
+		echo '<div class="notice notice-error is-dismissible"><p>' . sprintf( esc_html( __( 'You already have Multichannel by CedCommerce installed on your website. Click %s to subscribe for Etsy Integration', 'woocommerce-etsy-integration' ) ), '<a href="' . esc_attr( admin_url( 'admin.php?page=sales_channel&channel=pricing' ) ) . '">Here</a>' ) . '</p></div>';
 	}
 }
 
@@ -154,18 +154,55 @@ if ( ! function_exists( 'get_etsy_connected_accounts' ) ) {
 }
 
 if ( ! function_exists( 'ced_etsy_get_auth_url' ) ) {
-	function ced_etsy_get_auth_url() {
-		return esc_url_raw( 'https://api.cedcommerce.com/cedcommerce-validator/v1/auth?marketplace=etsy&domain=' . site_url() . '&home_redirect_url=' . urlencode( admin_url( 'admin.php?page=sales_channel&channel=etsy' ) ) );
+	function ced_etsy_get_auth_url( $shop_name ) {
+
+		$scopes = array(
+			'address_r',
+			'address_w',
+			'billing_r',
+			'cart_r',
+			'cart_w',
+			'email_r',
+			'favorites_r',
+			'favorites_w',
+			'feedback_r',
+			'listings_d',
+			'listings_r',
+			'listings_w',
+			'profile_r',
+			'profile_w',
+			'recommend_r',
+			'recommend_w',
+			'shops_r',
+			'shops_w',
+			'transactions_r',
+			'transactions_w',
+		);
+
+		$scopes         = urlencode( implode( ' ', $scopes ) );
+		$redirect_uri   = 'https://woodemo.cedcommerce.com/woocommerce/authorize/etsy/authorize.php';
+		$client_id      = ced_etsy_get_auth();
+		$verifier       = base64_encode( admin_url( 'admin.php?page=sales_channel&channel=etsy&shop_name=' . $shop_name ) );
+		$code_challenge = strtr(
+			trim(
+				base64_encode( pack( 'H*', hash( 'sha256', $verifier ) ) ),
+				'='
+			),
+			'+/',
+			'-_'
+		);
+
+		return "https://www.etsy.com/oauth/connect?response_type=code&redirect_uri=$redirect_uri&scope=$scopes&client_id=$client_id&state=$verifier&code_challenge=$code_challenge&code_challenge_method=S256";
 	}
 }
 
 if ( ! function_exists( 'get_etsy_shop_id' ) ) {
 	function get_etsy_shop_id( $shop_name = '' ) {
 		$saved_etsy_details = get_option( 'ced_etsy_details', array() );
-		$shopDetails        = isset( $saved_etsy_details[ $shop_name ] ) ? $saved_etsy_details[ $shop_name ] : array();
-		$shop_id            = '';
+		$shopDetails        = isset( $saved_etsy_details[ $shop_name ] ) ? $saved_etsy_details[ $shop_name ] : false;
+		$shop_id            = false;
 		if ( $shopDetails ) {
-			$shop_id = isset( $shopDetails['details']['remote_shop_id'] ) ? $shopDetails['details']['remote_shop_id'] : '';
+			$shop_id = isset( $shopDetails['details']['shop_id'] ) ? $shopDetails['details']['shop_id'] : '';
 		}
 		return $shop_id;
 	}
@@ -210,13 +247,7 @@ if ( ! function_exists( 'get_etsy_shop_name' ) ) {
 	}
 }
 if ( ! function_exists( 'ced_get_navigation_url' ) ) {
-	function ced_get_navigation_url( $channel = 'etsy', $query_args = array(), $setup = false ) {
-		$query_args['mode'] = '_sandbox';
-
-		if ( ( ( 'etsy' == $channel && $setup ) || 0 == count( get_option( 'ced_etsy_details', array() ) ) ) && 'pricing' !== $channel ) {
-			return esc_url_raw( 'https://api.cedcommerce.com/cedcommerce-validator/v1/auth?marketplace=etsy&domain=' . site_url() . '&home_redirect_url=' . urlencode( admin_url( 'admin.php?page=sales_channel&channel=etsy' ) ) );
-		}
-
+	function ced_get_navigation_url( $channel = 'home', $query_args = array() ) {
 		if ( ! empty( $query_args ) ) {
 			return admin_url( 'admin.php?page=sales_channel&channel=' . $channel . '&' . http_build_query( $query_args ) );
 		}
@@ -226,29 +257,9 @@ if ( ! function_exists( 'ced_get_navigation_url' ) ) {
 
 if ( ! function_exists( 'get_etsy_orders_count' ) ) {
 	function get_etsy_orders_count( $shop_name ) {
-		if ( Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ) {
-			$hpos_orders = wc_get_orders(
-				array(
-					'limit'      => -1,
-					'status'     => 'all',
-					'return'     => 'ids',
-					'meta_query' => array(
-						array(
-							'key'        => 'ced_etsy_order_shop_id',
-							'value'      => $shop_name,
-							'comparison' => '==',
-						),
-						'fields' => 'ids',
 
-					),
-				)
-			);
-			$ced_e_all_ordrs = is_array( $hpos_orders ) ? $hpos_orders : array();
-			return count( $ced_e_all_ordrs );
-		} else {
-			global $wpdb;
-			$orders_post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%s", 'ced_etsy_order_shop_id', $shop_name ), 'ARRAY_A' );
-		}
+		global $wpdb;
+		$orders_post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%s", 'ced_etsy_order_shop_id', $shop_name ), 'ARRAY_A' );
 		return count( $orders_post_ids );
 	}
 }
@@ -290,44 +301,24 @@ if ( ! function_exists( 'get_etsy_products_count' ) ) {
 
 if ( ! function_exists( 'get_etsy_orders_revenue' ) ) {
 	function get_etsy_orders_revenue( $shop_name ) {
-		if ( Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ) {
-			$hpos_orders = wc_get_orders(
-				array(
-					'limit'      => -1,
-					'status'     => 'completed',
-					'return'     => 'ids',
-					'meta_query' => array(
-						array(
-							'key'        => 'ced_etsy_order_shop_id',
-							'value'      => $shop_name,
-							'comparison' => '==',
-						),
-						'fields' => 'ids',
+		global $wpdb;
+		$args = array(
+			'post_type'   => 'shop_order',
+			'numberposts' => -1,
+			'fields'      => 'ids',
+			'post_status' => array( 'wc-completed' ),
+		);
 
-					),
-				)
-			);
-			$ids = is_array( $hpos_orders ) ? $hpos_orders : array();
-		} else {
-			global $wpdb;
-			$args = array(
-				'post_type'   => 'shop_order',
-				'numberposts' => -1,
-				'fields'      => 'ids',
-				'post_status' => array( 'wc-completed' ),
-			);
-
-			$args['meta_query'] = array(
-				array(
-					'key'     => 'ced_etsy_order_shop_id',
-					'compare' => '=',
-					'value'   => $shop_name,
-				),
-			);
-			$ids                = get_posts(
-				$args
-			);
-		}
+		$args['meta_query'] = array(
+			array(
+				'key'     => 'ced_etsy_order_shop_id',
+				'compare' => '=',
+				'value'   => $shop_name,
+			),
+		);
+		$ids                = get_posts(
+			$args
+		);
 		if ( is_array( $ids ) && ! empty( $ids ) ) {
 			$total_value = 0;
 			$total_value = array_map(
@@ -380,32 +371,5 @@ if ( ! function_exists( 'ced_etsy_get_auth' ) ) {
 	function ced_etsy_get_auth() {
 		$infrm = get_option( 'ced_etsy_auth_info', array() );
 		return openssl_decrypt( $infrm['scrt'], 'AES-128-CTR', $infrm['ky'] );
-	}
-}
-
-if ( ! function_exists( 'ced_get_etsy_req_params' ) ) {
-	function ced_get_etsy_req_params( $shop_name, $type, $update = false ) {
-		$cache_key = 'ced_etsy_' . $type . '_' . $shop_name;
-		if ( ! $update ) {
-			$saved_req_params = get_option( $cache_key, array() );
-			if ( isset( $saved_req_params['results'] ) && count( $saved_req_params['results'] ) > 0 ) {
-				return $saved_req_params['results'];
-			}
-		}
-
-		$shop_id  = get_etsy_shop_id( $shop_name );
-		$endpoint = array(
-			'shop_section'       => 'shop/section/list',
-			'shipping_profile'   => 'shipping/profile/list',
-			'production_partner' => 'shop/production/partners',
-		);
-
-		$req_result = etsy_request()->ced_etsy_remote_req( $endpoint[ $type ], array(), array( 'shop_id' => $shop_id ), 'GET' );
-
-		if ( ! empty( $req_result ) && isset( $req_result['results'] ) ) {
-			update_option( $cache_key, $req_result );
-			return $req_result['results'];
-		}
-		return $req_result;
 	}
 }

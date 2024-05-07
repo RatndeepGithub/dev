@@ -13,7 +13,7 @@ if ( ! file_exists( $ebay_templates_dir ) ) {
 }
 $do_template_edit = false;
 $user_id          = isset( $_GET['user_id'] ) ? sanitize_text_field( wp_unslash( $_GET['user_id'] ) ) : false;
-$site_id          = isset( $_GET['sid'] ) ? sanitize_text_field( wp_unslash( $_GET['sid'] ) ) : false;
+$site_id          = isset( $_GET['site_id'] ) ? sanitize_text_field( wp_unslash( $_GET['site_id'] ) ) : false;
 
 $ced_ebay_plugin_url = get_site_url( null, '/wp-content/plugins/ebay-integration-for-woocommerce/', 'https' );
 $allowed_html        = array(
@@ -252,7 +252,7 @@ if ( 'ced_ebay_edit_template' === sanitize_text_field( wp_unslash( isset( $_REQU
 		file_put_contents( $folderpath . '/style.css', $custom_css );
 		file_put_contents( $folderpath . '/info.txt', $template_info );
 		$template_custom_html = @file_get_contents( $folderpath . '/template.html' );
-		wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=view-description-templates&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid );
+		wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=view-description-templates&user_id=' . $user_id . '&site_id=' . $site_id );
 		exit();
 	}
 } elseif ( 'ced_ebay_add_new_template' == sanitize_text_field( wp_unslash( isset( $_REQUEST['action'] ) ) ? wp_unslash( $_REQUEST['action'] ) : false ) ) {
@@ -287,7 +287,7 @@ if ( 'ced_ebay_edit_template' === sanitize_text_field( wp_unslash( isset( $_REQU
 			file_put_contents( $ced_template_dir . '/template.html', $custom_html );
 			file_put_contents( $ced_template_dir . '/style.css', $custom_css );
 			file_put_contents( $ced_template_dir . '/info.txt', $template_info );
-			wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=settings&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid );
+			wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=settings&user_id=' . $user_id . '&site_id=' . $site_id );
 			exit();
 
 	}
@@ -415,7 +415,7 @@ if ( 'ced_ebay_edit_template' === sanitize_text_field( wp_unslash( isset( $_REQU
 									?>
 
 									<input type="submit" value="Save template" id="publish" class="button-primary" name="save"> 
-									<a class="components-button is-secondary" href="<?php echo esc_attr( wp_nonce_url( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-description-templates&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ), 'ced_ebay_add_new_template_action', 'ced_ebay_add_new_template_nonce' ) ); ?>">
+									<a class="components-button is-secondary" href="<?php echo esc_attr( wp_nonce_url( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-description-templates&user_id=' . $user_id . '&site_id=' . $site_id ), 'ced_ebay_add_new_template_action', 'ced_ebay_add_new_template_nonce' ) ); ?>">
 			Cancel
 		</a>
 									</div>

@@ -1,99 +1,40 @@
 <?php
 
-$configFile = CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
-if(file_exists( $configFile )) {
-	require_once $configFile;
-}
-
-	$apiResponse = [];
-	$siteID                     = isset( $_GET['sid'] ) ? wc_clean( $_GET['sid'] ) : '';
+if ( file_exists( CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php' ) ) {
+	require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php';
+	$siteID                     = isset( $_GET['site_id'] ) ? wc_clean( $_GET['site_id'] ) : '';
 	$user_id                    = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : '';
-	$rsid                    = isset( $_GET['rsid'] ) ? wc_clean( $_GET['rsid'] ) : '';
 	$isPaymentPolicyConfigured  = false;
 	$isShippingPolicyConfigured = false;
 	$isReturnPolicyConfigured   = false;
-	if ( '' !== $siteID && ! empty( $user_id ) && !empty($rsid) ) {
+	if ( '' !== $siteID && ! empty( $user_id ) ) {
 		$business_policies        = array(
 			'paymentPolicies'     => '',
 			'returnPolicies'      => '',
 			'fulfillmentPolicies' => '',
 		);
-		$configInstance           = \Ced\Ebay\Ebayconfig::get_instance();
+		$shop_data                = ced_ebay_get_shop_data( $user_id );
+		$token                    = $shop_data['access_token'];
+		$accountRequest           = new Ced_Marketing_API_Request( $siteID );
+		$configInstance           = Ced_Ebay_WooCommerce_Core\Ebayconfig::get_instance();
 		$countryDetails           = $configInstance->getEbaycountrDetail( $siteID );
 		$country_code             = $countryDetails['countrycode'];
 		$marketplace_enum         = 'EBAY_' . $country_code;
-		
-		$apiClient = new \Ced\Ebay\CED_EBAY_API_Client();
-		$apiClient->setJwtToken('abc');
-		$apiClient->setRequestTopic('seller-profiles');
-		$apiClient->setRequestRemoteMethod('GET');
-		$apiClient->setRequestRemoteQueryParams([
-			'marketplace_id' => $marketplace_enum,
-			'new_api' => true,
-			'shop_id' => $rsid,
-			'type' => 'GetPaymentPolicy'
-		]);
-		$apiResponse = $apiClient->post();
-		if(isset($apiResponse['data'])){
-			$account_payment_policies = json_decode($apiResponse['data'], true);
-		} else {
-			if(isset($apiResponse['error_code'])){
-				return $apiResponse;
-			} else {
-				return false;
-			}
-		}
+		$shop_data                = ced_ebay_get_shop_data( $user_id );
+		$account_payment_policies = $accountRequest->sendHttpRequestForAccountAPI( 'payment_policy?marketplace_id=' . $marketplace_enum, $token );
+		$account_payment_policies = json_decode( $account_payment_policies, true );
 		if ( isset( $account_payment_policies['total'] ) && $account_payment_policies['total'] > 0 ) {
 			$business_policies['paymentPolicies'] = $account_payment_policies;
 			$isPaymentPolicyConfigured            = true;
 		}
-		// $requestBody = $apiClient->setRequestBody('seller-profiles', 'GET', [
-		// 	'marketplace_id' => $marketplace_enum,
-		// 	'new_api' => true,
-		// 	'shop_id' => $rsid,
-		// 	'type' => 'GetReturnPolicy'
-		// ], []);		
-
-		$apiClient->setRequestTopic('seller-profiles');
-		$apiClient->setRequestRemoteMethod('GET');
-		$apiClient->setRequestRemoteQueryParams([
-			'marketplace_id' => $marketplace_enum,
-			'new_api' => true,
-			'shop_id' => $rsid,
-			'type' => 'GetReturnPolicy'
-		]);
-		$apiResponse = $apiClient->post();
-		if(isset($apiResponse['data'])){
-			$account_return_policies = json_decode($apiResponse['data'], true);
-		} else {
-			if(isset($apiResponse['error_code'])){
-				return $apiResponse;
-			} else {
-				return false;
-			}
-		}
+		$account_return_policies = $accountRequest->sendHttpRequestForAccountAPI( 'return_policy?marketplace_id=' . $marketplace_enum, $token );
+		$account_return_policies = json_decode( $account_return_policies, true );
 		if ( isset( $account_return_policies['total'] ) && $account_return_policies['total'] > 0 ) {
 			$business_policies['returnPolicies'] = $account_return_policies;
 			$isReturnPolicyConfigured            = true;
 		}
-		$apiClient->setRequestTopic('seller-profiles');
-		$apiClient->setRequestRemoteMethod('GET');
-		$apiClient->setRequestRemoteQueryParams([
-			'marketplace_id' => $marketplace_enum,
-			'new_api' => true,
-			'shop_id' => $rsid,
-			'type' => 'GetShippingPolicy'
-		]);
-		$apiResponse = $apiClient->post();
-		if(isset($apiResponse['data'])){
-			$account_shipping_policies = json_decode($apiResponse['data'], true);
-		} else {
-			if(isset($apiResponse['error_code'])){
-				return $apiResponse;
-			} else {
-				return false;
-			}
-		}
+		$account_shipping_policies = $accountRequest->sendHttpRequestForAccountAPI( 'fulfillment_policy?marketplace_id=' . $marketplace_enum, $token );
+		$account_shipping_policies = json_decode( $account_shipping_policies, true );
 		if ( isset( $account_shipping_policies['total'] ) && $account_shipping_policies['total'] > 0 ) {
 			$business_policies['fulfillmentPolicies'] = $account_shipping_policies;
 			$isShippingPolicyConfigured               = true;
@@ -102,6 +43,7 @@ if(file_exists( $configFile )) {
 			set_transient( 'ced_ebay_business_policies_' . $user_id . '>' . $siteID, $business_policies, 2 * HOUR_IN_SECONDS );
 		}
 	}
+}
 ?>
 
 <style type="text/css">

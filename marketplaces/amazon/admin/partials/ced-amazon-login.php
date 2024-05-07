@@ -10,8 +10,6 @@ $seller_id  = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_i
 $user_id    = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : false;
 $planStatus = isset( $_GET['status'] ) ? sanitize_text_field( $_GET['status'] ) : false;
 
-$mode = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-
 if ( $planStatus ) {
 	?>
 	<div class="ced-success">
@@ -26,8 +24,7 @@ if ( empty( $user_id ) ) {
 	$user_id = $current_amaz_shop_id;
 }
 
-$add_new_account = isset( $_GET['add-new-account'] ) ? sanitize_text_field( $_GET['add-new-account'] ) : false;
-
+$add_new_account                = isset( $_GET['add-new-account'] ) ? sanitize_text_field( $_GET['add-new-account'] ) : false;
 $ced_amazon_sellernext_shop_ids = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 if ( ! empty( $ced_amazon_sellernext_shop_ids ) && is_array( $ced_amazon_sellernext_shop_ids ) ) {
 	$connect_to_amazon['will_connect']  = 'none';
@@ -156,11 +153,7 @@ if ( file_exists( $file ) ) {
 						</div>
 					</div>
 					<?php
-
-
-					$ced_base_uri = ced_amazon_base_uri( $mode );
-
-					$url = get_admin_url() . $ced_base_uri . '&section=setup-amazon';
+						$url = get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=setup-amazon';
 
 					?>
 					<p class="ced-link">

@@ -68,46 +68,49 @@ if ( ! class_exists( 'Ced_Template_Product_Fields' ) ) {
 			if ( empty( $shop_name ) ) {
 				$shop_name = get_option( 'ced_etsy_shop_name', '' );
 			}
-
-			$sections           = array();
-			$production_partner = array();
-			$shipping_templates = array();
-
-			$etsy_data = array(
-				'shop_section'       => ced_get_etsy_req_params( $shop_name, 'shop_section' ),
-				'production_partner' => ced_get_etsy_req_params( $shop_name, 'production_partner' ),
-				'shipping_profile'   => ced_get_etsy_req_params( $shop_name, 'shipping_profile' ),
-			);
-
-			foreach ( $etsy_data as $key => $data ) {
-				switch ( $key ) {
-					case 'shop_section':
-						foreach ( $data as $section ) {
-							if ( ! isset( $section['shop_section_id'] ) ) {
-								continue;
-							}
-							$sections[ $section['shop_section_id'] ] = $section['title'];
-						}
-						break;
-					case 'production_partner':
-						foreach ( $data as $prdn_prtnr ) {
-							if ( ! isset( $prdn_prtnr['production_partner_id'] ) ) {
-								continue;
-							}
-							$production_partner[ $prdn_prtnr['production_partner_id'] ] = $prdn_prtnr['partner_name'] . ' - ' . $prdn_prtnr['location'];
-						}
-						break;
-					case 'shipping_profile':
-						foreach ( $data as $s_prof ) {
-							if ( ! isset( $s_prof['shipping_profile_id'] ) ) {
-								continue;
-							}
-							$shipping_templates[ $s_prof['shipping_profile_id'] ] = $s_prof['title'];
-						}
-						break;
+			$shop_id  = get_etsy_shop_id( $shop_name );
+			$sections = array();
+			if ( ! empty( $shop_id ) ) {
+				$action = "application/shops/{$shop_id}/sections";
+				/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+				do_action( 'ced_etsy_refresh_token', $shop_name );
+				$shop_sections = etsy_request()->get( $action, $shop_name );
+				if ( isset( $shop_sections['count'] ) && $shop_sections['count'] >= 1 ) {
+					$shop_sections = $shop_sections['results'];
+					foreach ( $shop_sections as $key => $value ) {
+						$sections[ $value['shop_section_id'] ] = $value['title'];
+					}
 				}
 			}
 
+			/*GET COUNTRIES LIST FOR SHIPPING TEMPLATE */
+			$shop_id             = get_etsy_shop_id( $shop_name );
+			$production_partners = array();
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$action   = "application/shops/{$shop_id}/production-partners";
+			$partners = etsy_request()->get( $action, $shop_name );
+			if ( isset( $partners['count'] ) && $partners['count'] >= 1 ) {
+				foreach ( $partners['results'] as $key => $value ) {
+					$production_partners[ $value['production_partner_id'] ] = $value['partner_name'] . ' - ' . $value['location'];
+				}
+			}
+
+			$shipping_templates                                = array();
+			$shipping_templates['create_new_shipping_profile'] = '+ Create New Shipping Profile +';
+			$action         = "application/shops/{$shop_id}/shipping-profiles";
+			$e_shpng_tmplts = etsy_request()->get( $action, $shop_name );
+			if ( isset( $e_shpng_tmplts['count'] ) && $e_shpng_tmplts['count'] >= 1 ) {
+				foreach ( $e_shpng_tmplts['results'] as $key => $value ) {
+					$shipping_templates[ $value['shipping_profile_id'] ] = $value['title'];
+				}
+			}
 			$required_fields = array(
 				'required'        => array(
 					array(
@@ -303,14 +306,14 @@ if ( ! class_exists( 'Ced_Template_Product_Fields' ) ) {
 
 					array(
 						'type'   => '_select',
-						'id'     => '_ced_etsy_production_partner',
+						'id'     => '_ced_etsy_production_partners',
 						'fields' => array(
-							'id'          => '_ced_etsy_production_partner',
+							'id'          => '_ced_etsy_production_partners',
 							'label'       => __( 'Production partner', 'woocommerce-etsy-integration' ),
 							'desc_tip'    => true,
 							'description' => __( 'A production partner is anyone who’s not a part of your Etsy shop who helps you physically produce your items.', 'woocommerce-etsy-integration' ),
 							'type'        => 'select',
-							'options'     => $production_partner,
+							'options'     => $production_partners,
 							'is_required' => false,
 							'class'       => 'wc_input_price',
 							'default'     => '',
@@ -699,7 +702,8 @@ if ( ! class_exists( 'Ced_Template_Product_Fields' ) ) {
 					),
 				),
 			);
-			return apply_filters( 'ced_etsy_modify_template_fields', $required_fields );
+
+			return $required_fields;
 		}
 
 		/*
@@ -801,7 +805,7 @@ if ( ! class_exists( 'Ced_Template_Product_Fields' ) ) {
 					</label>
 				</th>
 				<input type="hidden" name="<?php echo esc_attr( $marketPlace . '[]' ); ?>" value="<?php echo esc_attr( $fieldName ); ?>" />
-				<td colspan="" class="field_dropdown">
+				<td colspan="">
 					<select id="<?php echo esc_attr( $option_id ); ?>" name="<?php echo esc_attr( $fieldName . '[' . $indexToUse . ']' ); ?>" class="select short" style="">
 						<?php
 						echo '<option value="">-- Select --</option>';
@@ -814,34 +818,6 @@ if ( ! class_exists( 'Ced_Template_Product_Fields' ) ) {
 						}
 						?>
 					</select>
-					<?php
-					if ( in_array( $attribute_id, array( 'ced_etsy_shipping_profile', 'ced_etsy_production_partner', 'ced_etsy_shop_section' ) ) ) {
-						$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-						?>
-						<span class="dashicons dashicons-image-rotate refresh_req_datas" data-operation_type="<?php echo esc_attr( str_replace( 'ced_etsy_', '', $attribute_id ) ); ?>"></span>
-						<?php
-					}
-					if ( 'ced_etsy_shipping_profile' === $attribute_id ) {
-						$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-						?>
-					<a href="
-						<?php
-						echo esc_url(
-							ced_get_navigation_url(
-								'etsy',
-								array(
-									'section'   => 'add-shipping-profile',
-									'shop_name' => $shop_name,
-								)
-							)
-						);
-						?>
-								">
-							<span class="dashicons dashicons-plus" id="create_new_shipping_profile"></span>
-						</a>
-						<?php
-					}
-					?>
 				</td>
 				<?php
 		}

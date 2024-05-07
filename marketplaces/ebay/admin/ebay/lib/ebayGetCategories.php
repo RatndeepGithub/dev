@@ -1,5 +1,4 @@
 <?php
-namespace Ced\Ebay;
 if ( ! class_exists( 'EbayGetCategories' ) ) {
 	class EbayGetCategories {
 
@@ -10,11 +9,9 @@ if ( ! class_exists( 'EbayGetCategories' ) ) {
 
 		public $siteID;
 
+		public $token;
+
 		public $catInfoUrl;
-
-		public $apiClient;
-
-		public $rsid;
 		/**
 		 * Get_instance Instance.
 		 *
@@ -26,22 +23,20 @@ if ( ! class_exists( 'EbayGetCategories' ) ) {
 		 * @static
 		 * @return get_instance instance.
 		 */
-		public static function get_instance( $siteID, $rsid ) {
+		public static function get_instance( $siteID, $token ) {
 			if ( is_null( self::$_instance ) ) {
-				self::$_instance = new self( $siteID, $rsid );
+				self::$_instance = new self( $siteID, $token );
 			}
 			return self::$_instance;
 		}
 		/**
 		 * Constructor
 		 */
-		public function __construct( $siteID, $rsid ) {
+		public function __construct( $siteID, $token ) {
 			$this->loadDepenedency();
+			$this->catInfoUrl = $this->ebayConfigInstance->catInfoUrl;
 			$this->siteID     = $siteID;
-			$this->rsid      = $rsid;
-			$this->apiClient = new \Ced\Ebay\CED_EBAY_API_Client();
-			$this->apiClient->setJwtToken('jhgjhghjg');
-			
+			$this->token      = $token;
 		}
 
 		/*
@@ -49,110 +44,160 @@ if ( ! class_exists( 'EbayGetCategories' ) ) {
 		 */
 		public function GetCategories( $level = 1, $ParentcatID = null ) {
 			$siteID      = $this->siteID;
-			$rsid = $this->rsid;
-			$this->apiClient->setRequestRemoteMethod('GET');
-			$this->apiClient->setRequestRemoteQueryParams([
-				"shop_id" => $rsid['remote_shop_id'],
-				"type" => "GetCategories",
-				"site_id" => $siteID,
-				"level" => $level
-			]);
-			$this->apiClient->setRequestTopic('category');
-			$apiResponse = $this->apiClient->post();
-			if(isset($apiResponse['data'])){
-				$categoryFetchResponse = json_decode($apiResponse['data'], true);
-				return $categoryFetchResponse;
-			} else {
-				if(isset($apiResponse['error_code'])){
-					return $apiResponse;
-				} else {
-					return new \WP_Error('api_error', 'An error occurred while fetching eBay categories');
-				}
+			$verb        = 'GetCategories';
+			$token       = $this->token;
+			$requestBody = $this->getCategoryRequestBody( $siteID, $token );
+			$cedRequest  = new Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, $verb );
+			$response    = $cedRequest->sendHttpRequest( $requestBody );
+			if ( isset( $response['Ack'] ) && 'Success' == $response['Ack'] ) {
+				return $response;
 			}
-			return false;	
+			return false;
+		}
+
+		public function GetCategoryTree() {
+			$siteID      = $this->siteID;
+			$verb        = 'GetCategories';
+			$token       = $this->token;
+			$requestBody = $this->getCategoryTreeRequestBody( $siteID, $token );
+			$cedRequest  = new \Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, $verb );
+			$response    = $cedRequest->sendHttpRequest( $requestBody );
+			if ( isset( $response['Ack'] ) && 'Success' == $response['Ack'] ) {
+				return $response;
+			}
+			return false;
+		}
+
+		/*
+		 * XML for get categories
+		 */
+		public function getCategoryRequestBody( $siteID, $token ) {
+			$requestXmlBody  = '<?xml version="1.0" encoding="utf-8"?>';
+			$requestXmlBody .= '<GetCategoriesRequest xmlns="urn:ebay:apis:eBLBaseComponents">';
+			$requestXmlBody .= "<RequesterCredentials><eBayAuthToken>$token</eBayAuthToken></RequesterCredentials>";
+			$requestXmlBody .= '<CategorySiteID>' . $siteID . '</CategorySiteID>';
+			$requestXmlBody .= '<DetailLevel>ReturnAll</DetailLevel>';
+			$requestXmlBody .= '</GetCategoriesRequest>';
+			return $requestXmlBody;
+		}
+
+
+		public function getCategoryTreeRequestBody( $siteID, $token, $ParentcatID = null ) {
+			$requestXmlBody  = '<?xml version="1.0" encoding="utf-8"?>';
+			$requestXmlBody .= '<GetCategoriesRequest xmlns="urn:ebay:apis:eBLBaseComponents">';
+			$requestXmlBody .= "<RequesterCredentials><eBayAuthToken>$token</eBayAuthToken></RequesterCredentials>";
+			if ( null != $ParentcatID ) {
+				$requestXmlBody .= '<CategoryParent>' . $ParentcatID . '</CategoryParent>';
+			}
+			$requestXmlBody .= '<DetailLevel>ReturnAll</DetailLevel><ViewAllNodes>true</ViewAllNodes>';
+			$requestXmlBody .= '</GetCategoriesRequest>';
+			return $requestXmlBody;
+		}
+
+		public function GetJsonCategories( $level = 1, $ParentcatID = null ) {
+			$folderName = CED_EBAY_DIRPATH . 'admin/ebay/lib/json/';
+			$fileName   = $folderName . 'categoryLevel-' . $level . '.json';
+			if ( file_exists( $fileName ) ) {
+				$catDetails = file_get_contents( $fileName );
+				$catDetails = json_decode( $catDetails, true );
+				$catDetails = $catDetails['CategoryArray']['Category'];
+				foreach ( $catDetails as $catDetail ) {
+					if ( isset( $catDetail['CategoryParentID'] ) ) {
+						if ( $catDetail['CategoryParentID'] == $ParentcatID ) {
+							$finalCat[] = $catDetail;
+						}
+					}
+				}
+				if ( is_array( $finalCat ) && ! empty( $finalCat ) ) {
+					return $finalCat;
+				}
+				return false;
+			}
+		}
+
+		public function GetCategoryInfo( $catID ) {
+			$siteID       = $this->siteID;
+			$token        = $this->token;
+			$url          = $this->catInfoUrl . '&siteid=' . $siteID . '&CategoryID=' . $catID;
+			$header       = array( 'headers' => array( 'X-EBAY-API-IAF-TOKEN' => $token ) );
+			$request_data = wp_remote_get( $url, $header );
+			if ( is_array( $request_data ) && ! is_wp_error( $request_data ) && ( 200 === wp_remote_retrieve_response_code( $request_data ) ) ) {
+				$response_body_xml = $request_data['body'];
+				$sxe               = new SimpleXMLElement( $response_body_xml );
+				$res               = json_decode( json_encode( $sxe ), true );
+				return $res;
+			} else {
+				return false;
+			}
 		}
 
 		public function GetCategorySpecifics( $catID ) {
 			$siteID = $this->siteID;
-			$rsid = $this->rsid;
-			$this->apiClient->setRequestRemoteMethod('GET');
-			$this->apiClient->setRequestRemoteQueryParams([
-				"shop_id" => $rsid['remote_shop_id'],
-				"type" => "GetItemAspectsForCategory",
-				"site_id" => $siteID,
-				"new_api" => true,
-				"category_id" => $catID
-			]);
-			$this->apiClient->setRequestTopic('category');
-			$apiResponse = $this->apiClient->post();
-			if(isset($apiResponse['data'])){
-				$response = json_decode($apiResponse['data'], true);
-				if ( ! empty( $response['aspects'] ) ) {
-					if ( ! isset( $response['aspects'][0] ) ) {
-						$temp_response = $response['aspects'];
-						unset( $response['aspects'] );
-						$response['aspects'][] = $temp_response;
-					}
-					return $response['aspects'];
-				} else {
-					return new \WP_Error('item_specifics_error', $response);
-
+			$verb   = 'GetCategorySpecifics';
+			$token  = $this->token;
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php';
+			$oAuthRequest = new Ced_Marketing_API_Request( $siteID );
+			$response     = $oAuthRequest->sendHttpRequestForTaxonomyAPI( 'category_tree/' . $siteID . '/get_item_aspects_for_category?category_id=' . $catID, $token );
+			$response     = json_decode( $response, true );
+			if ( ! empty( $response['aspects'] ) ) {
+				if ( ! isset( $response['aspects'][0] ) ) {
+					$temp_response = $response['aspects'];
+					unset( $response['aspects'] );
+					$response['aspects'][] = $temp_response;
 				}
-				if ( ! empty( $response['errors'] ) ) {
-					if ( ! isset( $response['errors'][0] ) ) {
-						$temp_response = $response['errors'];
-						unset( $response['errors'] );
-						$response['errors'][] = $temp_response;
-					}
-					return $response['errors'];
-				}
+				return $response['aspects'];
 			}
-			return false;			
-		}
 
-		
-		public function GetCategoryFeatures( $catID ) {
-
-			$siteID      = $this->siteID;
-			$rsid = $this->rsid;
-			$configInstance           = \Ced\Ebay\Ebayconfig::get_instance();
-			$countryDetails           = $configInstance->getEbaycountrDetail( $siteID );
-			$country_code             = $countryDetails['countrycode'];
-			$marketplace_enum         = 'EBAY_' . $country_code;
-			$this->apiClient->setRequestRemoteMethod('GET');
-			$this->apiClient->setRequestRemoteQueryParams([
-				"shop_id" => $rsid['remote_shop_id'],
-				"type" => "getItemConditionPolicies",
-				"marketplace_id" => $marketplace_enum,
-				'filter' => 'categoryIds:{'.$catID.'}',
-			]);
-			$this->apiClient->setRequestTopic('meta');
-			$apiResponse = $this->apiClient->post();
-			if(isset($apiResponse['data'])){
-				$response = $apiResponse['data'];
-				if ( ! empty( $response['itemConditionPolicies'] ) ) {
-					if ( ! isset( $response['itemConditionPolicies'][0] ) ) {
-						$temp_response = $response['itemConditionPolicies'];
-						unset( $response['itemConditionPolicies'] );
-						$response['itemConditionPolicies'][] = $temp_response;
-					}
-					return $response['itemConditionPolicies'];
-				} else {
-					return new \WP_Error('item_conditions_error', $response);
+			if ( ! empty( $response['errors'] ) ) {
+				if ( ! isset( $response['errors'][0] ) ) {
+					$temp_response = $response['errors'];
+					unset( $response['errors'] );
+					$response['errors'][] = $temp_response;
 				}
-				if ( ! empty( $response['errors'] ) ) {
-					if ( ! isset( $response['errors'][0] ) ) {
-						$temp_response = $response['errors'];
-						unset( $response['errors'] );
-						$response['errors'][] = $temp_response;
-					}
-					return $response['errors'];
-				}
-			}	
-			
+				return $response['errors'];
+			}
 			return false;
 		}
-		
+
+		public function getCategorySpecificsRequestBody( $token, $catID ) {
+			$requestXmlBody  = '<?xml version="1.0" encoding="utf-8"?>';
+			$requestXmlBody .= '<GetCategorySpecificsRequest xmlns="urn:ebay:apis:eBLBaseComponents">';
+			$requestXmlBody .= '<WarningLevel>High</WarningLevel>';
+			$requestXmlBody .= '<DetailLevel>ReturnAll</DetailLevel>';
+			$requestXmlBody .= '<CategorySpecific><CategoryID>' . $catID . '</CategoryID></CategorySpecific>';
+			$requestXmlBody .= '<RequesterCredentials><eBayAuthToken>' . $token . '</eBayAuthToken></RequesterCredentials><MaxValuesPerName>1000</MaxValuesPerName>';
+			$requestXmlBody .= '</GetCategorySpecificsRequest>';
+			return $requestXmlBody;
+		}
+
+		public function GetCategoryFeatures( $catID, $limit ) {
+
+			$siteID      = $this->siteID;
+			$verb        = 'GetCategoryFeatures';
+			$token       = $this->token;
+			$requestBody = $this->getCategoryFeaturesRequestBody( $token, $catID, $limit );
+			$cedRequest  = new Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, $verb );
+			$response    = $cedRequest->sendHttpRequest( $requestBody );
+			if ( isset( $response['Ack'] ) && 'Success' == $response['Ack'] ) {
+				return $response;
+			}
+			return false;
+		}
+		public function getCategoryFeaturesRequestBody( $token, $catID, $limits = array() ) {
+			$requestXmlBody  = '<?xml version="1.0" encoding="utf-8"?>';
+			$requestXmlBody .= '<GetCategoryFeaturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">';
+			$requestXmlBody .= '<RequesterCredentials><eBayAuthToken>' . $token . '</eBayAuthToken></RequesterCredentials>';
+			$requestXmlBody .= '<CategoryID>' . $catID . '</CategoryID>';
+			$requestXmlBody .= '<DetailLevel>ReturnAll</DetailLevel>';
+			$requestXmlBody .= '<ViewAllNodes>true</ViewAllNodes>';
+			if ( is_array( $limits ) && ! empty( $limits ) ) {
+				foreach ( $limits as $limit ) {
+					$requestXmlBody .= '<FeatureID>' . $limit . '</FeatureID>';
+				}
+			}
+			$requestXmlBody .= '</GetCategoryFeaturesRequest>';
+			return $requestXmlBody;
+		}
 		/**
 		 * Function loadDepenedency
 		 *
@@ -164,7 +209,7 @@ if ( ! class_exists( 'EbayGetCategories' ) ) {
 			}
 			if ( is_file( __DIR__ . '/ebayConfig.php' ) ) {
 				require_once 'ebayConfig.php';
-				$this->ebayConfigInstance = \Ced\Ebay\Ebayconfig::get_instance();
+				$this->ebayConfigInstance = Ced_Ebay_WooCommerce_Core\Ebayconfig::get_instance();
 			}
 		}
 	}

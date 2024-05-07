@@ -86,17 +86,8 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 * @since 1.0.0
 	 */
 	public function get_count() {
-
-		$args = array(
-			'meta_key'      => '_ced_walmart_order' . wifw_environment(), 
-			'meta_value'    => '1', 
-			'meta_compare'  => '=', 
-			'return'        => 'ids',
-
-		 );
-		$orders_post_ids = wc_get_orders($args);
-
-		// $orders_post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%d  order by `post_id` ", '_ced_walmart_order' . wifw_environment(), 1 ), 'ARRAY_A' );
+		global $wpdb;
+		$orders_post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%d  order by `post_id` ", '_ced_walmart_order' . wifw_environment(), 1 ), 'ARRAY_A' );
 		return count( $orders_post_ids );
 	}
 
@@ -116,17 +107,9 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 * @param array $post_data Order Id.
 	 */
 	public function column_id( $post_data ) {
-
-		$order_id = isset( $post_data ) ? esc_attr( $post_data ) : '';
-		if (empty( $order_id ) || null === $order_id || '' === $order_id ) {
-			return false;
-		}
-		$woo_order_url = get_edit_post_link( $order_id, '' );
-		if ( is_null( $woo_order_url ) || empty( $woo_order_url ) || '' === $woo_order_url ) {
-			$woo_order_url = get_admin_url() . 'admin.php?page=wc-orders&action=edit&id=' . $order_id;
-		}
-		echo '<b><a href="' . esc_url( $woo_order_url ) . '" target="_blank">#' . esc_attr($order_id) . '</a></b>';
-		
+		$order_id = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
+		$url      = get_edit_post_link( $order_id, '' );
+		echo '<a href="' . esc_url( $url ) . '" target="_blank">#' . esc_attr( $order_id ) . '</a>';
 	}
 
 	/**
@@ -136,7 +119,7 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 * @param array $post_data Order Id.
 	 */
 	public function column_items( $post_data ) {
-		$order_id    = isset( $post_data ) ? esc_attr( $post_data ) : '';
+		$order_id    = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
 		$_order      = wc_get_order( $order_id );
 		$order_items = $_order->get_items();
 		if ( is_array( $order_items ) && ! empty( $order_items ) ) {
@@ -160,9 +143,8 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 * @param array $post_data Order Id.
 	 */
 	public function column_walmart_order_id( $post_data ) {
-		$order_id         = isset( $post_data ) ? esc_attr( $post_data ) : '';
-		$order		      = wc_get_order($order_id);
-		$walmart_order_id = $order->get_meta( '_ced_walmart_order_id', true );
+		$order_id         = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
+		$walmart_order_id = get_post_meta( $order_id, '_ced_walmart_order_id', true );
 		echo '<span>#' . esc_attr( $walmart_order_id ) . '</span>';
 	}
 
@@ -173,9 +155,9 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 * Function for order status column
 	 */
 	public function column_order_status( $post_data ) {
-		$order_id = isset( $post_data ) ? esc_attr( $post_data ) : '';
-		$order    = wc_get_order( $order_id );
-		$status   = $order->get_status();
+		$order_id = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
+		$details  = wc_get_order( $order_id );
+		$status   = $details->get_status();
 		$html     = '<div class="ced-' . $status . '-button-wrap"><a class="ced-' . $status . '-link"><span class="ced-circle" style=""></span> ' . esc_attr( ucfirst( $status ) ) . '</a> </div>';
 		print_r( $html );
 	}
@@ -188,9 +170,8 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 * @param array $post_data Order Id.
 	 */
 	public function column_walmart_order_status( $post_data ) {
-		$order_id             = isset( $post_data ) ? esc_attr( $post_data ) : '';
-		$order                = wc_get_order($order_id);
-		$walmart_order_status = $order->get_meta( '_ced_walmart_order_status', true );
+		$order_id             = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
+		$walmart_order_status = get_post_meta( $order_id, '_ced_walmart_order_status', true );
 
 		$status = 'processing';
 		if ( 'Created' === $walmart_order_status || 'Acknowledged' === $walmart_order_status ) {
@@ -213,9 +194,9 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 * @param array $post_data Order Id.
 	 */
 	public function column_customer_name( $post_data ) {
-		$order_id = isset( $post_data ) ? esc_attr( $post_data ) : '';
-		$order    = wc_get_order( $order_id );
-		$details  = $order->get_data();
+		$order_id = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
+		$details  = wc_get_order( $order_id );
+		$details  = $details->get_data();
 		echo '<b>' . esc_attr( $details['billing']['first_name'] ) . '</b>';
 	}
 
@@ -228,9 +209,9 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	 */
 
 	public function column_total( $post_data ) {
-		$order_id = isset( $post_data ) ? esc_attr( $post_data ) : '';
-		$order    = wc_get_order( $order_id );
-		$details  = $order->get_total();
+		$order_id = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
+		$details  = wc_get_order( $order_id );
+		$details  = $details->get_total();
 		print_r( wc_price( $details ) );
 	}
 
@@ -244,9 +225,8 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 
 	public function column_action( $post_data ) {
 		$store_id             = isset( $_GET['store_id'] ) ? sanitize_text_field( $_GET['store_id'] ) : '';
-		$order_id             = isset( $post_data ) ? esc_attr( $post_data ) : '';
-		$order                = wc_get_order($order_id);
-		$walmart_order_status = $order->get_meta( '_ced_walmart_order_status', true );
+		$order_id             = isset( $post_data['post_id'] ) ? esc_attr( $post_data['post_id'] ) : '';
+		$walmart_order_status = get_post_meta( $order_id, '_ced_walmart_order_status', true );
 		$order_edit_link      = admin_url( 'admin.php?page=sales_channel&channel=walmart&section=orders&store_id=' . $store_id . '&panel=edit&id=' . $order_id );
 
 		if ( 'Created' === $walmart_order_status || 'Acknowledged' === $walmart_order_status ) {
@@ -364,26 +344,11 @@ class Ced_Walmart_Orders_List extends WP_List_Table {
 	public function ced_walmart_orders( $per_page, $page_number = 1 ) {
 
 		$store_id = isset( $_GET['store_id'] ) ? sanitize_text_field( wp_unslash( $_GET['store_id'] ) ) : '';
-		$offset   = ( $page_number - 1 ) * $per_page;
+		global $wpdb;
+		$offset          = ( $page_number - 1 ) * $per_page;
+		$orders_post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%d  order by `post_id` DESC LIMIT %d OFFSET %d", '_ced_walmart_order_store_id' . wifw_environment(), $store_id, $per_page, $offset ), 'ARRAY_A' );
 
-		$args = array(
-			'meta_key'      => '_ced_walmart_order_store_id' . wifw_environment(), 
-			'meta_value'    => $store_id, 
-			'meta_compare'  => '=',
-			'limit'         => $per_page,
-			'offset'        => $offset,              
-			'return'        => 'ids', 
-
-		);
-		
-		$orders_post_ids = wc_get_orders($args);
-				
 		return( $orders_post_ids ) ? $orders_post_ids : array();
-		
-		// global $wpdb;
-		// $orders_post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%d  order by `post_id` DESC LIMIT %d OFFSET %d", '_ced_walmart_order_store_id' . wifw_environment(), $store_id, $per_page, $offset ), 'ARRAY_A' );
-
-		// return( $orders_post_ids ) ? $orders_post_ids : array();
 	}
 }
 

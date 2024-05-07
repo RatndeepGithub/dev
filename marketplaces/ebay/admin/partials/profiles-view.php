@@ -4,6 +4,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
 
+if ( empty( get_option( 'ced_ebay_user_access_token' ) ) ) {
+	wp_redirect( get_admin_url() . 'admin.php?page=ced_ebay' );
+}
 $file = CED_EBAY_DIRPATH . 'admin/partials/header.php';
 if ( file_exists( $file ) ) {
 	require_once $file;
@@ -79,7 +82,7 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 		$tableName = $wpdb->prefix . 'ced_ebay_profiles';
 		$offset    = ( $page_number - 1 ) * $per_page;
 		$user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id   = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id   = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$result    = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}ced_ebay_profiles WHERE `ebay_user`=%s AND `ebay_site`=%s ORDER BY `id` DESC LIMIT %d OFFSET %d", $user_id, $site_id, $per_page, $offset ), 'ARRAY_A' );
 		return $result;
 	}
@@ -92,7 +95,7 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 	public function get_count() {
 		global $wpdb;
 		$user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id   = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id   = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$tableName = $wpdb->prefix . 'ced_ebay_profiles';
 		$result    = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}ced_ebay_profiles WHERE `ebay_user`=%s AND `ebay_site`=%s", $user_id, $site_id ), 'ARRAY_A' );
 		return count( $result );
@@ -125,7 +128,7 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 	public function column_profile_action( $item ) {
 		$ebay_cat_id = false;
 		$user_id     = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id     = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id     = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		if ( ! empty( $item['profile_data'] ) ) {
 			if ( ! empty( json_decode( $item['profile_data'], true ) ) && is_array( json_decode( $item['profile_data'], true ) ) ) {
 				$profile_data = json_decode( $item['profile_data'], true );
@@ -143,12 +146,12 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 		if ( ! empty( $woo_categories ) ) {
 			if ( ! empty( $ebay_cat_id ) ) {
 				$button_html  = sprintf( '<div class="ced-ebay-bootstrap-wrapper"><div class="btn-group">' );
-				$button_html .= sprintf( '<a data-tippy-content="Click to edit the profile for setting up data for listing on eBay." class="ced_ebay_show_tippy btn btn-sm btn-primary"  href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&sid=%s">Edit</a>', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'view-templates', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id );
-				$button_html .= sprintf( '<a style="margin-left:10px;" data-tippy-content="Click to show products belonging to this profile. Opens in a new tab." class="ced_ebay_show_tippy btn btn-primary btn-sm"   href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&sid=%s">Filter Products</a>', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'products-view', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id );
+				$button_html .= sprintf( '<a data-tippy-content="Click to edit the profile for setting up data for listing on eBay." class="ced_ebay_show_tippy btn btn-sm btn-primary"  href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&site_id=%s">Edit</a>', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'view-templates', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id );
+				$button_html .= sprintf( '<a style="margin-left:10px;" data-tippy-content="Click to show products belonging to this profile. Opens in a new tab." class="ced_ebay_show_tippy btn btn-primary btn-sm"   href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&site_id=%s">Filter Products</a>', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'products-view', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id );
 			}
 		} else {
 			$button_html      = sprintf( '<div class="ced-ebay-bootstrap-wrapper"><div class="btn-group">' );
-				$button_html .= sprintf( '<a data-tippy-content="Click to edit the profile for setting up data for listing on eBay." class="ced_ebay_show_tippy btn btn-sm btn-primary"  href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&sid=%s">Edit</a>', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'view-templates', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id );
+				$button_html .= sprintf( '<a data-tippy-content="Click to edit the profile for setting up data for listing on eBay." class="ced_ebay_show_tippy btn btn-sm btn-primary"  href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&site_id=%s">Edit</a>', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'view-templates', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id );
 
 		}
 		return $button_html;
@@ -163,7 +166,7 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 	public function column_profile_name( $item ) {
 
 		$user_id          = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id          = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id          = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$profile_title    = $item['profile_name'] . '<br>';
 		$profile_features = '';
 		$ebay_cat_id      = '';
@@ -179,7 +182,36 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 				}
 			}
 		}
-		
+		$wp_folder     = wp_upload_dir();
+		$wp_upload_dir = $wp_folder['basedir'];
+		$wp_upload_dir = $wp_upload_dir . '/ced-ebay/category-specifics/' . $user_id . '/' . $site_id . '/';
+
+		$cat_specifics_file = $wp_upload_dir . 'ebaycatfeatures_' . $ebay_cat_id . '.json';
+		$cat_specifics_file = realpath( $cat_specifics_file );
+
+		if ( file_exists( $cat_specifics_file ) ) {
+			$cat_features = json_decode( file_get_contents( $cat_specifics_file ), true );
+		}
+
+		// check if cat_features is not empty and get the Category index from the array.
+		if ( ! empty( $cat_features ) && is_array( $cat_features['Category'] ) && ! empty( $cat_features['Category'] ) && $ebay_cat_id == $cat_features['Category']['CategoryID'] ) {
+			$variations_enabled = false;
+			$best_offer_enabled = false;
+			$cat_features_array = $cat_features['Category'];
+			if ( isset( $cat_features_array['VariationsEnabled'] ) && true == $cat_features_array['VariationsEnabled'] ) {
+				$variations_enabled = true;
+				$profile_features   = ' <span>Support Variations | </span>';
+			} else {
+				$profile_features = ' <span>Variations Not Supported | </span>';
+
+			}
+			if ( isset( $cat_features_array['BestOfferEnabled'] ) && true == $cat_features_array['BestOfferEnabled'] ) {
+				$best_offer_enabled = true;
+				$profile_features  .= ' <span>Allows Best Offer</span>';
+			} else {
+				$profile_features .= ' <span>Best Offer Not Supported</span>';
+			}
+		}
 		$woo_categories = ! empty( $item['woo_categories'] ) ? json_decode( $item['woo_categories'], true ) : array();
 		if ( ! empty( $item['profile_data'] ) ) {
 			if ( ! empty( json_decode( $item['profile_data'], true ) ) && is_array( json_decode( $item['profile_data'], true ) ) ) {
@@ -192,7 +224,7 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 				}
 			}
 		}
-			$title = sprintf( '<a   style="text-decoration:none;" href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&sid=%s"><strong>%s</strong></a>%s', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'view-templates', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id, $profile_title, $profile_features );
+			$title = sprintf( '<a   style="text-decoration:none;" href="?page=%s&channel=ebay&section=%s&user_id=%s&profileID=%s&eBayCatID=%s&site_id=%s"><strong>%s</strong></a>%s', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'view-templates', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $item['id'], $ebay_cat_id, $site_id, $profile_title, $profile_features );
 
 		return $title;
 	}
@@ -360,15 +392,14 @@ class Ced_EBay_Profile_Table extends WP_List_Table {
 	 */
 	public function renderHTML() {
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
-		$rsid = isset( $_GET['rsid'] ) ? sanitize_text_field( $_GET['rsid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		?>
 
 
 <div id="post-body" class="metabox-holder columns-2">
 
 <div class="ced-button-wrapper-top">
-<a  href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=product-template&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ) ); ?>">
+<a  href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=product-template&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>">
 <button type="button" class="components-button is-primary ced-ebay-add-new-template" >
 							<?php echo esc_html__( 'Create new template', 'ebay-integration-for-woocommerce' ); ?>
 							</button></a>

@@ -1,20 +1,10 @@
 <?php
-namespace Ced\Ebay;
-use Ced\Ebay\WC\Product_Data as Product_Data;
-use Ced\Ebay\WC\Listings_Data as Listings_Data;
-include_once(CED_EBAY_DIRPATH.'admin/ebay/lib/class-wc-product-data.php');
-include_once(CED_EBAY_DIRPATH.'admin/ebay/lib/class-ebay-listing-data.php');
+
 class Class_Ced_EBay_Products {
 
-	private static $_instance;
 
-	private $ebay_user;
+	public static $_instance;
 
-    private $ebay_site;
-
-	private $isProfileAssignedToProduct;
-
-	private $profile_data = [];
 	/**
 	 * Ced_EBay_Config Instance.
 	 * Ensures only one instance of Ced_EBay_Config is loaded or can be loaded.
@@ -29,47 +19,26 @@ class Class_Ced_EBay_Products {
 		return self::$_instance;
 	}
 
-	private $wc_product_data;
-
+	public function __construct() {
+	}
 	/*
 	 *
 	 *function for preparing product data to be uploaded
 	 *
 	 *
 	 */
+
 	public function ced_ebay_prepareDataForUploading( $site_id, $proIDs = array(), $userId = '' ) {
-		$ebay_items = [];
-		$rsid = ced_ebay_get_shop_data( $userId, $site_id );
 		foreach ( $proIDs as $key => $value ) {
+			$prod_data        = wc_get_product( $value );
+			$type             = $prod_data->get_type();
+			$already_uploaded = get_post_meta( $value, '_ced_ebay_listing_id_' . $userId, true );
 			$preparedData     = $this->getFormattedData( $site_id, $value, $userId );
-			if(is_wp_error($preparedData)){
-				return $preparedData;
+			if ( 'No Profile Assigned' == $preparedData ) {
+				return array( 'error' => 'No Profile Assigned' );
 			}
-			$ebay_items[] = $preparedData;
+			return $preparedData;
 		}
-			$apiClient = new \Ced\Ebay\CED_EBAY_API_Client();
-			$apiClient->setJwtToken('abc');
-			$apiClient->setRequestTopic('product');
-			$apiClient->setRequestRemoteMethod('POST');
-			$apiClient->setRequestRemoteBody(
-				[
-				'shop_id' => $rsid['remote_shop_id'],
-				'items' => $ebay_items,
-				'type' => 'AddItems'
-				]
-			);
-			
-			$apiResponse = $apiClient->post();
-			if(isset($apiResponse['data'])){
-				$productUploadResponse = json_decode($apiResponse['data'], true);
-				return $productUploadResponse;
-			} else {
-				if(isset($apiResponse['error_code'])){
-					return $apiResponse;
-				} else {
-					return new \WP_Error('api_error', 'An error occurred while uploading product');
-				}
-			}
 	}
 	/*
 	 *
@@ -78,43 +47,14 @@ class Class_Ced_EBay_Products {
 	 *
 	 */
 	public function ced_ebay_prepareDataForUpdating( $userId, $site_id, $proIDs = array() ) {
-		$ebay_items = [];
-		$rsid = ced_ebay_get_shop_data( $userId, $site_id );
 		foreach ( $proIDs as $key => $value ) {
 			$prod_data        = wc_get_product( $value );
+			$type             = $prod_data->get_type();
 			$item_id          = get_post_meta( $value, '_ced_ebay_listing_id_' . $userId . '>' . $site_id, true );
+			$already_uploaded = get_post_meta( $value, '_ced_ebay_listing_id_' . $userId, true );
 			$preparedData     = $this->getFormattedData( $site_id, $value, $userId, $item_id );
-			if(is_wp_error($preparedData)){
-				return $preparedData;
-			}
-			$ebay_items[] = $preparedData;
+			return $preparedData;
 		}
-
-			$apiClient = new \Ced\Ebay\CED_EBAY_API_Client();
-			$apiClient->setJwtToken('abc');
-			$apiClient->setRequestTopic('product');
-			$apiClient->setRequestRemoteBody(
-				[
-				'items' => $ebay_items
-				]
-			);
-			$apiClient->setRequestRemoteQueryParams([
-				'shop_id' => $rsid['remote_shop_id'],
-				'type' => 'ReviseItem',
-			]);
-			$apiResponse = $apiClient->post();
-			if(isset($apiResponse['data'])){
-				$productUpdateResponse = json_decode($apiResponse['data'], true);
-				return $productUpdateResponse;
-			} else {
-				if(isset($apiResponse['error_code'])){
-					return $apiResponse;
-				} else {
-					return new \WP_Error('api_error', 'An error occurred while updating product');
-				}
-			}
-
-		
 	}
 	/*
 	 *
@@ -122,32 +62,32 @@ class Class_Ced_EBay_Products {
 	 *
 	 *
 	 */
-	public function ced_ebay_prepareDataForUpdatingStock( $rsid, $_to_update_productIds = array(), $notAjax = false, $ebay_variation_sku = array() ) {
-		$price_sync = 'off';
-		$sending_sku = 'off';
-		$ebay_user_and_site = ced_ebay_get_details_using_rsid($rsid);
-		if(!empty($ebay_user_and_site) && isset($ebay_user_and_site['user_id']) && isset($ebay_user_and_site['site_id']) )
-		{
-			$ebay_user = $ebay_user_and_site['user_id'];
-			$ebay_site = $ebay_user_and_site['site_id'];
-		} else {
-			return new \WP_Error('missing_ebay_details', 'Invalid or empty eBay user and site');
-		}
+	public function ced_ebay_prepareDataForUpdatingStock( $userId, $site_id, $_to_update_productIds = array(), $notAjax = false, $ebay_variation_sku = array() ) {
 		if ( empty( $_to_update_productIds ) ) {
-			return new \WP_Error('empty_products', 'The supplied products are either empty or invalid');
+			return 'Empty Product Ids';
 		}
-		$inventory_items = [];
-		$apiClient = new \Ced\Ebay\CED_EBAY_API_Client();
-		$apiClient->setJwtToken('abc');
-		$apiClient->setRequestTopic('product');
-		$apiClient->setRequestRemoteMethod('PUT');
+		$shop_data = ced_ebay_get_shop_data( $userId, $site_id );
 
-		$wc_products_data = new Product_Data;
-		$wc_products_data->setEbayUser($ebay_user);
-		$wc_products_data->setEbaySite($ebay_site);
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$siteID      = $site_id;
+			$token       = $shop_data['access_token'];
+			$getLocation = $shop_data['location'];
+		} else {
+			return 'Unable to verify eBay user';
+		}
+		$reviseInventoryXml = '<?xml version="1.0" encoding="utf-8"?>
+			<ReviseInventoryStatusRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+				<RequesterCredentials>
+					<eBayAuthToken>' . $token . '</eBayAuthToken>
+				</RequesterCredentials>
+				<Version>1267</Version>
+				<WarningLevel>High</WarningLevel>
+				<CedInventoryStatus>ced</CedInventoryStatus>
+			</ReviseInventoryStatusRequest>';
+
+		$CedInventoryStatusXml = '';
 
 		foreach ( $_to_update_productIds as $productId => $itemId ) {
-			$sku = get_post_meta( $productId, '_sku', true );
 			if ( ! empty( $ebay_variation_sku['sku'] ) ) {
 				$product_sku = get_post_meta( $productId, '_sku', true );
 				if ( empty( $product_sku ) ) {
@@ -157,54 +97,170 @@ class Class_Ced_EBay_Products {
 					continue;
 				}
 			}
-			$wc_products_data->setProductId( $productId );
-			
-			$quantity_to_update = $wc_products_data->getStock();
-
-			$inventory_items[$productId] = [
-				'listing_id' => $itemId,
-				'quantity' => (int)$quantity_to_update,
-				'sku'      => $sku
-			];
+			$product = wc_get_product( $productId );
+			if ( $product->is_type( 'variation' ) ) {
+				$variation_parent_id = $product->get_parent_id();
+			}
+			if ( ! empty( $variation_parent_id ) ) {
+				$profileData = $this->ced_ebay_getProfileAssignedData( $variation_parent_id, $userId, $site_id );
+			} else {
+				$profileData = $this->ced_ebay_getProfileAssignedData( $productId, $userId, $site_id );
+			}
+			$stock_status = get_post_meta( $productId, '_stock_status', true );
 			if ( get_option( 'ced_ebay_global_settings', false ) ) {
 				$dataInGlobalSettings = get_option( 'ced_ebay_global_settings', false );
-				$price_sync   = isset( $dataInGlobalSettings[ $ebay_user ][ $ebay_site ]['ced_ebay_sync_price'] ) ? $dataInGlobalSettings[ $ebay_user ][ $ebay_site ]['ced_ebay_sync_price'] : '';
-				$sending_sku          = isset( $dataInGlobalSettings[ $ebay_user ][ $ebay_site ]['ced_ebay_sending_sku'] ) ? $dataInGlobalSettings[ $ebay_user ][ $ebay_site ]['ced_ebay_sending_sku'] : '';
+				$price_markup_type    = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] : '';
+				$price_markup_value   = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] : '';
+				$price_sync           = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sync_price'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sync_price'] : '';
+				$sending_sku          = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sending_sku'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sending_sku'] : 'off';
+
 			}
-			if ( 'on' == $price_sync && ! empty( $price ) ){
-				$inventory_items[$productId] = [
-					'start_price' => $wc_products_data->getPrice(),
-				];		
+
+			$price_selection = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] : '';
+			if ( 'Regular_Price' == $price_selection ) {
+				$price = $product->get_regular_price();
+			} elseif ( 'Sale_Price' == $price_selection ) {
+				$price = $product->get_sale_price();
+			} else {
+				$price = $product->get_price();
 			}
-			if ( 'off' == $sending_sku && ! empty( $sku ) ){
-				if(isset($inventory_items[$productId]['sku'])){
-					unset($inventory_items[$productId]['sku']);	
+
+			if ( ! empty( $variation_parent_id ) ) {
+				$profile_price_markup_type = $this->fetchMetaValueOfProduct( $variation_parent_id, '_umb_ebay_profile_price_markup_type' );
+				$profile_price_markup      = $this->fetchMetaValueOfProduct( $variation_parent_id, '_umb_ebay_profile_price_markup' );
+
+			} else {
+				$profile_price_markup_type = $this->fetchMetaValueOfProduct( $productId, '_umb_ebay_profile_price_markup_type' );
+				$profile_price_markup      = $this->fetchMetaValueOfProduct( $productId, '_umb_ebay_profile_price_markup' );
+
+			}
+			if ( ! empty( $profile_price_markup_type ) && ! empty( $profile_price_markup ) ) {
+				if ( 'Fixed_Increase' == $profile_price_markup_type ) {
+					$price = $price + $profile_price_markup;
+				} elseif ( 'Percentage_Increase' == $profile_price_markup_type ) {
+					$price = $price + ( ( $price * $profile_price_markup ) / 100 );
+				} elseif ( 'Percentage_Decrease' == $profile_price_markup_type ) {
+					$price = $price - ( ( $price * $profile_price_markup ) / 100 );
+				} elseif ( 'Fixed_Decrease' == $profile_price_markup_type ) {
+					$price = $price - $profile_price_markup;
+				}
+			} elseif ( ! empty( $price_markup_type ) && ! empty( $price_markup_value ) ) {
+				if ( 'Fixed_Increased' == $price_markup_type ) {
+					$price = $price + $price_markup_value;
+				} elseif ( 'Percentage_Increased' == $price_markup_type ) {
+					$price = $price + ( ( $price * $price_markup_value ) / 100 );
+				} elseif ( 'Percentage_Decreased' == $price_markup_type ) {
+					$price = $price - ( ( $price * $price_markup_value ) / 100 );
+				} elseif ( 'Fixed_Decreased' == $price_markup_type ) {
+					$price = $price - $price_markup_value;
 				}
 			}
-		}
-
-		$apiClient->setRequestRemoteBody(
-			[
-			'items' => $inventory_items
-			]
-		);
-
-		$apiClient->setRequestRemoteQueryParams([
-			'shop_id' => $rsid,
-			'type' => 'ReviseInventoryStatus',
-		]);
-		$apiResponse = $apiClient->post();
-		if(isset($apiResponse['data'])){
-			$inventoryUpdateResponse = json_decode($apiResponse['data'], true);
-			return $inventoryUpdateResponse;
-		} else {
-			if(isset($apiResponse['error_code'])){
-				return $apiResponse;
+			$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+			$manage_stock               = get_post_meta( $productId, '_manage_stock', true );
+			if ( 'yes' != $manage_stock && 'instock' == $stock_status ) {
+				$listing_stock_type = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] : '';
+				$listing_stock      = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] : '';
+				if ( ! empty( $listing_stock_type ) && ! empty( $listing_stock ) && 'MaxStock' == $listing_stock_type ) {
+					$quantity = $listing_stock;
+				} else {
+					$quantity = 1;
+				}
+			} elseif ( 'outofstock' != $stock_status ) {
+					$quantity           = get_post_meta( $productId, '_stock', true );
+					$listing_stock_type = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] : '';
+					$listing_stock      = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] : '';
+				if ( ! empty( $listing_stock_type ) && ! empty( $listing_stock ) && 'MaxStock' == $listing_stock_type ) {
+					if ( $quantity > $listing_stock ) {
+						$quantity = $listing_stock;
+					} else {
+						$quantity = intval( $quantity );
+						if ( $quantity < 1 ) {
+							$quantity = '0';
+						}
+					}
+				} else {
+					$quantity = intval( $quantity );
+					if ( $quantity < 1 ) {
+						$quantity = '0';
+					}
+				}
 			} else {
-				return new \WP_Error('api_error', 'An error occurred while updating inventory');
+				$quantity = 0;
+			}
+
+			if ( 'on' == $price_sync && ! empty( $price ) ) {
+				if ( $product->is_type( 'variation' ) ) {
+					$sku = get_post_meta( $productId, '_sku', true );
+					if ( empty( $sku ) ) {
+						$sku = $productId;
+					}
+					$CedInventoryStatusXml .= '<InventoryStatus>
+						<ItemID>' . $itemId . '</ItemID>
+						<SKU>' . $sku . '</SKU>
+						<Quantity>' . (int) $quantity . '</Quantity>
+						<StartPrice>' . $price . '</StartPrice>
+						</InventoryStatus>';
+				} elseif ( 'off' == $sending_sku ) {
+						$sku = get_post_meta( $productId, '_sku', true );
+					if ( '' != $sku && null != $sku ) {
+						$CedInventoryStatusXml .= '<InventoryStatus>
+								<ItemID>' . $itemId . '</ItemID>
+								<SKU>' . $sku . '</SKU>
+								<Quantity>' . (int) $quantity . '</Quantity>
+								<StartPrice>' . $price . '</StartPrice>
+								</InventoryStatus>';
+					} else {
+						$CedInventoryStatusXml .= '<InventoryStatus>
+								<ItemID>' . $itemId . '</ItemID>
+								<SKU>' . $productId . '</SKU>
+								<Quantity>' . (int) $quantity . '</Quantity>
+								<StartPrice>' . $price . '</StartPrice>
+							</InventoryStatus>';
+					}
+				} else {
+					$CedInventoryStatusXml .= '<InventoryStatus>
+								<ItemID>' . $itemId . '</ItemID>
+								<Quantity>' . (int) $quantity . '</Quantity>
+								<StartPrice>' . $price . '</StartPrice>
+							</InventoryStatus>';
+				}
+			} elseif ( $product->is_type( 'variation' ) ) {
+
+					$sku = get_post_meta( $productId, '_sku', true );
+				if ( empty( $sku ) ) {
+					$sku = $productId;
+				}
+					$CedInventoryStatusXml .= '<InventoryStatus>
+						<ItemID>' . $itemId . '</ItemID>
+						<SKU>' . $sku . '</SKU>
+						<Quantity>' . (int) $quantity . '</Quantity>
+						</InventoryStatus>';
+			} elseif ( 'off' == $sending_sku ) {
+					$sku = get_post_meta( $productId, '_sku', true );
+				if ( '' != $sku && null != $sku ) {
+					$CedInventoryStatusXml .= '<InventoryStatus>
+								<ItemID>' . $itemId . '</ItemID>
+								<SKU>' . $sku . '</SKU>
+								<Quantity>' . (int) $quantity . '</Quantity>
+								</InventoryStatus>';
+				} else {
+					$CedInventoryStatusXml .= '<InventoryStatus>
+								<ItemID>' . $itemId . '</ItemID>
+								<SKU>' . $productId . '</SKU>
+								<Quantity>' . (int) $quantity . '</Quantity>
+							</InventoryStatus>';
+				}
+			} else {
+				$CedInventoryStatusXml .= '<InventoryStatus>
+								<ItemID>' . $itemId . '</ItemID>
+								<Quantity>' . (int) $quantity . '</Quantity>
+							</InventoryStatus>';
 			}
 		}
-		
+		if ( '' != $CedInventoryStatusXml ) {
+			$reviseInventoryXml = str_replace( '<CedInventoryStatus>ced</CedInventoryStatus>', $CedInventoryStatusXml, $reviseInventoryXml );
+		}
+		return $reviseInventoryXml;
 	}
 
 	/*
@@ -213,16 +269,20 @@ class Class_Ced_EBay_Products {
 	 *
 	 *
 	 */
-	public function getFormattedData( $siteID, $proIds = '', $userId = '', $ebayItemID = '' ) {
-		$profileData = $this->ced_ebay_getProfileAssignedData( $proIds, $userId, $siteID );
+	public function getFormattedData( $site_id, $proIds = '', $userId = '', $ebayItemID = '' ) {
+		$variation   = true;
+		$finalXml    = '';
+		$counter     = 0;
+		$profileData = $this->ced_ebay_getProfileAssignedData( $proIds, $userId, $site_id );
 		if ( false == $this->isProfileAssignedToProduct ) {
-			return new \WP_Error('profile_not_assigned', 'Profile is not assigned to the product');
+			return array( 'error' => 'No Profile Assigned' );
 		}
 		$product = wc_get_product( $proIds );
-		$ebay_item    = array();
+		$item    = array();
 		if ( WC()->version > '3.0.0' ) {
 			$product_data            = $product->get_data();
 			$productType             = $product->get_type();
+			$quantity                = (int) get_post_meta( $proIds, '_stock', true );
 			$title                   = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_listing_title' );
 			$product_custom_condtion = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_product_custom_condition' );
 			$subtitle                = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_product_subtitle_val' );
@@ -244,18 +304,14 @@ class Class_Ced_EBay_Products {
 			}
 		}
 
-		$rsid = ced_ebay_get_shop_data( $userId, $siteID );
-		if (empty( $rsid )  ) {
-			return new \WP_Error('invalid_rsid', 'Unable to get shop data');
+		$shop_data = ced_ebay_get_shop_data( $userId, $site_id );
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$siteID      = $site_id;
+			$token       = $shop_data['access_token'];
+			$getLocation = $shop_data['location'];
+		} else {
+			return 'Unable to verify eBay user';
 		}
-
-		$wc_products_data = new Product_Data;
-		$wc_products_data->setEbayUser($userId);
-		$wc_products_data->setEbaySite($siteID);
-		$wc_products_data->setProductId( $proIds );
-		$listings_data = new Listings_Data;
-		$listings_data->setSourceProductId($proIds);
-
 		$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
 		$shipping_policy            = ! empty( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_shipping_policy'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_shipping_policy'] : '';
 		$payment_policy             = ! empty( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_payment_policy'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_payment_policy'] : '';
@@ -289,78 +345,114 @@ class Class_Ced_EBay_Products {
 			$ship_bussiness_id   = $ship_array[0];
 			$ship_bussiness_name = $ship_array[1];
 
-			$policy_data = [
-			'shipping_policy' => [
-				'profileId' => $ship_bussiness_id,
-				'profileName' => $ship_bussiness_name
-			],
-			'return_policy' => [
-				'profileId' => $return_id,
-				'profileName' => $return_name
-			],
-			'payment_policy' => [
-				'profileId' => $payment_id,
-				'profileName' => $payment_name
-			]
-		];
-			$listings_data->setPolicyData($policy_data);
+			$item['SellerProfiles']['SellerShippingProfile']['ShippingProfileID']   = $ship_bussiness_id;
+			$item['SellerProfiles']['SellerShippingProfile']['ShippingProfileName'] = $ship_bussiness_name;
+
+			$item['SellerProfiles']['SellerPaymentProfile']['PaymentProfileID']   = $payment_id;
+			$item['SellerProfiles']['SellerPaymentProfile']['PaymentProfileName'] = $payment_name;
+
+			$item['SellerProfiles']['SellerReturnProfile']['ReturnProfileID']   = $return_id;
+			$item['SellerProfiles']['SellerReturnProfile']['ReturnProfileName'] = $return_name;
+
+			// line
+
+		} else {
+			return array( 'error' => 'Business policies are not set' );
 		}
-		
-		$policy_data = [
-			'shipping_policy' => [
-				'profileId' => 5545377000,
-				'profileName' => 'FlatOther  Hour business dayssqweqweqwe'
-			],
-			'return_policy' => [
-				'profileId' => 5545375000,
-				'profileName' => 'Returns Accepted'
-			],
-			'payment_policy' => [
-				'profileId' => 5558717000,
-				'profileName' => 'PayPalPersonal checkCredit'
-			]
-	];
-		
-		$listings_data->setPolicyData($policy_data);
-		// else {
-		// 	return new \WP_Error('business_policies', 'Business policies are not set');
-		// }
+		$listingDuration = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_listing_duration' );
 		$lisyingType     = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_listing_type' );
+		$dispatchTime    = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_dispatch_time' );
+		if ( '' === $dispatchTime ) {
+			$dispatchTime = 0;
+		}
 		$pictureUrl = wp_get_attachment_image_url( get_post_meta( $proIds, '_thumbnail_id', true ), 'full' ) ? str_replace( ' ', '%20', wp_get_attachment_image_url( get_post_meta( $proIds, '_thumbnail_id', true ), 'full' ) ) : '';
 		$pictureUrl = strtok( $pictureUrl, '?' );
 		if ( strpos( $pictureUrl, 'https' ) === false ) {
 			$pictureUrl = str_replace( 'http', 'https', $pictureUrl );
 		}
 		$primarycatId = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_category' );
-		$listings_data->setCategory($primarycatId);
-		
 
-		$listings_data->setTitle($title);
-		
+		$category_id = isset( $product_data['category_ids'] ) ? $product_data['category_ids'] : array();
+		foreach ( $category_id as $key => $value ) {
+			$storeCustomCatId = get_term_meta( $value, 'ced_ebay_mapped_to_store_category_' . $userId, true );
+			if ( ! empty( $storeCustomCatId ) ) {
+				break;
+			}
+		}
+		foreach ( $category_id as $key => $value ) {
+			$storeSecondaryID = get_term_meta( $value, 'ced_ebay_mapped_to_store_secondary_category_' . $userId, true );
+			if ( ! empty( $storeSecondaryID ) ) {
+				break;
+			}
+		}
+		foreach ( $category_id as $key => $value ) {
+			$ebay_secondary_category_id = get_term_meta( $value, 'ced_ebay_mapped_secondary_category_' . $userId, true );
+			if ( ! empty( $ebay_secondary_category_id ) ) {
+				break;
+			}
+		}
+
+		$store_data = ! empty( get_option( 'ced_ebay_store_data_' . $userId, true ) ) ? get_option( 'ced_ebay_store_data_' . $userId, true ) : false;
+
+		if ( $store_data ) {
+			$store_custom_categories = ! empty( $store_data['Store']['CustomCategories']['CustomCategory'] ) ? $store_data['Store']['CustomCategories']['CustomCategory'] : false;
+		}
+
+		if ( $store_data ) {
+
+			if ( $storeCustomCatId ) {
+				$storeCustomCatName = $this->ced_ebay_recursive_find_category_id( $storeCustomCatId, $store_data );
+			}
+
+			if ( $storeSecondaryID ) {
+				$storeCustomSecondaryCatName = $this->ced_ebay_recursive_find_category_id( $storeSecondaryID, $store_data );
+			}
+		}
+
+		global $wpdb;
+
+		$item['Title'] = $title;
+		if ( ! empty( $subtitle ) ) {
+			$item['Subtitle'] = $subtitle;
+		}
+		$mpn   = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_mpn' );
 		$ean   = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_ean' );
 		$isbn  = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_isbn' );
 		$upc   = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_upc' );
+		$brand = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_brand' );
 		if ( empty( $ean ) ) {
 			$ean = 'Does Not Apply';
 		}
-		
-		if ( '' != $ean || '' != $isbn || '' != $upc ) {
-			
-			if ( '' != $ean ) {
-				$listings_data->setEan($ean);
+		if ( empty( $mpn ) ) {
+			if ( ! empty( get_post_meta( $proIds, '_sku', true ) ) ) {
+				$mpn = get_post_meta( $proIds, '_sku', true );
+			} else {
+				$mpn = 'Does Not Apply';
 			}
-			if ( '' != $isbn ) {
-				$listings_data->setIsbn($ean);
-			}
-			if ( '' != $upc ) {
-				$listings_data->setUpc($ean);
+		}
+		if ( '' != $mpn || '' != $ean || '' != $isbn || '' != $upc ) {
+			if ( '' != $brand ) {
+				$item['ProductListingDetails']['BrandMPN']['Brand'] = $brand;
+				$item['ProductListingDetails']['BrandMPN']['MPN']   = $mpn;
 
 			} else {
-				$listings_data->setUpc('Does not apply');
+				$item['ProductListingDetails']['BrandMPN']['Brand'] = 'No Brand Availaible';
+				$item['ProductListingDetails']['BrandMPN']['MPN']   = $mpn;
+			}
+			if ( '' != $ean ) {
+				$item['ProductListingDetails']['EAN'] = $ean;
+			}
+			if ( '' != $isbn ) {
+				$item['ProductListingDetails']['ISBN'] = $isbn;
+			}
+			if ( '' != $upc ) {
+				$item['ProductListingDetails']['UPC'] = $upc;
+			} else {
+				$item['ProductListingDetails']['UPC'] = 'Does Not Apply';
 			}
 		}
 		if ( ! empty( $ebayItemID ) ) {
-			$listings_data->setEbayListingId($ebayItemID);
+			$item['ItemID'] = $ebayItemID;
 		}
 		$description_template_id = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_description_template' );
 		if ( empty( $description_template_id ) || '' == $description_template_id ) {
@@ -373,13 +465,61 @@ class Class_Ced_EBay_Products {
 				$template_html = @file_get_contents( $templates_dir . $description_template_id . '/template.html' );
 				$custom_css    = @file_get_contents( $templates_dir . $description_template_id . '/style.css' );
 			}
-			
-			if ( $product->is_type( 'simple' ) ) {
-				$product_price = $wc_products_data->getPrice();
-				$template_html = str_replace( '[woo_ebay_product_price]', $product_price, $template_html );
-			} 
+			if ( get_option( 'ced_ebay_global_settings', false ) ) {
+				$dataInGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+				$price_markup_type    = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] : '';
+				$price_markup_value   = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] : '';
+			}
+			$dataInGlobalSettings = ! empty( get_option( 'ced_ebay_global_settings', false ) ) ? get_option( 'ced_ebay_global_settings', false ) : '';
+			$price_selection      = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] : '';
 
-			
+			if ( $product->is_type( 'variable' ) ) {
+				$allVariations = $product->get_children();
+				foreach ( $allVariations as $key => $var_prod_id ) {
+					if ( strpos( $template_html, '[woo_ebay_product_price][' . $key . ']' ) ) {
+						$var_prod = wc_get_product( $var_prod_id );
+
+						if ( 'Regular_Price' == $price_selection ) {
+							$product_price = $var_prod->get_regular_price();
+						} elseif ( 'Sale_Price' == $price_selection ) {
+							$product_price = $var_prod->get_sale_price();
+						} else {
+							$product_price = $var_prod->get_price();
+						}
+
+						if ( 'Fixed_Increased' == $price_markup_type ) {
+							$product_price = $product_price + $price_markup_value;
+						} elseif ( 'Percentage_Increased' == $price_markup_type ) {
+							$product_price = $product_price + ( ( $product_price * $price_markup_value ) / 100 );
+						} elseif ( 'Percentage_Decreased' == $price_markup_type ) {
+							$product_price = $product_price - ( ( $product_price * $price_markup_value ) / 100 );
+						} elseif ( 'Fixed_Decreased' == $price_markup_type ) {
+							$product_price = $product_price - $price_markup_value;
+						}
+						$template_html = str_replace( '[woo_ebay_product_price][' . $key . ']', $product_price, $template_html );
+
+					}
+				}
+			} else {
+				if ( 'Regular_Price' == $price_selection ) {
+					$product_price = $product->get_regular_price();
+				} elseif ( 'Sale_Price' == $price_selection ) {
+					$product_price = $product->get_sale_price();
+				} else {
+					$product_price = $product->get_price();
+				}
+				if ( 'Fixed_Increased' == $price_markup_type ) {
+					$product_price = $product_price + $price_markup_value;
+				} elseif ( 'Percentage_Increased' == $price_markup_type ) {
+					$product_price = $product_price + ( ( $product_price * $price_markup_value ) / 100 );
+				} elseif ( 'Percentage_Decreased' == $price_markup_type ) {
+					$product_price = $product_price - ( ( $product_price * $price_markup_value ) / 100 );
+				} elseif ( 'Fixed_Decreased' == $price_markup_type ) {
+					$product_price = $product_price - $price_markup_value;
+				}
+							$template_html = str_replace( '[woo_ebay_product_price]', $product_price, $template_html );
+
+			}
 
 			$product_image             = '<img src="' . utf8_uri_encode( strtok( $pictureUrl, '?' ) ) . '" >';
 			$product_content           = wp_kses(
@@ -431,7 +571,7 @@ class Class_Ced_EBay_Products {
 				$regex = '/\[woo_ebay_product_main_image (width|height)=([^"]+)\]/';
 
 				$matches = array();
-				preg_match( $regex, $template_html, $matches );
+				preg_match( $regex, $shortcode, $matches );
 
 				if ( count( $matches ) === 2 ) {
 					$image_width   = $matches[1];
@@ -444,56 +584,186 @@ class Class_Ced_EBay_Products {
 
 				}
 			}
+			// $template_html       = str_replace( '[woo_ebay_product_main_image]', $product_image, $template_html );
 			$template_html       = str_replace( '[woo_ebay_product_category]', $product_category[0]->name, $template_html );
 			$template_html       = str_replace( '[woo_ebay_product_type]', $productType, $template_html );
 			$template_html       = str_replace( '[woo_ebay_product_short_description]', $product_short_description, $template_html );
 			$custom_css          = '<style type="text/css">' . $custom_css . '</style>';
 			$product_description = $custom_css . ' <br> ' . $template_html . ' </br> ';
 		}
-	
-		//Set Item Description
-		$listing_description = ! empty( $product_description ) ? $product_description : $description;
-		$listings_data->setDescription($listing_description);
 
+		$item['Description']                   = ! empty( $product_description ) ? $product_description : $description;
+		$item['PrimaryCategory']['CategoryID'] = $primarycatId;
+		$item['CategoryMappingAllowed']        = true;
+		$item['Site']                          = $getLocation;
+		if ( ! empty( get_post_meta( $proIds, 'ced_ebay_prod_store_cat_value_' . $proIds . '_' . $userId, true ) && ! empty( get_post_meta( $proIds, 'ced_ebay_prod_store_cat_name_' . $proIds . '_' . $userId, true ) ) ) ) {
+			$store_category_id                       = get_post_meta( $proIds, 'ced_ebay_prod_store_cat_value_' . $proIds . '_' . $userId, true );
+			$store_category_name                     = get_post_meta( $proIds, 'ced_ebay_prod_store_cat_name_' . $proIds . '_' . $userId, true );
+			$item['Storefront']['StoreCategoryID']   = $store_category_id;
+			$item['Storefront']['StoreCategoryName'] = $store_category_name;
+		}
 
+		if ( ( ! empty( $storeCustomCatId ) && ! empty( $storeCustomCatName ) ) ) {
+			$item['Storefront']['StoreCategoryID']   = $storeCustomCatId;
+			$item['Storefront']['StoreCategoryName'] = $storeCustomCatName;
 
-		//Set Item Location
-		$item_location        = ! empty( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_item_location_state'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_item_location_state'] : $getLocation;
-		$listings_data->setLocation($item_location);
+		}
+		if ( ! empty( $storeSecondaryID ) && ! empty( $storeCustomSecondaryCatName ) ) {
+			$item['Storefront']['StoreCategory2ID']   = $storeSecondaryID;
+			$item['Storefront']['StoreCategory2Name'] = $storeCustomSecondaryCatName;
+		}
 
-		
+		if ( ! empty( $ebay_secondary_category_id ) ) {
+			$item['SecondaryCategory']['CategoryID'] = $ebay_secondary_category_id;
+		}
 
-		$listings_data->setAutoPay();
+		$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+		$item_location_state        = ! empty( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_item_location_state'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_item_location_state'] : $getLocation;
+		$item['Location']           = $item_location_state;
+		$amount                     = get_post_meta( $proIds, '_stock', true );
+		$listing_stock_type         = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] : '';
+		$listing_stock              = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] : '';
 
-		$vat_percent     = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_vat_percent'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_vat_percent'] : '';
+			$manage_stock   = get_post_meta( $proIds, '_manage_stock', true );
+			$product_status = get_post_meta( $proIds, '_stock_status', true );
+
+		if ( 'yes' != $manage_stock && 'instock' == $product_status ) {
+			$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+			if ( ! empty( $listing_stock_type ) && ! empty( $listing_stock ) && 'MaxStock' == $listing_stock_type ) {
+				$amount = $listing_stock;
+			} else {
+				$amount = 1;
+			}
+		} elseif ( 'outofstock' != $product_status ) {
+			if ( ! empty( $listing_stock_type ) && ! empty( $listing_stock ) && 'MaxStock' == $listing_stock_type ) {
+				if ( $amount > $listing_stock ) {
+					$amount = $listing_stock;
+				} else {
+					$amount = intval( $amount );
+					if ( $amount < 1 ) {
+						$amount = '0';
+					}
+				}
+			} else {
+				$amount = intval( $amount );
+				if ( $amount < 1 ) {
+					$amount = '0';
+				}
+			}
+		} else {
+			$amount = 0;
+		}
+
+		$dataInGlobalSettings      = ! empty( get_option( 'ced_ebay_global_settings', false ) ) ? get_option( 'ced_ebay_global_settings', false ) : '';
+		$price_selection           = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] : '';
+		$profile_price_markup_type = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_profile_price_markup_type' );
+		$profile_price_markup      = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_profile_price_markup' );
+		if ( 'Regular_Price' == $price_selection ) {
+			$price = $product->get_regular_price();
+		} elseif ( 'Sale_Price' == $price_selection ) {
+			$price = $product->get_sale_price();
+		} else {
+			$price = $product->get_price();
+		}
+			$dataInGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+			$price_markup_type    = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] : '';
+			$price_markup_value   = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] : '';
+
+		if ( ! empty( $profile_price_markup_type ) && ! empty( $profile_price_markup ) ) {
+			if ( 'Fixed_Increase' == $profile_price_markup_type ) {
+				$price = $price + $profile_price_markup;
+			} elseif ( 'Percentage_Increase' == $profile_price_markup_type ) {
+				$price = $price + ( ( $price * $profile_price_markup ) / 100 );
+			} elseif ( 'Percentage_Decrease' == $profile_price_markup_type ) {
+				$price = $price - ( ( $price * $profile_price_markup ) / 100 );
+			} elseif ( 'Fixed_Decrease' == $profile_price_markup_type ) {
+				$price = $price - $profile_price_markup;
+			}
+		} elseif ( ! empty( $price_markup_type ) && ! empty( $price_markup_value ) ) {
+			if ( 'Fixed_Increased' == $price_markup_type ) {
+				$price = $price + $price_markup_value;
+			} elseif ( 'Percentage_Increased' == $price_markup_type ) {
+				$price = $price + ( ( $price * $price_markup_value ) / 100 );
+			} elseif ( 'Percentage_Decreased' == $price_markup_type ) {
+				$price = $price - ( ( $price * $price_markup_value ) / 100 );
+			} elseif ( 'Fixed_Decreased' == $price_markup_type ) {
+				$price = $price - $price_markup_value;
+			}
+		}
+		$item['AutoPay'] = 'true';
+		$vat_percent     = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_vat_percent'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_vat_percent'] : '';
 		if ( ! empty( $vat_percent ) && 0 < $vat_percent ) {
-			$listings_data->setVatPercentage($vat_percent);
+			$item['VATDetails']['VATPercent'] = $vat_percent;
 		}
-
 		if ( $product->is_type( 'simple' ) ) {
-			//Set Quantity and Price
-			
-			$listing_quantity = $wc_products_data->getStock();
-			$listings_data->setQuantity($listing_quantity);
-			$listing_price = $wc_products_data->getPrice();
-			$listings_data->setPrice(($listing_price));
-
-			//Set Best Offer
+			$item['StartPrice']            = $price;
 			$BestOfferEnabled              = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_bestoffer' );
+			$_umb_ebay_auto_accept_offers  = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_auto_accept_offers' );
+			$_umb_ebay_auto_decline_offers = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_auto_decline_offers' );
 			if ( 'No' == $BestOfferEnabled ) {
-				$listings_data->setBestOfferEnabled(false);
-			} elseif ( 'Yes' == $BestOfferEnabled ) {
-				$listings_data->setBestOfferEnabled(true);
+				$item['BestOfferDetails']['BestOfferEnabled'] = 'false';
+			} elseif ( 'Yes' == $BestOfferEnabled && ! empty( $_umb_ebay_auto_accept_offers ) && ! empty( $_umb_ebay_auto_decline_offers ) ) {
+				$item['BestOfferDetails']['BestOfferEnabled'] = 'true';
+				if ( strpos( $_umb_ebay_auto_accept_offers, '|F' ) !== false || strpos( $_umb_ebay_auto_accept_offers, '|P' ) !== false ) {
+					$auto_accept_price_shortcode = explode( '|', $_umb_ebay_auto_accept_offers );
+					$price_operation             = trim( $auto_accept_price_shortcode[0] );
+					$price_modify_by             = trim( $auto_accept_price_shortcode[1] );
+					$modification_type           = trim( $auto_accept_price_shortcode[2] );
+					if ( $price < $price_modify_by ) {
+						return 'Price of the product can\'t be less than Best Offer Auto Accept Price.';
+					}
+					if ( ! empty( $price_operation ) && ( '+' == $price_operation || '-' == $price_operation ) && ! empty( $price_modify_by ) && 'F' == $modification_type ) {
+						if ( '+' == $price_operation ) {
+							$item['ListingDetails']['BestOfferAutoAcceptPrice'] = $price + $price_modify_by;
+						} elseif ( '-' == $price_operation ) {
+							$item['ListingDetails']['BestOfferAutoAcceptPrice'] = $price - $price_modify_by;
+						}
+					} elseif ( ! empty( $price_operation ) && ( '+' == $price_operation || '-' == $price_operation ) && ! empty( $price_modify_by ) && 'P' == $modification_type ) {
+						if ( '+' == $price_operation ) {
+							$item['ListingDetails']['BestOfferAutoAcceptPrice'] = $price + ( $price * ( $price_modify_by / 100 ) );
+						} elseif ( '-' == $price_operation ) {
+							$item['ListingDetails']['BestOfferAutoAcceptPrice'] = $price - ( $price * ( $price_modify_by / 100 ) );
+						}
+					}
+				}
+				if ( strpos( $_umb_ebay_auto_decline_offers, '|F' ) !== false || strpos( $_umb_ebay_auto_decline_offers, '|P' ) !== false ) {
+					$auto_decline_price_shortcode = explode( '|', $_umb_ebay_auto_decline_offers );
+					$price_operation              = trim( $auto_decline_price_shortcode[0] );
+					$price_modify_by              = trim( $auto_decline_price_shortcode[1] );
+					$modification_type            = trim( $auto_decline_price_shortcode[2] );
+					if ( $price < $price_modify_by ) {
+						return 'Price of the product can\'t be less than Best Offer Auto Decline Price.';
+					}
+					if ( ! empty( $price_operation ) && ( '+' == $price_operation || '-' == $price_operation ) && ! empty( $price_modify_by ) && 'F' == $modification_type ) {
+						if ( '+' == $price_operation ) {
+							$item['ListingDetails']['MinimumBestOfferPrice'] = $price + $price_modify_by;
+						} elseif ( '-' == $price_operation ) {
+							$item['ListingDetails']['MinimumBestOfferPrice'] = $price - $price_modify_by;
+						}
+					} elseif ( ! empty( $price_operation ) && ( '+' == $price_operation || '-' == $price_operation ) && ! empty( $price_modify_by ) && 'P' == $modification_type ) {
+						if ( '+' == $price_operation ) {
+							$item['ListingDetails']['MinimumBestOfferPrice'] = $price + ( $price * ( $price_modify_by / 100 ) );
+						} elseif ( '-' == $price_operation ) {
+							$item['ListingDetails']['MinimumBestOfferPrice'] = $price - ( $price * ( $price_modify_by / 100 ) );
+						}
+					}
+				}
+			} elseif ( 'Yes' == $BestOfferEnabled && empty( $_umb_ebay_auto_accept_offers ) && empty( $_umb_ebay_auto_decline_offers ) ) {
+				$item['BestOfferDetails']['BestOfferEnabled'] = 'true';
 			}
 		}
 
-		$sending_sku          = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sending_sku'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sending_sku'] : 'off';
+		$dataInGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+		$sending_sku          = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sending_sku'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_sending_sku'] : 'off';
 		if ( 'off' == $sending_sku ) {
-			$listings_data->setSku($product->get_sku());
-			if ( empty( $product->get_sku() ) ) {
-				$listings_data->setSku($proIds);
+			$item['SKU'] = $product->get_sku();
+			if ( empty( $item['SKU'] ) ) {
+				$item['SKU'] = $proIds;
 			}
 		}
+		$item['ListingDuration'] = ! empty( $listingDuration ) ? $listingDuration : 'GTC';
+		$item['ListingType']     = 'FixedPriceItem';
+		$item['DispatchTimeMax'] = 'cedDispatchTime';
 
 		$isDomShippingOptionCalculated  = false;
 		$isIntlShippingOptionCalculated = false;
@@ -518,15 +788,58 @@ class Class_Ced_EBay_Products {
 			$productWeight = get_post_meta( $proIds, '_weight', true );
 			$weight_unit   = get_option( 'woocommerce_weight_unit' );
 			if ( '' != $productWeight ) {
-				$listings_data->setWeight($productWeight);
-				$listings_data->setWeightUnit($weight_unit);	
+				if ( 'lbs' == $weight_unit ) {
+					$item['ShippingPackageDetails']['MeasurementUnit'] = 'English';
+					$weight_in_pounds                                  = (int) $productWeight;
+					$weight_frac                                       = $productWeight - $weight_in_pounds;
+					$weight_in_ounces                                  = ceil( $weight_frac * 16 );
+					$weight_major_xml                                  = '<WeightMajor unit="lbs">' . $weight_in_pounds . '</WeightMajor><WeightMinor unit="oz">' . $weight_in_ounces . '</WeightMinor>';
+				} elseif ( 'kg' == $weight_unit ) {
+					$item['ShippingPackageDetails']['MeasurementUnit'] = 'Metric';
+					$weight_in_kg                                      = (int) $productWeight;
+					$weight_frac                                       = $productWeight - $weight_in_kg;
+					$weight_in_grams                                   = $weight_frac * 1000;
+					$weight_major_xml                                  = '<WeightMajor unit="kg">' . $weight_in_kg . '</WeightMajor><WeightMinor unit="gr">' . $weight_in_grams . '</WeightMinor>';
+				} elseif ( 'g' == $weight_unit ) {
+
+					$item['ShippingPackageDetails']['MeasurementUnit'] = 'Metric';
+					$weightConverter                                   = new Olifolkerd\Convertor\Convertor( $productWeight, $weight_unit );
+					$weight_in_kg                                      = $weightConverter->to( 'kg' );
+					$weight_kg_whole                                   = (int) $weight_in_kg;
+					$frac                = $weight_in_kg - $weight_kg_whole;
+					$fracWeightConverter = new Olifolkerd\Convertor\Convertor( $frac, 'kg' );
+					$weight_in_g         = floor( $fracWeightConverter->to( 'g' ) );
+					$weight_major_xml    = '<WeightMajor unit="kg">' . $weight_kg_whole . '</WeightMajor><WeightMinor unit="gr">' . $weight_in_g . '</WeightMinor>';
+				} elseif ( 'oz' == $weight_unit ) {
+					$item['ShippingPackageDetails']['MeasurementUnit'] = 'English';
+					$weightConverter                                   = new Olifolkerd\Convertor\Convertor( $productWeight, $weight_unit );
+					$weight_in_lb                                      = $weightConverter->to( 'lb' );
+					$weight_lb_whole                                   = (int) $weight_in_lb;
+					$frac                = $weight_in_lb - $weight_lb_whole;
+					$fracWeightConverter = new Olifolkerd\Convertor\Convertor( $frac, 'lb' );
+					$weight_in_oz        = floor( $fracWeightConverter->to( 'oz' ) );
+					$weight_major_xml    = '<WeightMajor unit="lbs">' . $weight_lb_whole . '</WeightMajor><WeightMinor unit="oz">' . $weight_in_oz . '</WeightMinor>';
+				}
+				$item['ShippingPackageDetails']['WeightMajor'] = 'cedWeightMajor';
 			}
-			
+			if ( '' == $productWeight ) {
+				$productWeight = 0;
+			}
 		}
+
+		$dispatch_time_xml = '<DispatchTimeMax>' . $dispatchTime . '</DispatchTimeMax>';
+		$Autopay           = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_autopay' );
+		if ( 'No' == $Autopay ) {
+			$item['AutoPay'] = 'false';
+		} elseif ( 'Yes' == $Autopay ) {
+			$item['AutoPay'] = 'true';
+		}
+
+		$postalCode = '';
 
 		$wp_folder     = wp_upload_dir();
 		$wp_upload_dir = $wp_folder['basedir'];
-		$wp_upload_dir = $wp_upload_dir . '/ced-ebay/category-specifics/' . $userId . '/' . $siteID . '/';
+		$wp_upload_dir = $wp_upload_dir . '/ced-ebay/category-specifics/' . $userId . '/' . $site_id . '/';
 
 		$cat_specifics_file = $wp_upload_dir . 'ebaycat_' . $primarycatId . '.json';
 		if ( file_exists( $cat_specifics_file ) ) {
@@ -536,39 +849,33 @@ class Class_Ced_EBay_Products {
 			$available_attribute = array();
 		}
 
-		
+		$fileCategory = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedGetcategories.php';
+		if ( file_exists( $fileCategory ) ) {
+			require_once $fileCategory;
+		}
 
 		$ebayConfig = CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
 		if ( file_exists( $ebayConfig ) ) {
 			require_once $ebayConfig;
 		}
 
-		$ebayCategoryInstance = \Ced\Ebay\CedGetCategories::get_instance( $siteID, $rsid );
+		$ebayCategoryInstance = CedGetCategories::get_instance( $siteID, $token );
 		if ( ! empty( $available_attribute ) && is_array( $available_attribute ) ) {
 			$getCatSpecifics = $available_attribute;
-			$getCatFeatures  = $ebayCategoryInstance->_getCatFeatures( $primarycatId );
-			if(!is_wp_error($getCatFeatures)){
-				$getCatFeatures  = isset( $getCatFeatures[0] ) ? $getCatFeatures[0] : false;
-			} else {
-				return $getCatFeatures;
-			}
+			$limit           = array( 'ConditionEnabled', 'ConditionValues' );
+			$getCatFeatures  = $ebayCategoryInstance->_getCatFeatures( $primarycatId, $limit );
+			$getCatFeatures  = isset( $getCatFeatures['Category'] ) ? $getCatFeatures['Category'] : false;
 		} else {
 			$getCatSpecifics      = $ebayCategoryInstance->_getCatSpecifics( $primarycatId );
-			if(is_wp_error($getCatSpecifics)){
-				return $getCatSpecifics;
-			}
 			$getCatSpecifics_json = json_encode( $getCatSpecifics );
 			$cat_specifics_file   = $wp_upload_dir . 'ebaycat_' . $primarycatId . '.json';
 			if ( file_exists( $cat_specifics_file ) ) {
 				wp_delete_file( $cat_specifics_file );
 			}
 			file_put_contents( $cat_specifics_file, $getCatSpecifics_json );
+			$limit          = array( 'ConditionEnabled', 'ConditionValues' );
 			$getCatFeatures = $ebayCategoryInstance->_getCatFeatures( $primarycatId, $limit );
-			if(!is_wp_error($getCatFeatures)){
-				$getCatFeatures  = isset( $getCatFeatures[0] ) ? $getCatFeatures[0] : false;
-			} else {
-				return $getCatFeatures;
-			}
+			$getCatFeatures = isset( $getCatFeatures['Category'] ) ? $getCatFeatures['Category'] : false;
 		}
 		$nameValueList = '';
 		$catSpecifics  = array();
@@ -577,7 +884,6 @@ class Class_Ced_EBay_Products {
 		}
 
 		if ( is_array( $catSpecifics ) && ! empty( $catSpecifics ) ) {
-			$nameValueList = [];
 			foreach ( $catSpecifics as $specific ) {
 				if ( isset( $specific['localizedAspectName'] ) ) {
 					$catSpcfcs = $this->fetchMetaValueOfProduct( $proIds, urlencode( $primarycatId . '_' . $specific['localizedAspectName'] ) );
@@ -590,77 +896,152 @@ class Class_Ced_EBay_Products {
 						} elseif ( strpos( $specific['localizedAspectName'], '&' ) !== false ) {
 							$specific['localizedAspectName'] = str_replace( '&', '&amp;', $specific['localizedAspectName'] );
 						}
-						
-					$nameValueList[] = [
-						'name' => $specific['localizedAspectName'],
-						'value' => [$catSpcfcs]
-					];
-
+						$nameValueList .= '<NameValueList>
+						<Name>' . $specific['localizedAspectName'] . '</Name>
+						<Value>' . $catSpcfcs . '</Value>
+					</NameValueList>';
 					}
 				}
 			}
-			$listings_data->setItemSpecifics($nameValueList);
 		}
-		
+		if ( ! empty( get_option( 'ced_ebay_custom_item_specific', true ) ) ) {
+			$global_custom_attributes = get_option( 'ced_ebay_custom_item_specific', true );
+			foreach ( $global_custom_attributes[ $userId ][ $siteID ] as $data_key => $data_value ) {
+				if ( isset( $data_value['attribute'] ) ) {
+					$catSpcfcs = $this->fetchMetaValueOfProduct( $proIds, urlencode( $primarycatId . '_' . $data_value['attribute'] ) );
+
+					if ( $catSpcfcs ) {
+						if ( is_array( $catSpcfcs ) && ! empty( $catSpcfcs ) ) {
+							$catSpcfcs = implode( ',', $catSpcfcs );
+						}
+						if ( strpos( $catSpcfcs, '&' ) !== false ) {
+							$catSpcfcs = str_replace( '&', '&amp;', $catSpcfcs );
+						} elseif ( strpos( $data_value['attribute'], '&' ) !== false ) {
+							$data_value['attribute'] = str_replace( '&', '&amp;', $data_value['attribute'] );
+						}
+
+						$nameValueList .= '<NameValueList>
+						<Name>' . $data_value['attribute'] . '</Name>
+						<Value>' . $catSpcfcs . '</Value>
+					</NameValueList>';
+					}
+				}
+			}
+		}
 		$conditionID = '';
 		if ( $getCatFeatures ) {
-			if ( isset( $getCatFeatures['itemConditions'] ) ) {
+			if ( isset( $getCatFeatures['ConditionValues'] ) ) {
+				$valueForDropdown     = $getCatFeatures['ConditionValues']['Condition'];
+				$tempValueForDropdown = array();
 				if ( ! empty( get_post_meta( $proIds, 'ced_ebay_listing_condition', true ) ) ) {
 					$conditionID = get_post_meta( $proIds, 'ced_ebay_listing_condition', true );
 				} else {
 					$conditionID = $this->fetchMetaValueOfProduct( $proIds, $primarycatId . '_Condition' );
+				}               if ( '' == $conditionID || null == $conditionID ) {
+					$missingValues[] = 'Condition id';
 				}
-				
-				$listings_data->setCategoryCondition($conditionID);
-				
 			}
 		}
 
-		
+		$item['Title']      = $title;
+		$custom_template_id = 0;
+		$custom_template_id = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_custom_description_template' );
+
+		if ( '' != $nameValueList && null != $nameValueList ) {
+			$nameValueList         = '<ItemSpecifics>' . $nameValueList . '</ItemSpecifics>';
+			$item['ItemSpecifics'] = 'ced';
+		}
+
 		if ( 'variable' == $productType ) {
-			$ebay_variation_data = $this->getFormattedDataForVariation( $proIds, $siteID, $userId );
-			if (!empty($ebay_variation_data) && is_array($ebay_variation_data)){
-				if(!isset($ebay_variation_data['variants'])){
-					new \WP_Error('no_variants', 'No variants found');
-				} else if(!isset($ebay_variation_data['variant_attributes'])){
-					new \WP_Error('no_variant_attributes', 'No variantion attributes found');
-				}
-			$listings_data->setVariants($ebay_variation_data['variants']);
-			$listings_data->setVariantAttributes($ebay_variation_data['variant_attributes']);
+			$VariationSpecificsFinalSet = $this->getFormattedDataForVariation( $proIds, $siteID, $userId );
+			if ( '' != $VariationSpecificsFinalSet && null != $VariationSpecificsFinalSet ) {
+				$item['Variations'] = 'ced';
 			}
 		}
+		$item['PrimaryCategory']['CategoryID'] = $primarycatId;
 
 		if ( '' != $mpn || '' != $ean || '' != $isbn || '' != $upc ) {
 			if ( '' != $ean ) {
-				$ebay_item['ProductListingDetails']['EAN'] = $ean;
+				$item['ProductListingDetails']['EAN'] = $ean;
 			}
 			if ( '' != $isbn ) {
-				$ebay_item['ProductListingDetails']['ISBN'] = $isbn;
+				$item['ProductListingDetails']['ISBN'] = $isbn;
 			}
 			if ( '' != $upc ) {
-				$ebay_item['ProductListingDetails']['UPC'] = $upc;
+				$item['ProductListingDetails']['UPC'] = $upc;
 			} else {
-				$ebay_item['ProductListingDetails']['UPC'] = 'DoesNotApply';
+				$item['ProductListingDetails']['UPC'] = 'DoesNotApply';
 			}
 		}
 
+		$_umb_ebay_prefill_listing_with_ebay_catalog = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_prefill_listing_with_ebay_catalog' );
+		$_umb_ebay_use_stock_image                   = $this->fetchMetaValueOfProduct( $proIds, '_umb_ebay_use_stock_image' );
 
-		$listings_data->setConditionDescription($product_custom_condtion);
+		if ( ! empty( $_umb_ebay_prefill_listing_with_ebay_catalog ) ) {
+			$item['ProductListingDetails']['IncludeeBayProductDetails'] = $_umb_ebay_prefill_listing_with_ebay_catalog;
+		}
+		if ( ! empty( $_umb_ebay_use_stock_image ) ) {
+			$item['ProductListingDetails']['IncludeStockPhotoURL'] = $_umb_ebay_use_stock_image;
+		}
 
+		if ( ! empty( $product_custom_condtion ) ) {
+			$item['ConditionDescription'] = $product_custom_condtion;
+		}
 
-		
-		$configInstance     = \Ced\Ebay\Ebayconfig::get_instance();
+		$item['CategoryMappingAllowed'] = true;
+		if ( '' != $conditionID && null != $conditionID ) {
+			$item['ConditionID'] = $conditionID;
+		} else {
+			$item['ConditionID'] = 1000;
+		}
+		if ( ! empty( $amount ) || 0 == $amount ) {
+			$item['Quantity'] = $amount;
+		}
+		$item['ListingDuration'] = ! empty( $listingDuration ) ? $listingDuration : 'GTC';
+		$item['ListingType']     = 'FixedPriceItem';
+
+		$wcDimensionUnit = get_option( 'woocommerce_dimension_unit' );
+		if ( ! empty( $wcDimensionUnit ) ) {
+			$lengthValue                                     = ! empty( get_post_meta( $proIds, '_length', true ) ) ? get_post_meta( $proIds, '_length', true ) : 0;
+			$lengthXml                                       = '<PackageLength unit="' . $wcDimensionUnit . '">' . $lengthValue . '</PackageLength>';
+			$item['ShippingPackageDetails']['PackageLength'] = 'cedPackageLength';
+
+			$widthValue                                     = ! empty( get_post_meta( $proIds, '_width', true ) ) ? get_post_meta( $proIds, '_width', true ) : 0;
+			$widthXml                                       = '<PackageWidth unit="' . $wcDimensionUnit . '">' . $widthValue . '</PackageWidth>';
+			$item['ShippingPackageDetails']['PackageWidth'] = 'cedPackageWidth';
+
+			$heightValue                                    = ! empty( get_post_meta( $proIds, '_height', true ) ) ? get_post_meta( $proIds, '_height', true ) : 0;
+			$heightXml                                      = '<PackageDepth unit="' . $wcDimensionUnit . '">' . $heightValue . '</PackageDepth>';
+			$item['ShippingPackageDetails']['PackageDepth'] = 'cedPackageDepth';
+		}
+
+		$productWeight = get_post_meta( $proIds, '_weight', true );
+
+		if ( '' == $productWeight ) {
+			$productWeight = 0;
+		}
+
+		$themeId = get_post_meta( $proIds, 'ced_umb_ebay_product_template', true );
+		if ( '' != $themeId || null != $themeId ) {
+			$item['ListingDesigner']['OptimalPictureSize'] = true;
+			$item['ListingDesigner']['ThemeID']            = $themeId;
+		}
+		$private_listing = get_post_meta( $proIds, '_umb_ebay_private_listing', true );
+		if ( 'yes' == $private_listing ) {
+			$item['PrivateListing'] = true;
+		}
+		$configInstance     = \Ced_Ebay_WooCommerce_Core\Ebayconfig::get_instance();
 		$countyDetails      = $configInstance->getEbaycountrDetail( $siteID );
 		$country            = $countyDetails['countrycode'];
 		$currency           = $countyDetails['currency'][0];
-		$listings_data->setSite($country);
 		$item_country       = ! empty( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_item_location_country'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_item_location_country'] : $country;
-		$listings_data->setCountry($item_country);
-		$listings_data->setCurrencey($currency);
-		$ebay_item['PostalCode'] = ! empty( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_postal_code'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_postal_code'] : '';
+		$item['Country']    = $item_country;
+		$item['Currency']   = $currency;
+		$item['PostalCode'] = ! empty( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_postal_code'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_postal_code'] : '';
 
-		$listing_pictures_url = [];
-		$listing_pictures_url[] = utf8_uri_encode( strtok( $pictureUrl, '?' ) );
+		$item['PictureDetails']['PictureURL'] = 'cedPicture';
+
+		$str_pictures = '<PictureURL>' . utf8_uri_encode( strtok( $pictureUrl, '?' ) ) . '</PictureURL>';
 		if ( ! empty( $ebayhostedUrl ) && is_array( $ebayhostedUrl ) ) {
 
 			foreach ( $ebayhostedUrl as $key => $url ) {
@@ -678,17 +1059,118 @@ class Class_Ced_EBay_Products {
 						if ( strpos( $img_urls, 'https' ) === false ) {
 							$img_urls = str_replace( 'http', 'https', $img_urls );
 						}
-						$listing_pictures_url[] = utf8_uri_encode( strtok( $img_urls, '?' ) );
+						$str_pictures .= '<PictureURL>' . utf8_uri_encode( strtok( $img_urls, '?' ) ) . '</PictureURL>';
 					}
 				}
 			}
 		}
 
-		$listings_data->setPictureUrl($listing_pictures_url);
+		if ( 'variable' == $productType ) {
+			$xmlArray['MessageID'] = $proIds;
+			$xmlArray['Item']      = $item;
+			$rootElement           = 'Item';
+			$xml                   = new SimpleXMLElement( "<$rootElement/>" );
+			$this->array2XML( $xml, $xmlArray['Item'] );
+		} else {
+			$xmlArray['MessageID'] = $proIds;
+			$xmlArray['Item']      = $item;
+			$rootElement           = 'Item';
+			$xml                   = new SimpleXMLElement( "<$rootElement/>" );
+			$this->array2XML( $xml, $xmlArray['Item'] );
+		}
+		$val = $xml->asXML();
+		if ( false !== strpos( $val, '<ItemSpecifics>ced</ItemSpecifics>' ) ) {
+			$val = str_replace( '<ItemSpecifics>ced</ItemSpecifics>', $nameValueList, $val );
+		}
+		if ( false !== strpos( $val, '<DispatchTimeMax>cedDispatchTime</DispatchTimeMax>' ) ) {
+			$val = str_replace( '<DispatchTimeMax>cedDispatchTime</DispatchTimeMax>', $dispatch_time_xml, $val );
+		}
 
-		return $listings_data->getEbayItem();
+		if ( false !== strpos( $val, '<PictureURL>cedPicture</PictureURL>' ) ) {
+			$val = str_replace( '<PictureURL>cedPicture</PictureURL>', $str_pictures, $val );
+		}
 
-		
+		if ( false !== strpos( $val, '<WeightMajor>cedWeightMajor</WeightMajor>' ) ) {
+			$val = str_replace( '<WeightMajor>cedWeightMajor</WeightMajor>', $weight_major_xml, $val );
+		}
+
+		if ( false !== strpos( $val, '<PackageLength>cedPackageLength</PackageLength>' ) ) {
+			$val = str_replace( '<PackageLength>cedPackageLength</PackageLength>', $lengthXml, $val );
+		}
+
+		if ( false !== strpos( $val, '<PackageWidth>cedPackageWidth</PackageWidth>' ) ) {
+			$val = str_replace( '<PackageWidth>cedPackageWidth</PackageWidth>', $widthXml, $val );
+		}
+
+		if ( false !== strpos( $val, '<PackageDepth>cedPackageDepth</PackageDepth>' ) ) {
+			$val = str_replace( '<PackageDepth>cedPackageDepth</PackageDepth>', $heightXml, $val );
+		}
+
+		$finalXml .= $val;
+
+		++$counter;
+
+		$finalXml = str_replace( '<?xml version="1.0"?>', '', $finalXml );
+		if ( 'variable' == $productType ) {
+			if ( ! empty( $ebayItemID ) ) {
+				$xmlHeader = '<?xml version="1.0" encoding="utf-8"?>
+				<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+					<RequesterCredentials>
+						<eBayAuthToken>' . $token . '</eBayAuthToken>
+					</RequesterCredentials>
+					<MessageID>' . $proIds . '</MessageID>
+					<Version>1267</Version>
+					<ErrorLanguage>en_US</ErrorLanguage>
+					<WarningLevel>High</WarningLevel>';
+				$xmlFooter = '</ReviseFixedPriceItemRequest>';
+			} else {
+				$xmlHeader = '<?xml version="1.0" encoding="utf-8"?>
+				<AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+					<RequesterCredentials>
+						<eBayAuthToken>' . $token . '</eBayAuthToken>
+					</RequesterCredentials>
+					<MessageID>' . $proIds . '</MessageID>
+					<Version>1267</Version>
+					<ErrorLanguage>en_US</ErrorLanguage>
+					<WarningLevel>High</WarningLevel>';
+				$xmlFooter = '</AddFixedPriceItemRequest>';
+			}
+		} elseif ( ! empty( $ebayItemID ) ) {
+				$xmlHeader = '<?xml version="1.0" encoding="utf-8"?>
+				<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+					<RequesterCredentials>
+						<eBayAuthToken>' . $token . '</eBayAuthToken>
+					</RequesterCredentials>
+					<MessageID>' . $proIds . '</MessageID>
+					<Version>1267</Version>
+					<ErrorLanguage>en_US</ErrorLanguage>
+					<WarningLevel>High</WarningLevel>';
+				$xmlFooter = '</ReviseItemRequest>';
+		} else {
+			$xmlHeader = '<?xml version="1.0" encoding="utf-8"?>
+				<AddItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+					<RequesterCredentials>
+						<eBayAuthToken>' . $token . '</eBayAuthToken>
+					</RequesterCredentials>
+					<MessageID>' . $proIds . '</MessageID>
+					<Version>1267</Version>
+					<ErrorLanguage>en_US</ErrorLanguage>
+					<WarningLevel>High</WarningLevel>';
+			$xmlFooter = '</AddItemRequest>';
+		}
+
+		$mainXML = $xmlHeader . $finalXml . $xmlFooter;
+		if ( 'variable' == $productType ) {
+			if ( '' != $VariationSpecificsFinalSet && null != $VariationSpecificsFinalSet ) {
+				$mainXML = str_replace( '<Variations>ced</Variations>', $VariationSpecificsFinalSet, $mainXML );
+			}
+		}
+
+		if ( 'variable' == $productType ) {
+			return array( $mainXML, true );
+		} else {
+			return array( $mainXML, false );
+		}
 	}
 
 
@@ -714,20 +1196,26 @@ class Class_Ced_EBay_Products {
 
 
 	public function getFormattedDataForVariation( $proIDs, $site_id, $userId = '' ) {
-		$wc_products_data = new Product_Data;
-		$wc_products_data->setEbayUser($userId);
-		$wc_products_data->setEbaySite($site_id);
+		$shop_data = ced_ebay_get_shop_data( $userId, $site_id );
+		if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+			$siteID          = $site_id;
+				$token       = $shop_data['access_token'];
+				$getLocation = $shop_data['location'];
+		} else {
+			return 'Unable to verify eBay user';
+		}
 		$_product            = wc_get_product( $proIDs );
-		$ebay_variation_data = [];
-		$ebay_variant_attributes = [];
 		$variation_attribute = $_product->get_variation_attributes();
 		$allVariations       = $_product->get_children();
+		$primarycatId        = $this->fetchMetaValueOfProduct( $proIDs, '_umb_ebay_category' );
 
-		
+		$file             = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedGetcategories.php';
+		$renderDependency = $this->renderDependency( $file );
 
-		
+		$variationspecificsset  = '';
+		$variationspecificsset .= '<VariationSpecificsSet>';
+
 		foreach ( $variation_attribute as $attr_name => $attr_value ) {
-			$attr_name_for_ebay = '';
 			$taxonomy          = $attr_name;
 			$attr_name         = str_replace( 'pa_', '', $attr_name );
 			$attr_name         = str_replace( 'attribute_', '', $attr_name );
@@ -736,10 +1224,11 @@ class Class_Ced_EBay_Products {
 			if ( is_object( $attr_name_by_slug ) ) {
 				$attr_name = $attr_name_by_slug->label;
 			}
+			$variationspecificsset .= '<NameValueList>';
 			if ( 'Quantity' == $attr_name || 'Type' == $attr_name || 'Größe' == $attr_name || 'Size' == $attr_name || 'Colour' == $attr_name || 'Color' == $attr_name ) {
-				$attr_name_for_ebay = 'Prouct '.$attr_name;
+				$variationspecificsset .= '<Name>Product ' . $attr_name . '</Name>';
 			} else {
-				$attr_name_for_ebay = $attr_name;
+				$variationspecificsset .= '<Name>' . $attr_name . '</Name>';
 			}
 			foreach ( $attr_value as $k => $v ) {
 				$termObj = get_term_by( 'slug', $v, $taxonomy );
@@ -748,39 +1237,144 @@ class Class_Ced_EBay_Products {
 					if ( strpos( $term_name, '&' ) !== false ) {
 						$term_name = str_replace( '&', '&amp;', $term_name );
 					}
-					$ebay_variant_attributes[$attr_name_for_ebay][] = $term_name;
+					$variationspecificsset .= '<Value>' . $term_name . '</Value>';
 				} else {
 					if ( strpos( $v, '&' ) !== false ) {
 						$v = str_replace( '&', '&amp;', $v );
-						$ebay_variant_attributes[$attr_name_for_ebay][] = $v;
 					}
+					$variationspecificsset .= '<Value>' . $v . '</Value>';
 				}
 			}
+			$variationspecificsset .= '</NameValueList>';
 		}
+		$variationspecificsset .= '</VariationSpecificsSet>';
+		$variation              = '';
 		foreach ( $allVariations as $key => $Id ) {
-			$wc_products_data->setProductId( $Id );
+			// add a foreach for each finish of the product
 			$var_attr   = wc_get_product_variation_attributes( $Id );
+			$variation .= '<Variation>';
+			$mpn        = $this->fetchMetaValueOfProduct( $Id, '_umb_ebay_mpn' );
+			$ean        = $this->fetchMetaValueOfProduct( $Id, '_umb_ebay_ean' );
+			$isbn       = $this->fetchMetaValueOfProduct( $Id, '_umb_ebay_isbn' );
+			$upc        = $this->fetchMetaValueOfProduct( $Id, '_umb_ebay_upc' );
+
+			if ( empty( $mpn ) ) {
+				$mpn = 'Does Not Apply';
+			}
+			if ( empty( $ean ) ) {
+				$ean = 'Does Not Apply';
+			}
+			if ( empty( $upc ) ) {
+				$upc = 'Does Not Apply';
+			}
+			if ( '' != $ean || '' != $isbn || '' != $upc ) {
+				$variation .= '<VariationProductListingDetails>';
+				if ( '' != $ean ) {
+					$variation .= '<EAN>' . $ean . '</EAN>';
+				}
+				if ( '' != $isbn ) {
+					$variation .= '<ISBN>' . $isbn . '</ISBN>';
+				}
+				if ( '' != $upc ) {
+					$variation .= '<UPC>' . $upc . '</UPC>';
+				}
+				$variation .= '</VariationProductListingDetails>';
+			} else {
+				$variation .= '<VariationProductListingDetails>';
+				$variation .= '<EAN>Does Not Apply</EAN>';
+				$variation .= '<UPC>Does Not Apply</UPC>';
+				$variation .= '<ISBN>Does Not Apply</ISBN>';
+				$variation .= '</VariationProductListingDetails>';
+			}
+			$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+			$amount                     = get_post_meta( $Id, '_stock', true );
+			$manage_stock               = get_post_meta( $Id, '_manage_stock', true );
+			$product_status             = get_post_meta( $Id, '_stock_status', true );
+
+			$listing_stock_type = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_stock_type'] : '';
+			$listing_stock      = isset( $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] ) ? $renderDataOnGlobalSettings[ $userId ][ $siteID ]['ced_ebay_listing_stock'] : '';
+
+			if ( 'yes' != $manage_stock && 'instock' == $product_status ) {
+				$renderDataOnGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+				if ( ! empty( $listing_stock_type ) && ! empty( $listing_stock ) && 'MaxStock' == $listing_stock_type ) {
+					$amount = $listing_stock;
+				} else {
+					$amount = 1;
+				}
+			} elseif ( 'outofstock' != $product_status ) {
+				if ( ! empty( $listing_stock_type ) && ! empty( $listing_stock ) && 'MaxStock' == $listing_stock_type ) {
+					if ( $amount > $listing_stock ) {
+						$amount = $listing_stock;
+					} else {
+						$amount = intval( $amount );
+						if ( $amount < 1 ) {
+							$amount = '0';
+						}
+					}
+				} else {
+					$amount = intval( $amount );
+					if ( $amount < 1 ) {
+						$amount = '0';
+					}
+				}
+			} else {
+				$amount = 0;
+			}
+
 			$var_prod             = wc_get_product( $Id );
-			$price = $wc_products_data->getPrice();
-			$quantity = $wc_products_data->getStock();
+			$dataInGlobalSettings = ! empty( get_option( 'ced_ebay_global_settings', false ) ) ? get_option( 'ced_ebay_global_settings', false ) : '';
+			$price_selection      = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_price_option'] : '';
+			if ( 'Regular_Price' == $price_selection ) {
+				$price = $var_prod->get_regular_price();
+			} elseif ( 'Sale_Price' == $price_selection ) {
+				$price = $var_prod->get_sale_price();
+			} else {
+				$price = $var_prod->get_price();
+			}
+			$profile_price_markup_type = $this->fetchMetaValueOfProduct( $proIDs, '_umb_ebay_profile_price_markup_type' );
+			$profile_price_markup      = $this->fetchMetaValueOfProduct( $proIDs, '_umb_ebay_profile_price_markup' );
+			if ( get_option( 'ced_ebay_global_settings', false ) ) {
+				$dataInGlobalSettings = get_option( 'ced_ebay_global_settings', false );
+				$price_markup_type    = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup_type'] : '';
+				$price_markup_value   = isset( $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] ) ? $dataInGlobalSettings[ $userId ][ $siteID ]['ced_ebay_product_markup'] : '';
+			}
+			if ( ! empty( $profile_price_markup_type ) && ! empty( $profile_price_markup ) ) {
+				if ( 'Fixed_Increase' == $profile_price_markup_type ) {
+					$price = $price + $profile_price_markup;
+				} elseif ( 'Percentage_Increase' == $profile_price_markup_type ) {
+					$price = $price + ( ( $price * $profile_price_markup ) / 100 );
+				} elseif ( 'Percentage_Decrease' == $profile_price_markup_type ) {
+					$price = $price - ( ( $price * $profile_price_markup ) / 100 );
+				} elseif ( 'Fixed_Decrease' == $profile_price_markup_type ) {
+					$price = $price - $profile_price_markup;
+				}
+			} elseif ( ! empty( $price_markup_type ) && ! empty( $price_markup_value ) ) {
+				if ( 'Percentage_Increased' == $price_markup_type ) {
+					$price = $price + ( ( $price * $price_markup_value ) / 100 );
+
+				} elseif ( 'Fixed_Increased' == $price_markup_type ) {
+					$price = $price + $price_markup_value;
+				} elseif ( 'Percentage_Decreased' == $price_markup_type ) {
+					$price = $price - ( ( $price * $price_markup_value ) / 100 );
+				} elseif ( 'Fixed_Decreased' == $price_markup_type ) {
+					$price = $price - $price_markup_value;
+				}
+			}
 
 			$sku = get_post_meta( $Id, '_sku', true );
 			if ( empty( $sku ) ) {
 				$sku = $Id;
 			}
 
-			$ebay_variation_data[$Id] = [
-				'sku' => $sku,
-				'price' => $price,
-				'quantity' => $quantity,
-			];
 			$var_image_id = $var_prod->get_image_id();
 			if ( ! empty( $var_image_id ) ) {
 				$var_image_array = wp_get_attachment_image_src( $var_image_id, 'full' );
 				$var_image_src   = $var_image_array[0];
 			}
 
-			
+			$variation .= '<StartPrice>' . $price . '</StartPrice>
+		<Quantity>' . $amount . '</Quantity><SKU>' . $sku . '</SKU>';
+			$variation .= '<VariationSpecifics>';
 			foreach ( $var_attr as $key => $value ) {
 				$taxonomy          = $key;
 				$atr_name          = str_replace( 'attribute_', '', $key );
@@ -799,10 +1393,7 @@ class Class_Ced_EBay_Products {
 					if ( strpos( $term_name, '&' ) !== false ) {
 						$term_name = str_replace( '&', '&amp;', $term_name );
 					}
-					$ebay_variation_data[$Id]['variantAttributes'][] = [
-						'name' => $atr_name,
-						'value' => $term_name
-					];
+					$variation .= '<NameValueList><Name>' . $atr_name . '</Name><Value>' . $term_name . '</Value></NameValueList>';
 					if ( ! empty( $additional_image_url ) ) {
 						$variation_img[ $atr_name ][] = array(
 							'term_name' => $term_name,
@@ -819,15 +1410,9 @@ class Class_Ced_EBay_Products {
 						$value = str_replace( '&', '&amp;', $value );
 					}
 					if ( 'Quantity' == $attr_name || 'Type' == $attr_name || 'Größe' == $attr_name || 'Size' == $attr_name || 'Colour' == $attr_name || 'Color' == $attr_name ) {
-						$ebay_variation_data[$Id]['variantAttributes'][] = [
-							'name' => $atr_name,
-							'value' => $term_name
-						];
+						$variation .= '<NameValueList><Name>Product ' . $atr_name . '</Name><Value>' . $value . '</Value></NameValueList>';
 					} else {
-						$ebay_variation_data[$Id]['variantAttributes'][] = [
-							'name' => $atr_name,
-							'value' => $term_name
-						];
+						$variation .= '<NameValueList><Name>' . $atr_name . '</Name><Value>' . $value . '</Value></NameValueList>';
 					}                   if ( ! empty( $additional_image_url ) ) {
 						$variation_img[ $atr_name ][] = array(
 							'term_name' => $value,
@@ -841,50 +1426,49 @@ class Class_Ced_EBay_Products {
 					}
 				}
 			}
-			
+			$variation .= '</VariationSpecifics>';
+			$variation .= '</Variation>';
 		}
-		// $var_img_xml = '';
-		// if ( ! empty( $variation_img ) ) {
-		// 	$var_img_xml .= '<Pictures>';
-		// 	$terms        = array();
-		// 	foreach ( $variation_img as $attr_name => $attr_values ) {
-		// 		if ( 'Quantity' == $attr_name || 'Type' == $attr_name || 'Größe' == $attr_name || 'Size' == $attr_name || 'Colour' == $attr_name || 'Color' == $attr_name ) {
-		// 			$var_img_xml .= ' <VariationSpecificName>Product ' . $attr_name . '</VariationSpecificName>';
+		$var_img_xml = '';
+		if ( ! empty( $variation_img ) ) {
+			$var_img_xml .= '<Pictures>';
+			$terms        = array();
+			foreach ( $variation_img as $attr_name => $attr_values ) {
+				if ( 'Quantity' == $attr_name || 'Type' == $attr_name || 'Größe' == $attr_name || 'Size' == $attr_name || 'Colour' == $attr_name || 'Color' == $attr_name ) {
+					$var_img_xml .= ' <VariationSpecificName>Product ' . $attr_name . '</VariationSpecificName>';
 
-		// 		} else {
-		// 				$var_img_xml .= ' <VariationSpecificName>' . $attr_name . '</VariationSpecificName>';
+				} else {
+						$var_img_xml .= ' <VariationSpecificName>' . $attr_name . '</VariationSpecificName>';
 
-		// 		}               foreach ( $attr_values as $data_attr ) {
-		// 			if ( in_array( $data_attr['term_name'], $terms ) ) {
-		// 				continue;
-		// 			}
-		// 			$terms[]      = $data_attr['term_name'];
-		// 			$var_img_xml .= '<VariationSpecificPictureSet>';
-		// 			$var_img_xml .= '<VariationSpecificValue>' . $data_attr['term_name'] . '</VariationSpecificValue>';
-		// 			if ( ! empty( $data_attr['image_set'] ) && is_array( $data_attr['image_set'] ) ) {
-		// 				foreach ( $data_attr['image_set'] as $key => $additional_var_images ) {
-		// 					if ( strpos( $additional_var_images, 'https' ) === false ) {
-		// 						$additional_var_images = str_replace( 'http', 'https', $additional_var_images );
-		// 					}
-		// 					$var_img_xml .= '<PictureURL>' . utf8_uri_encode( strtok( $additional_var_images, '?' ) ) . '</PictureURL>';
-		// 				}
-		// 			} else {
-		// 				if ( strpos( $data_attr['image_set'], 'https' ) === false ) {
-		// 					$data_attr['image_set'] = str_replace( 'http', 'https', $data_attr['image_set'] );
-		// 				}
-		// 				$var_img_xml .= '<PictureURL>' . utf8_uri_encode( strtok( $data_attr['image_set'], '?' ) ) . '</PictureURL>';
-		// 			}
-		// 			$var_img_xml .= '</VariationSpecificPictureSet>';
-		// 		}
-		// 		break;
-		// 	}
-		// 	$var_img_xml .= '</Pictures>';
-		// }
+				}               foreach ( $attr_values as $data_attr ) {
+					if ( in_array( $data_attr['term_name'], $terms ) ) {
+						continue;
+					}
+					$terms[]      = $data_attr['term_name'];
+					$var_img_xml .= '<VariationSpecificPictureSet>';
+					$var_img_xml .= '<VariationSpecificValue>' . $data_attr['term_name'] . '</VariationSpecificValue>';
+					if ( ! empty( $data_attr['image_set'] ) && is_array( $data_attr['image_set'] ) ) {
+						foreach ( $data_attr['image_set'] as $key => $additional_var_images ) {
+							if ( strpos( $additional_var_images, 'https' ) === false ) {
+								$additional_var_images = str_replace( 'http', 'https', $additional_var_images );
+							}
+							$var_img_xml .= '<PictureURL>' . utf8_uri_encode( strtok( $additional_var_images, '?' ) ) . '</PictureURL>';
+						}
+					} else {
+						if ( strpos( $data_attr['image_set'], 'https' ) === false ) {
+							$data_attr['image_set'] = str_replace( 'http', 'https', $data_attr['image_set'] );
+						}
+						$var_img_xml .= '<PictureURL>' . utf8_uri_encode( strtok( $data_attr['image_set'], '?' ) ) . '</PictureURL>';
+					}
+					$var_img_xml .= '</VariationSpecificPictureSet>';
+				}
+				break;
+			}
+			$var_img_xml .= '</Pictures>';
+		}
 
-		return [
-			'variants' => $ebay_variation_data,
-			'variant_attributes' => $ebay_variant_attributes
-		];
+		$main_attribute = '<Variations>' . $var_img_xml . $variationspecificsset . $variation . '</Variations>';
+		return $main_attribute;
 	}
 
 	/*
@@ -1374,12 +1958,12 @@ class Class_Ced_EBay_Products {
 				$getLocation = $shop_data['location'];
 		}
 		if ( ! empty( $item_id ) ) {
-			$ebay_item['ItemID'] = $item_id;
+			$item['ItemID'] = $item_id;
 		}
 
 			$variation_xml      = $this->getFormattedDataForVariation( $value, $userId );
-			$ebay_item['Variations'] = 'ced';
-			$xmlArray['Item']   = $ebay_item;
+			$item['Variations'] = 'ced';
+			$xmlArray['Item']   = $item;
 			$rootElement        = 'Item';
 			$xml                = new SimpleXMLElement( "<$rootElement/>" );
 			$this->array2XML( $xml, $xmlArray['Item'] );
@@ -1461,17 +2045,17 @@ class Class_Ced_EBay_Products {
 			$getLocation = $shop_data['location'];
 		}
 		if ( ! empty( $item_id ) ) {
-			$ebay_item['ItemID'] = $item_id;
+			$item['ItemID'] = $item_id;
 		}
-			$ebay_item['Description'] = $description;
+			$item['Description'] = $description;
 
 		if ( 'variable' == $productType ) {
-			$xmlArray['Item'] = $ebay_item;
+			$xmlArray['Item'] = $item;
 			$rootElement      = 'Item';
 			$xml              = new SimpleXMLElement( "<$rootElement/>" );
 			$this->array2XML( $xml, $xmlArray['Item'] );
 		} else {
-			$xmlArray['Item'] = $ebay_item;
+			$xmlArray['Item'] = $item;
 			$rootElement      = 'Item';
 			$xml              = new SimpleXMLElement( "<$rootElement/>" );
 			$this->array2XML( $xml, $xmlArray['Item'] );

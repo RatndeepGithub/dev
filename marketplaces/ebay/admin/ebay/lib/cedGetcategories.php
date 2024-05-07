@@ -1,11 +1,9 @@
 <?php
-namespace Ced\Ebay;
-
-if ( ! class_exists( 'CedGetCategories' ) ) {
+if ( ! class_exists( 'cedGetcategories' ) ) {
 	class CedGetCategories {
 
 
-		public $rsid;
+		public $token;
 
 		public $siteID;
 
@@ -23,14 +21,14 @@ if ( ! class_exists( 'CedGetCategories' ) ) {
 		 * @static
 		 * @return get_instance instance.
 		 */
-		public static function get_instance( $siteID, $rsid ) {
+		public static function get_instance( $siteID, $token ) {
 			if ( is_null( self::$_instance ) ) {
-				self::$_instance = new self( $siteID, $rsid );
+				self::$_instance = new self( $siteID, $token );
 			}
 			return self::$_instance;
 		}
-		public function __construct( $siteID, $rsid ) {
-			$this->rsid  = $rsid;
+		public function __construct( $siteID, $token ) {
+			$this->token  = $token;
 			$this->siteID = $siteID;
 			$this->loadDepenedency();
 		}
@@ -47,8 +45,25 @@ if ( ! class_exists( 'CedGetCategories' ) ) {
 			return false;
 		}
 
-		
+		public function _getCategoryTree( $ParentcatID = null ) {
+				$ebayCats = $this->ebayCatInstance->GetCategoryTree( $ParentcatID );
+			if ( $ebayCats ) {
+				return $ebayCats;
+			}
+			return false;
+		}
 
+		public function _getJsonCategories( $level, $ParentcatID = null ) {
+			if ( null != $ParentcatID ) {
+				$ebayCats = $this->ebayCatInstance->GetJsonCategories( $level, $ParentcatID );
+			} else {
+				$ebayCats = $this->ebayCatInstance->GetCategories( $level );
+			}
+			if ( $ebayCats ) {
+				return $ebayCats;
+			}
+			return false;
+		}
 		/**
 		 * Function to get category specifics
 		 *
@@ -62,24 +77,38 @@ if ( ! class_exists( 'CedGetCategories' ) ) {
 			if ( $ebayCatSpecifics ) {
 				return $ebayCatSpecifics;
 			}
-			return new \WP_Error('api_error', 'An error occured while fetching category specifics');
+			return false;
 		}
 		/**
 		 * Function to get category features
 		 *
 		 * @name _getCatFeatures()
 		 */
-		public function _getCatFeatures( $catID ) {
+		public function _getCatFeatures( $catID, $limit ) {
 			$ebayCatFeatures = false;
 			if ( '' != $catID && null != $catID ) {
-				$ebayCatFeatures = $this->ebayCatInstance->GetCategoryFeatures( $catID );
+				$ebayCatFeatures = $this->ebayCatInstance->GetCategoryFeatures( $catID, $limit );
 			}
 			if ( $ebayCatFeatures ) {
 				return $ebayCatFeatures;
 			}
-			return new \WP_Error('api_error', 'An error occured while fetching category features');
+			return false;
 		}
-		
+		/**
+		 * Function to get category information
+		 *
+		 * @name _getCatFeatures()
+		 */
+		public function _getCatInfo( $catID ) {
+			$ebayCatInfo = array();
+			if ( '' != $catID && null != $catID ) {
+				$ebayCatInfo = $this->ebayCatInstance->GetCategoryInfo( $catID );
+			}
+			if ( $ebayCatInfo ) {
+				return $ebayCatInfo;
+			}
+			return false;
+		}
 		/**
 		 * Function to load dependencies
 		 *
@@ -88,7 +117,7 @@ if ( ! class_exists( 'CedGetCategories' ) ) {
 		public function loadDepenedency() {
 			if ( is_file( __DIR__ . '/ebayGetCategories.php' ) ) {
 				require_once 'ebayGetCategories.php';
-				$this->ebayCatInstance = \Ced\Ebay\EbayGetCategories::get_instance( $this->siteID, $this->rsid );
+				$this->ebayCatInstance = EbayGetCategories::get_instance( $this->siteID, $this->token );
 
 			}
 		}

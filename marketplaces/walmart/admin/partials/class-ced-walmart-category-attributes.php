@@ -1,14 +1,13 @@
 <?php
 
-
 class Walmart_Category_Attributes {
 
-	public function render_attributes( $profile_id, $profile_type ) {
-		// Fetch Profile data from db and assigning previous seleceted value in fields .
-		$profile_type = isset($profile_type) ? $profile_type : '';
-		$profile_id   = isset($profile_id) ? $profile_id : '';
-		
-		$ced_walmart_profile_details = get_option( 'ced_mapped_cat_' . $profile_type );
+
+
+	public function render_attributes( $profile_id ) {
+
+		// Fetch Profile data from db and assing previous seleceted value in fields .
+		$ced_walmart_profile_details = get_option( 'ced_mapped_cat' );
 		$ced_walmart_profile_details = json_decode( $ced_walmart_profile_details, 1 );
 		$ced_walmart_profile_data    = isset( $ced_walmart_profile_details['profile'][ $profile_id ] ) ? $ced_walmart_profile_details['profile'][ $profile_id ] : array();
 
@@ -18,18 +17,18 @@ class Walmart_Category_Attributes {
 		}
 
 		$attr_options = $this->ced_walmart_return_attr_options();
+
 		// getting product fields from file to render .
 		$file_product_fields = CED_WALMART_DIRPATH . 'admin/partials/class-ced-walmart-product-fields.php';
 		include_file( $file_product_fields );
 		$class_product_fields_instance = new Ced_Walmart_Product_Fields();
 		$ced_walmart_product_fields    = $class_product_fields_instance->ced_walmart_get_custom_products_fields();
-		
 		if ( ! empty( $ced_walmart_product_fields ) && ! empty( $ced_walmart_product_fields ) ) {
 			$required_in_any_case = array( '_umb_id_type', '_umb_id_val', '_umb_brand' );
 			$market_place         = 'ced_walmart_required_common';
 			$product_id           = 0;
 			$index_to_use         = 0;
-			
+
 			foreach ( $ced_walmart_product_fields as $index => $fields_data ) {
 				$required = $fields_data['required'];
 				$is_text  = true;
@@ -43,11 +42,10 @@ class Walmart_Category_Attributes {
 				} else {
 					$profile_data = array();
 				}
-				
+
 				$default = isset( $profile_data[ $fields_data['fields']['id'] ]['default'] ) ? $profile_data[ $fields_data['fields']['id'] ]['default'] : '';
-			
+
 				echo '<tr class="form-field _umb_id_type_field ">';
-				
 				if ( '_hidden' == $fields_data['type'] ) {
 					$class_product_fields_instance->render_input_text_html_hidden(
 						$field_id,
@@ -67,10 +65,10 @@ class Walmart_Category_Attributes {
 				} else {
 					$is_text = true;
 				}
-				
+
 				echo '<td>';
 				if ( $is_text ) {
-					
+
 					$previous_selected_value = 'null';
 					if ( isset( $profile_data[ $fields_data['fields']['id'] ]['metakey'] ) && 'null' != $profile_data[ $fields_data['fields']['id'] ]['metakey'] ) {
 						$previous_selected_value = $profile_data[ $fields_data['fields']['id'] ]['metakey'];
@@ -97,64 +95,41 @@ class Walmart_Category_Attributes {
 						?>
 					</select>
 					<?php
-					
 				}
 				echo '</td>';
 				echo '</tr>';
-				
 			}
 		}
 
-		$get_profile_name = $profile_id;
-		$profile_type     = $profile_type;
-		$category_data    = json_decode(get_option( 'ced_walmart_category_attribute_' . $get_profile_name . $profile_type ), true);
-		
-		if ( isset($category_data) && is_array($category_data) && !empty($category_data)) {
-			
-			$category_data = $category_data;
-			$cat_search    = $category_data;
-			
-		} else {
+		$get_profile_name     = $profile_id;
+		$schema               = CED_WALMART_DIRPATH . 'admin/walmart/lib/json/MP_ITEM_SPEC.json';
+		$schema               = file_get_contents( $schema );
+		$schema               = json_decode( $schema, true );
+		$attributes_to_escape = array( 'sku', 'productIdentifiers', 'productIdentifier', 'productIdType', 'productIdentifiers', 'productIdentifier', 'productId', 'productName', 'keyFeatures', 'keyFeaturesValue', 'shortDescription', 'mainImageUrl', 'MPOffer', 'productTaxCode', 'MPOffer', 'price', 'MPOffer', 'MinimumAdvertisedPrice', 'MPOffer', 'StartDate', 'MPOfferEndDate', 'MPOffer', 'ShippingWeight', 'measure', 'MPOffer', 'unit', 'brand', 'variantGroupId', 'additionalProductAttributes', 'isPrimaryVariant', 'swatchImages', 'variantAttributeNames' );
 
-			$ced_walmart_process_request_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-process-request.php';
+		$market_place                  = 'ced_walmart_required_common';
+		$index_to_use                  = 0;
+		$product_id                    = 0;
+		$attribute_data_required_label = '';
+		$attribute_data_required       = false;
 
-			include_file( $ced_walmart_process_request_file );
-			$this->ced_walmart_process_request_instance = Ced_Walmart_Remote_Request::get_instance();
+		$cat_search                 = $schema['properties']['MPItem']['items']['properties']['Visible']['properties'];
+		$type_walmart_cat_attribute = array();
+		$temp                       = array();
+		foreach ( $cat_search as $key => $value ) {
+			if ( $key == $get_profile_name ) {
+				$key = str_replace( ' ', '', $key );
+				if ( ! is_array( $value ) ) {
+					continue;
+				}
 
-			$action     = 'category_attributes';
-			$query_args = array('id' => $get_profile_name, 'type' => 'MP_ITEM');
-			$response   = $this->ced_walmart_process_request_instance->ced_walmart_process_request( $action, array(), $query_args, 'GET' );
-			$schema     = json_decode( $response['body'], true );
-			$cat_search = isset($schema['result']['Visible']) ? $schema['result']['Visible'] : array();
-			
-			update_option( 'ced_walmart_category_attribute_' . $get_profile_name . $profile_type, json_encode($cat_search));
-		}
-		
-		if (isset($cat_search) && !empty($cat_search)) {
-			
-			$market_place                  = 'ced_walmart_required_common';
-			$index_to_use                  = 0;
-			$product_id                    = 0;
-			$attribute_data_required_label = '';
-			$attribute_data_required       = false;
-			$type_walmart_cat_attribute    = array();
-			$temp                          = array();
-			
-			$attributes_to_escape = array( 'sku', 'productIdentifiers', 'productIdentifier', 'productIdType', 'productIdentifiers', 'productIdentifier', 'productId', 'productName', 'keyFeatures', 'keyFeaturesValue', 'shortDescription', 'mainImageUrl', 'MPOffer', 'productTaxCode', 'MPOffer', 'price', 'MPOffer', 'MinimumAdvertisedPrice', 'MPOffer', 'StartDate', 'MPOfferEndDate', 'MPOffer', 'ShippingWeight', 'measure', 'MPOffer', 'unit', 'brand', 'variantGroupId', 'additionalProductAttributes', 'isPrimaryVariant', 'swatchImages', 'variantAttributeNames' );
-
-			if (!empty($cat_search) && is_array($cat_search)) {
-				
-				$key = str_replace( ' ', '', $get_profile_name );
-				
-				update_option( 'ced_walmart_cat_visible_' . $profile_type . '_' . $get_profile_name, json_encode( unserialize( str_replace( array( 'NAN;', 'INF;' ), '0;', serialize( $cat_search['properties'] ) ) ) ) );
-
-			
-				$merged_preapre          = $cat_search['properties'];
-				$merged_preapre_required = $cat_search['required'];
-				$variationAttr           = isset($cat_search['properties']['variantAttributeNames']) ? $cat_search['properties']['variantAttributeNames']['items']['enum'] : array();
+				update_option( 'ced_walmart_cat_visible_' . $get_profile_name, json_encode( unserialize( str_replace( array( 'NAN;', 'INF;' ), '0;', serialize( $value['properties'] ) ) ) ) );
+				$merged_preapre          = $value['properties'];
+				$merged_preapre_required = $value['required'];
+				$variationAttr           = $value['properties']['variantAttributeNames']['items']['enum'];
 
 				foreach ( $merged_preapre as $attributesKey => $attributesValue ) {
-					
+
 					if ( in_array( $attributesKey, $attributes_to_escape ) ) {
 						if ( 'variantAttributeNames' == $attributesKey ) {
 							$temp = $attributesValue;
@@ -202,7 +177,7 @@ class Walmart_Category_Attributes {
 								$type_walmart_cat_attribute[ $attributesKey . '_' . $objectkey ] = $type_walmart_cat;
 								$field_id   = $key . '_' . $attributesKey . '_' . str_replace( ' ', '', $objectkey );
 								$field_data = isset( $profile_data[ $field_id ] ) ? $profile_data[ $field_id ] : array();
-								
+
 								$default = isset( $field_data['default'] ) ? $field_data['default'] : null;
 								$metakey = isset( $field_data['metakey'] ) ? $field_data['metakey'] : null;
 								$class_product_fields_instance->ced_walmart_render_text_html(
@@ -309,6 +284,7 @@ class Walmart_Category_Attributes {
 					$isText = true;
 					if ( isset( $attributesValue['title'] ) && ! empty( $attributesValue['title'] ) ) {
 						$field_name_to_render = ucfirst( $attributesValue['title'] );
+
 					} else {
 						continue;
 					}
@@ -595,16 +571,16 @@ class Walmart_Category_Attributes {
 
 				if ( ! empty( $temp ) ) {
 					foreach ( $temp['items']['enum'] as $variantAttributeName ) {
-						update_option( 'ced_walmart_cat_visible_variable_attr_' . $profile_type . '_' . $get_profile_name, json_encode( $temp['items']['enum'] ) );
+						update_option( 'ced_walmart_cat_visible_variable_attr' . $get_profile_name, json_encode( $temp['items']['enum'] ) );
 					}
 				}
-				
-			}
-					
-			update_option( 'ced_walmart_cat_type_attribute_' . $profile_type . '_' . $get_profile_name , json_encode( $type_walmart_cat_attribute ) );
+
+				break;}
 		}
-		
+			update_option( 'ced_walmart_cat_type_attribute_' . $get_profile_name, json_encode( $type_walmart_cat_attribute ) );
 	}
+
+
 
 	public function ced_walmart_return_attr_options() {
 

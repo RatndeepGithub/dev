@@ -258,6 +258,19 @@ class Ced_Amzon_XML_Lib {
 
 
 	/**
+	 * This function removes uncessary tags that creates issue in making xml.
+	 *
+	 * @name removeXMLTagFromXMLString()
+	 * @link  http://www.cedcommerce.com/
+	 */
+	public function removeXMLTagFromXMLString( $xmlString ) {
+		$str       = $this->get_string_between( $xmlString, '<?', '?>' );
+		$str       = '<?' . $str . '?>';
+		$xmlString = str_replace( $str, '', $xmlString );
+		return $xmlString;
+	}
+
+	/**
 	 * This function gets substring between to string chunks.
 	 *
 	 * @name get_string_between()
@@ -354,10 +367,11 @@ class Ced_Amzon_XML_Lib {
 					$template_details = array();
 
 					$amazonProductsFilePath = 'templates/' . $profile_country . '/' . $profile_category . '/' . $profile_subcategory . '/products.json';
+					
 
 					$amazonProductsDetails = '';
-					// $amazonProductsDetails = ABSPATH . 'wp-content/uploads/ced-amazon/' . $amazonProductsFilePath;
-					$upload_dir            = wp_upload_dir();
+					//$amazonProductsDetails = ABSPATH . 'wp-content/uploads/ced-amazon/' . $amazonProductsFilePath;
+					$upload_dir = wp_upload_dir();
 					$amazonProductsDetails = $upload_dir['basedir'] . '/ced-amazon/' . $amazonProductsFilePath;
 
 					ob_start();
@@ -367,7 +381,9 @@ class Ced_Amzon_XML_Lib {
 
 					$amazonProductsDetails = json_decode( $json_data, true );
 
+					
 					if ( is_array( $amazonProductsDetails ) ) {
+
 
 						$possible_type              = array(
 							'Mandantory'         => 'Mandantory',
@@ -410,6 +426,8 @@ class Ced_Amzon_XML_Lib {
 						$template_details['product_details'] = wp_json_encode( $amazonProductsDetails );
 					}
 
+					
+
 					// This is for 'products_all_fields.json' which data store in table
 					$json_data                 = $temp_profile_data['category_attributes_structure'];
 					$amazonAllFieldsDetailsNew = array();
@@ -426,8 +444,8 @@ class Ced_Amzon_XML_Lib {
 					// This is for flat file template feed structure
 					$amazonTemplateFieldsFilePath = 'templates/' . $profile_country . '/' . $profile_category . '/products_template_fields.json';
 					$amazonTemplateDetails        = '';
-					// $amazonTemplateDetails        = ABSPATH . 'wp-content/uploads/ced-amazon/' . $amazonTemplateFieldsFilePath;
-					$upload_dir            = wp_upload_dir();
+					//$amazonTemplateDetails        = ABSPATH . 'wp-content/uploads/ced-amazon/' . $amazonTemplateFieldsFilePath;
+					$upload_dir = wp_upload_dir();
 					$amazonTemplateDetails = $upload_dir['basedir'] . '/ced-amazon/' . $amazonTemplateFieldsFilePath;
 
 					ob_start();
@@ -504,10 +522,34 @@ class Ced_Amzon_XML_Lib {
 			$wooc_par_product_data = $wooc_par_product->get_data();
 		}
 
-		$product_array = array();
+		$description_amazon = '';
+		$Description_string = '';
+		
+		if ( '' != $productData['description'] ) {
+			$description_amazon = isset( $productData['description'] ) ? $productData['description'] : '';
+		}
 
-		/***************************************** SET PRODUCT DESCRIPTION */
-		$this->ced_amz_set_product_description( $productData, $wooc_par_product_data, $product_array, $productType );
+		// My desc
+		if ( isset( $productData['short_description'] ) && ! empty( $productData['short_description'] ) ) {
+			$description_amazon .= $productData['short_description'];
+
+		}
+
+		if ( '' == $description_amazon ) {
+			$description_amazon = isset( $productData['short_description'] ) ? $productData['short_description'] : '';
+		}
+		if ( '' == $description_amazon && isset( $wooc_par_product_data['description'] ) ) {
+			$description_amazon = isset( $wooc_par_product_data['description'] ) ? $wooc_par_product_data['description'] : '';
+		}
+		if ( '' == $description_amazon && isset( $wooc_par_product_data['short_description'] ) ) {
+			$description_amazon = isset( $wooc_par_product_data['short_description'] ) ? $wooc_par_product_data['short_description'] : '';
+		}
+
+		// My desc
+		if ( isset( $wooc_par_product_data['short_description'] ) && ! empty( $wooc_par_product_data['short_description'] ) ) {
+			$description_amazon .= $wooc_par_product_data['short_description'];
+
+		}
 
 		$ship_dimension_unit = strtoupper( get_option( 'woocommerce_dimension_unit' ) );
 		$ship_weight_unit    = strtoupper( get_option( 'woocommerce_weight_unit' ) );
@@ -536,7 +578,6 @@ class Ced_Amzon_XML_Lib {
 			'package_weight'       => 'weight',
 
 		);
-
 		$product_details = array();
 		if ( is_object( $wooc_product ) ) {
 			foreach ( $product_keys as $key => $value ) {
@@ -544,7 +585,10 @@ class Ced_Amzon_XML_Lib {
 
 					$product_details[ $value ] = $productData[ $value ];
 					if ( empty( $productData[ $value ] ) && isset( $wooc_par_product_data[ $value ] ) ) {
-						if ( ! empty( $wooc_par_product_data[ $value ] ) && ( '' != $wooc_par_product_data[ $value ] && 'sale_price' != $value ) ) {
+						if ( ! empty( $wooc_par_product_data[ $value ] )
+
+							&& ( '' != $wooc_par_product_data[ $value ] && 'sale_price' != $value ) ) {
+
 							$product_details[ $value ] = $wooc_par_product_data[ $value ];
 						}
 					}
@@ -552,6 +596,7 @@ class Ced_Amzon_XML_Lib {
 			}
 		}
 
+		$product_array = array();
 		foreach ( $from_woo_details as $fieldKey => $fieldValue ) {
 
 			if ( isset( $from_woo_details[ $fieldKey ] ) && isset( $product_details[ $fieldValue ] ) && ! empty( $product_details[ $fieldValue ] ) ) {
@@ -559,21 +604,89 @@ class Ced_Amzon_XML_Lib {
 			}
 		}
 
-		/********************************* Add necessary fields to product array */
-		$keys_to_insert = array(
-			'condition_type'      => 'New',
-			'number_of_items'     => 1,
-			'fulfillment_latency' => 2,
-		);
-		$this->ced_amz_add_necessary_fields( $product_array, $keys_to_insert );
+		if ( ! isset( $product_array['number_of_items'] ) || empty( $product_array['number_of_items'] ) ) {
+			$product_array['number_of_items'] = 1;
+		}
+		if ( ! isset( $product_array['condition_type'] ) || empty( $product_array['condition_type'] ) ) {
+			$product_array['condition_type'] = 'New';
+		}
 
-		/********************************* SET PRODUCT PARENT SKU */
+		if ( ! isset( $product_array['fulfillment_latency'] ) || empty( $product_array['fulfillment_latency'] ) ) {
+			$product_array['fulfillment_latency'] = 2;
+		}
 		if ( ! isset( $product_array['parent_sku'] ) && isset( $wooc_par_product_data['sku'] ) && '' != $wooc_par_product_data['sku'] ) {
+
 			$product_array['parent_sku'] = $wooc_par_product_data['sku'];
 		}
 
-		/********************************* SET PRODUCT Images */
-		// $this->ced_amz_set_product_images( $productId, $product_details, $wooc_par_product, $product_array );
+		$image_url = wp_get_attachment_image_src( get_post_thumbnail_id( $productId ), 'full' );
+
+		if ( isset( $image_url[0] ) ) {
+			$image_url = $image_url[0];
+
+		} elseif ( 0 != $product_details['parent_id'] ) {
+				$image_url = wp_get_attachment_image_src( get_post_thumbnail_id( $product_details['parent_id'] ), 'full' );
+			if ( isset( $image_url[0] ) ) {
+				$image_url = $image_url[0];
+			}
+		}
+		if ( ! empty( $image_url ) ) {
+			$attachment_url_modified = $this->modifyImageUrl( $image_url );
+
+			$image_url = ! empty( $attachment_url_modified ) ? $attachment_url_modified : $image_url;
+
+			$product_array['main_image_url'] = $image_url;
+		}
+
+		if ( '3.0.0' > WC()->version ) {
+			$attachment_ids = $wooc_product->get_gallery_attachment_ids();
+		} else {
+			$attachment_ids = $wooc_product->get_gallery_image_ids();
+		}
+
+		if ( ! isset( $attachment_ids['0'] ) && 0 != $productData['parent_id'] ) {
+
+			if ( '3.0.0' > WC()->version ) {
+				$attachment_ids = $wooc_par_product->get_gallery_attachment_ids();
+			} else {
+				$attachment_ids = $wooc_par_product->get_gallery_image_ids();
+			}
+		}
+
+		foreach ( $attachment_ids   as $key => $attachment_id ) {
+			if ( $key > 7 ) {
+				continue;
+			}
+			$image_id_key            = $key + 1;
+			$attachment_url          = wp_get_attachment_image_src( $attachment_id, 'full' );
+			$attachment_url_modified = $this->modifyImageUrl( $attachment_url[0] );
+
+			$attachment_url = ! empty( $attachment_url_modified ) ? $attachment_url_modified : $attachment_url[0];
+
+			if ( ! empty( $attachment_url ) ) {
+				$product_array[ 'other_image_url' . $image_id_key ] = $attachment_url;
+			}
+		}
+
+		if ( '' != $description_amazon ) {
+
+			$Description_string = preg_replace( '/<([a-z][a-z0-9]*)[^>]*?(\/?)>/i', '<$1$2>', $description_amazon );
+			$Description_string = htmlspecialchars_decode( $Description_string );
+			$Description_string = preg_replace( '/(<)([img])(\w+)([^>]*>)/', '', $Description_string );
+			$Description_string = $this->remove_empty_tags_recursive( $Description_string );
+
+			$Description_string = preg_replace( '/\s+/', ' ', $Description_string );
+
+			if ( '' != $Description_string && ! isset( $product_array['product_description'] ) ) {
+
+				$product_array['product_description'] = $Description_string;
+			}
+		}
+
+		if ( 'simple' == $productType || 'variation' == $productType ) {
+			$product_array['product_description'] = $Description_string;
+
+		}
 
 		if ( 'variation' == $productType ) {
 
@@ -688,7 +801,8 @@ class Ced_Amzon_XML_Lib {
 				$term = get_term_by( 'id', $value, 'product_tag' );
 
 				if ( '' != $term->name ) {
-					$product_tag_names_string        .= $term->name . ', ';
+					$product_tag_names_string .= $term->name . ', ';
+
 					$product_tag_names[ $term->name ] = $term->name;
 				}
 			}
@@ -698,19 +812,53 @@ class Ced_Amzon_XML_Lib {
 
 		}
 
-		/***************************************** PREPARE BULLET POINTS */
 		if ( isset( $product_array['product_description'] ) && ! empty( $product_array['product_description'] ) ) {
-			$this->ced_amz_set_bullet_points( $product_array, $product_details );
+			$bullet_point  = $product_array['product_description'];
+			$bullet_point  = strip_tags( $bullet_point );
+			$bullet_point  = explode( '.', $bullet_point );
+			$bullet_points = array();
+
+			if ( isset( $product_details['name'] ) && ! empty( $product_details['name'] ) ) {
+				$bullet_points[] = substr( $product_details['name'], 0, 140 );
+			}
+			if ( isset( $bullet_point['0'] ) && ! empty( $bullet_point['0'] ) ) {
+				$bullet_points[] = substr( $bullet_point['0'], 0, 180 );
+			}
+			if ( isset( $bullet_point['1'] ) && ! empty( $bullet_point['1'] ) ) {
+				$bullet_points[] = substr( $bullet_point['1'], 0, 180 );
+			}
+
+			if ( ( ! isset( $product_details['product_tag_names'] ) || empty( $product_details['product_tag_names'] ) ) && ( isset( $bullet_point['2'] ) && ! empty( $bullet_point['2'] ) ) ) {
+				$bullet_points[] = substr( $bullet_point['2'], 0, 180 );
+			}
+
+			if ( isset( $product_details['product_category_names'] ) && ! empty( $product_details['product_category_names'] ) ) {
+				$bullet_points[] = substr( $product_details['product_category_names'], 0, 140 );
+			}
+
+			if ( isset( $product_details['product_tag_names'] ) && ! empty( $product_details['product_tag_names'] ) ) {
+				$bullet_points[] = substr( $product_details['product_tag_names'], 0, 140 );
+
+				$product_array['generic_keywords'] = substr( $product_details['product_tag_names'], 0, 50 );
+			}
+
+			if ( isset( $bullet_points['1'] ) ) {
+				foreach ( $bullet_points as $key => $value ) {
+					$key_val                                    = $key + 1;
+					$product_array[ 'bullet_point' . $key_val ] = $value;
+				}
+			}
 		}
 
-		/********************************* Add necessary fields to product array */
-		$keys_to_insert = array(
-			'item_package_quantity' => 1,
-			'number_of_items'       => 1,
-			'handling_time'         => 2,
-		);
-		$this->ced_amz_add_necessary_fields( $product_array, $keys_to_insert );
-
+		if ( ! isset( $product_array['item_package_quantity'] ) || '' == $product_array['item_package_quantity'] ) {
+			$product_array['item_package_quantity'] = 1;
+		}
+		if ( ! isset( $product_array['number_of_items'] ) || '' == $product_array['number_of_items'] ) {
+			$product_array['number_of_items'] = 1;
+		}
+		if ( ! isset( $product_array['handling_time'] ) || '' == $product_array['handling_time'] ) {
+			$product_array['handling_time'] = 2;
+		}
 		if ( ! isset( $product_array['currency'] ) || '' == $product_array['currency'] ) {
 			$currency_code = get_option( 'woocommerce_currency' );
 			if ( '' != $currency_code ) {
@@ -718,25 +866,80 @@ class Ced_Amzon_XML_Lib {
 			}
 		}
 
-		/********************************* Handle product dimension and weight unit */
-		$this->ced_amz_ship_dimension_and_weight_unit( $product_array, $ship_dimension_unit, $ship_weight_unit );
+		/*Commented and edited by Arun*/
+		if ( '' != $ship_weight_unit ) {
+			if ( 'G' == $ship_weight_unit ) {
+				$ship_weight_unit = 'GR';
+			}
+			if ( 'LBS' == $ship_weight_unit ) {
+				$ship_weight_unit = 'LB';
+			}
+			$product_array['item_weight_unit_of_measure']             = $ship_weight_unit;
+			$product_array['package_weight_unit_of_measure']          = $ship_weight_unit;
+			$product_array['website_shipping_weight_unit_of_measure'] = $ship_weight_unit;
+		} else {
+			$product_array['item_weight_unit_of_measure']             = 'GR';
+			$product_array['package_weight_unit_of_measure']          = 'GR';
+			$product_array['website_shipping_weight_unit_of_measure'] = 'GR';
+		}
+
+		if ( '' != $ship_dimension_unit ) {
+			$product_array['item_dimensions_unit_of_measure'] = $ship_dimension_unit;
+			$product_array['item_length_unit_of_measure']     = $ship_dimension_unit;
+			$product_array['package_length_unit_of_measure']  = $ship_dimension_unit;
+		}
+
 		if ( isset( $product_array['sale_price'] ) && ! empty( $product_array['sale_price'] ) ) {
 			$sale_price_val = (float) $product_array['sale_price'];
 		} else {
 			$sale_price_val = '';
 		}
+		$sale_from_date = '';
+		$sale_from_date = gmdate( 'Y-m-d' );
+		if ( isset( $product_details['date_on_sale_to'] ) && ! empty( $product_details['date_on_sale_to'] ) ) {
 
-		/********************************* CED AMAZON SET SALE DATES */
-		$this->ced_amz_set_sale_date( $product_details, $product_array );
+			if ( isset( $product_details['date_on_sale_to']->date ) ) {
+				$sale_to_date = $product_details['date_on_sale_to']->date;
+				if ( strtotime( $sale_to_date ) < strtotime( $sale_from_date ) ) {
+					$sale_to_date = '';
+				}
+			} else {
+				$sale_to_date = '';
+			}
+			if ( '' == $sale_to_date ) {
+				$sale_to_date = gmdate( 'Y-m-d', strtotime( '+3 months' ) );
+			} else {
+				$sale_to_date = gmdate( 'Y-m-d', strtotime( $sale_to_date ) );
+			}
 
-		/********************************* Add necessary fields to product array */
-		$keys_to_insert = array(
-			'product_tax_code'      => 'A_GEN_NOTAX',
-			'update_delete'         => 'Update',
-			'fulfillment_center_id' => 'DEFAULT',
-			'condition_type'        => 'New',
-		);
-		$this->ced_amz_add_necessary_fields( $product_array, $keys_to_insert );
+			if ( isset( $sale_to_date ) && '' != $sale_price_val && 0 < $sale_price_val && '' != $sale_to_date ) {
+				$product_array['sale_price']     = $sale_price_val;
+				$product_array['sale_from_date'] = $sale_from_date;
+				$product_array['sale_end_date']  = $sale_to_date;
+			} elseif ( isset( $product_array['sale_price'] ) ) {
+					unset( $product_array['sale_price'] );
+					unset( $product_array['sale_end_date'] );
+					unset( $product_array['sale_from_date'] );
+			}
+		}
+
+		if ( isset( $product_array['sale_price'] ) && empty( $product_array['sale_price'] ) ) {
+			unset( $product_array['sale_price'] );
+			unset( $product_array['sale_end_date'] );
+			unset( $product_array['sale_from_date'] );
+		}
+
+		if ( ! isset( $product_array['product_tax_code'] ) ) {
+			$product_array['product_tax_code'] = 'A_GEN_NOTAX';
+		}
+
+		if ( ! isset( $product_array['update_delete'] ) ) {
+			$product_array['update_delete'] = 'Update';
+		}
+
+		if ( ! isset( $product_array['fulfillment_center_id'] ) ) {
+			$product_array['fulfillment_center_id'] = 'DEFAULT';
+		}
 
 		$standard_price_val = -1;
 		if ( isset( $product_array['standard_price'] ) ) {
@@ -747,6 +950,8 @@ class Ced_Amzon_XML_Lib {
 			$product_array['standard_price']       = '0.00';
 			$product_array['maximum_retail_price'] = '0.00';
 		}
+
+		$product_array['condition_type'] = 'New';
 
 		/* Browze node id managment for all marketplaces using profiel data*/
 		if ( ! isset( $product_array['recommended_browse_nodes'] ) || '' == $product_array['recommended_browse_nodes'] ) {
@@ -764,9 +969,11 @@ class Ced_Amzon_XML_Lib {
 			return;
 		}
 
-		$template_details       = $this->template_details;
+		$template_details = $this->template_details;
+
 		$final_product_details  = array();
 		$final_validated_fields = array();
+		$missing_fields_list    = array();
 
 		if ( isset( $template_details['category_specific_fields'] ) && ! empty( $template_details['category_specific_fields'] ) ) {
 
@@ -807,10 +1014,14 @@ class Ced_Amzon_XML_Lib {
 						array( 'product_description', 'item_type', 'feed_product_type', 'bullet_point1', 'bullet_point2', 'bullet_point3', 'bullet_point4', 'bullet_point5', 'special_features1', 'special_features2', 'special_features3', 'target_audience_keyword', 'target_audience_keywords1', 'target_audience_keywords2', 'target_audience_keywords3', 'special_features4', 'special_features5', 'main_image_url', 'manufacturer', 'brand_name', 'item_name', 'department_name', 'style_name', 'closure_type', 'lifestyle', 'material_type', 'material_type1', 'pattern_type', 'model_year', 'shoe_dimension_unit_of_measure', 'binding', 'condition_type', 'publication_date', 'author', 'part_number', 'external_product_id', 'external_product_id_type', 'standard_price' );
 
 					if ( 'variable' == $productType ) {
+
 						if ( in_array( $field_key, $variable_index_to_skip ) ) {
-							continue;
+
+								continue;
+
 						}
 					}
+						$missing_fields_list[ $field_key ] = $field_key;
 				}
 				if ( 'main_image_url' == $field_key ) {
 					$field_image_found = true;
@@ -829,85 +1040,215 @@ class Ced_Amzon_XML_Lib {
 
 		if ( 'variable' == $productType ) {
 
-			/********************************* Add necessary fields to product array */
-			$keys_to_insert = array(
-				'parent_child'             => 'Parent',
-				'relationship_type'        => '',
-				'external_product_id'      => '',
-				'external_product_id_type' => '',
-				'standard_price'           => '',
-				'product_tax_code'         => '',
-			);
+			$final_product_details['parent_child'] = 'Parent';
 
-			$this->ced_amz_add_necessary_fields( $final_product_details, $keys_to_insert );
+			$final_product_details['relationship_type']        = '';
+			$final_product_details['external_product_id']      = '';
+			$final_product_details['external_product_id_type'] = '';
+			$final_product_details['standard_price']           = '';
+			$final_product_details['product_tax_code']         = '';
 
-			$keys_to_remove = array(
-				'size',
-				'size_name',
-				'size_map',
-				'color_name',
-				'color_map',
-				'apparel_size',
-				'apparel_size_system',
-				'apparel_size_class',
-				'apparel_body_type',
-				'apparel_height_type',
-				'shirt_size',
-				'shirt_size_system',
-				'shirt_size_class',
-				'shirt_body_type',
-				'shirt_height_type',
-				'height_type',
-				'body_type',
-				'bottoms_size_system',
-				'bottoms_size_class',
-				'bottoms_body_type',
-				'bottoms_height_type',
-				'bottoms_size',
-			);
-
-			/********************************* Remove unnecessary fields */
-			$this->ced_amz_remove_unnecessary_fields( $final_product_details, $keys_to_remove );
-
+			// Unset relevant amazon fields which is not required for parent product
+			if ( isset( $final_product_details['size'] ) ) {
+				unset( $final_product_details['size'] );
+			}
+			if ( isset( $final_product_details['size_name'] ) ) {
+				unset( $final_product_details['size_name'] );
+			}
+			if ( isset( $final_product_details['size_map'] ) ) {
+				unset( $final_product_details['size_map'] );
+			}
+			if ( isset( $final_product_details['color_name'] ) ) {
+				unset( $final_product_details['color_name'] );
+			}
+			if ( isset( $final_product_details['color_map'] ) ) {
+				unset( $final_product_details['color_map'] );
+			}
+			if ( isset( $final_product_details['apparel_size'] ) ) {
+				unset( $final_product_details['apparel_size'] );
+			}
+			if ( isset( $final_product_details['apparel_size_system'] ) ) {
+				unset( $final_product_details['apparel_size_system'] );
+			}
+			if ( isset( $final_product_details['apparel_size_class'] ) ) {
+				unset( $final_product_details['apparel_size_class'] );
+			}
+			if ( isset( $final_product_details['apparel_body_type'] ) ) {
+				unset( $final_product_details['apparel_body_type'] );
+			}
+			if ( isset( $final_product_details['apparel_height_type'] ) ) {
+				unset( $final_product_details['apparel_height_type'] );
+			}
+			if ( isset( $final_product_details['shirt_size'] ) ) {
+				unset( $final_product_details['shirt_size'] );
+			}
+			if ( isset( $final_product_details['shirt_size_system'] ) ) {
+				unset( $final_product_details['shirt_size_system'] );
+			}
+			if ( isset( $final_product_details['shirt_size_class'] ) ) {
+				unset( $final_product_details['shirt_size_class'] );
+			}
+			if ( isset( $final_product_details['shirt_body_type'] ) ) {
+				unset( $final_product_details['shirt_body_type'] );
+			}
+			if ( isset( $final_product_details['shirt_height_type'] ) ) {
+				unset( $final_product_details['shirt_height_type'] );
+			}
+			if ( isset( $final_product_details['height_type'] ) ) {
+				unset( $final_product_details['height_type'] );
+			}
+			if ( isset( $final_product_details['body_type'] ) ) {
+				unset( $final_product_details['body_type'] );
+			}
+			if ( isset( $final_product_details['bottoms_size_system'] ) ) {
+				unset( $final_product_details['bottoms_size_system'] );
+			}
+			if ( isset( $final_product_details['bottoms_size_class'] ) ) {
+				unset( $final_product_details['bottoms_size_class'] );
+			}
+			if ( isset( $final_product_details['bottoms_body_type'] ) ) {
+				unset( $final_product_details['bottoms_body_type'] );
+			}
+			if ( isset( $final_product_details['bottoms_height_type'] ) ) {
+				unset( $final_product_details['bottoms_height_type'] );
+			}
+			if ( isset( $final_product_details['bottoms_size'] ) ) {
+				unset( $final_product_details['bottoms_size'] );
+			}
 		}
 
 		if ( ! isset( $final_product_details['sale_price'] ) || empty( $final_product_details['sale_price'] ) ) {
-			/********************************* Remove unnecessary fields */
-			$keys_to_remove = array( 'sale_price', 'sale_end_date', 'sale_from_date' );
-			$this->ced_amz_remove_unnecessary_fields( $final_product_details, $keys_to_remove );
-
+			unset( $final_product_details['sale_price'] );
+			unset( $final_product_details['sale_end_date'] );
+			unset( $final_product_details['sale_from_date'] );
 		}
 
 		if ( 'simple' == $productType && isset( $final_product_details['variation_theme'] ) ) {
 			unset( $final_product_details['variation_theme'] );
 		}
 
-		/*********************** SET PRODUCT IMAGES */
-		$this->ced_amz_set_product_images( $productId, $product_details, $wooc_par_product, $final_product_details, $productType );
-
 		/** Price makup start */
 		if ( isset( $seller_global_settings['ced_amazon_product_markup_type'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup_type'] ) && isset( $seller_global_settings['ced_amazon_product_markup'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup'] ) ) {
-			$ced_product_price = $this->ced_amz_modify_product_price( $seller_global_settings['ced_amazon_product_markup_type'], $seller_global_settings['ced_amazon_product_markup'] );
+
+			if ( 'Fixed_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+
+				if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
+					$markup_price                            = (float) $final_product_details['standard_price'] + (float) $seller_global_settings['ced_amazon_product_markup'];
+					$final_product_details['standard_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
+					$markup_price                                  = (float) $final_product_details['maximum_retail_price'] + (float) $seller_global_settings['ced_amazon_product_markup'];
+					$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
+					$markup_price                        = (float) $final_product_details['sale_price'] + (float) $seller_global_settings['ced_amazon_product_markup'];
+					$final_product_details['sale_price'] = round( $markup_price, 2 );
+				}
+			} elseif ( 'Fixed_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+
+				if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
+					$markup_price                            = (float) $final_product_details['standard_price'] - (float) $seller_global_settings['ced_amazon_product_markup'];
+					$final_product_details['standard_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
+					$markup_price                                  = (float) $final_product_details['maximum_retail_price'] - (float) $seller_global_settings['ced_amazon_product_markup'];
+					$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
+					$markup_price                        = (float) $final_product_details['sale_price'] - (float) $seller_global_settings['ced_amazon_product_markup'];
+					$final_product_details['sale_price'] = round( $markup_price, 2 );
+				}
+			} elseif ( 'Percentage_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+
+				if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
+					$markup_price                            = ( ( ( (float) $final_product_details['standard_price'] * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 ) + $final_product_details['standard_price'] );
+					$final_product_details['standard_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
+					$markup_price                                  = ( ( ( (float) $final_product_details['maximum_retail_price'] * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 ) + $final_product_details['maximum_retail_price'] );
+					$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
+					$markup_price                        = ( ( ( (float) $final_product_details['sale_price'] * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 ) + $final_product_details['sale_price'] );
+					$final_product_details['sale_price'] = round( $markup_price, 2 );
+				}
+			} elseif ( 'Percentage_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+
+				if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
+					$markup_price                            = ( (float) $final_product_details['standard_price'] ) - ( ( (float) $final_product_details['standard_price'] * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+					$final_product_details['standard_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
+					$markup_price                                  = ( (float) $final_product_details['maximum_retail_price'] ) - ( ( (float) $final_product_details['maximum_retail_price'] * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+					$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
+				}
+
+				if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
+					$markup_price                        = ( (float) $final_product_details['sale_price'] ) - ( ( (float) $final_product_details['sale_price'] * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+					$final_product_details['sale_price'] = round( $markup_price, 2 );
+				}
+			}
 		}
 		/** Price makup end */
 
 		// Set product quantity if manage quantity not enable but product status in stock/out of stock
-		$this->ced_amz_set_product_quantity( $final_product_details, $productId );
-
-		if ( 'variable' == $productType ) {
-			/********************************* Remove unnecessary fields */
-			$keys_to_remove = array( 'maximum_retail_price', 'standard_price', 'sale_price' );
-			$this->ced_amz_remove_unnecessary_fields( $final_product_details, $keys_to_remove );
+		$product_data = wc_get_product( $productId );
+		$qty_status   = $product_data->get_stock_status();
+		if ( ( ! isset( $final_product_details['quantity'] ) || '' == $final_product_details['quantity'] ) && 'instock' == $qty_status ) {
+			$final_product_details['quantity'] = 1;
+		} elseif ( ( ! isset( $final_product_details['quantity'] ) || '' == $final_product_details['quantity'] ) && 'outofstock' == $qty_status ) {
+			$final_product_details['quantity'] = 0;
 		}
 
-		$final_product_details = apply_filters( 'ced_data_format_before_upload', $final_product_details, $productId, $wooc_product, $productType, $getopt_data );
+		/** Stock quantity thershold */
+		if ( isset( $seller_global_settings['ced_amazon_product_stock_type'] ) && ! empty( $seller_global_settings['ced_amazon_product_stock_type'] ) && isset( $seller_global_settings['ced_amazon_listing_stock'] ) && ! empty( $seller_global_settings['ced_amazon_listing_stock'] ) ) {
+
+			$max_quantity_threshold = $seller_global_settings['ced_amazon_listing_stock'];
+			if ( isset( $final_product_details['quantity'] ) && $final_product_details['quantity'] > $max_quantity_threshold ) {
+				$final_product_details['quantity'] = $max_quantity_threshold;
+			}
+		}
+
+
+		if ( 'variable' == $productType ) {
+
+			if ( isset(  $final_product_details['maximum_retail_price'] ) ) {
+				unset( $final_product_details['maximum_retail_price'] );
+			}
+
+			if ( isset( $final_product_details['standard_price'] ) ) {
+				unset( $final_product_details['standard_price'] );
+			}
+
+			if ( isset( $final_product_details['sale_price'] ) ) {
+				unset( $final_product_details['sale_price'] );
+			}
+			
+	
+		}
+
+
+		if ( is_array( $missing_fields_list ) && ! empty( $missing_fields_list ) ) {
+			$missing_fields_list = array_values( $missing_fields_list );
+			if ( isset( $missing_fields_list['0'] ) ) {
+				update_post_meta( $productId, 'ced_amazon_val_err_list_' . $getopt_data, $missing_fields_list );
+			}
+		} else {
+			update_post_meta( $productId, 'ced_amazon_val_err_list_' . $getopt_data, array() );
+		}
 
 		if ( is_array( $final_product_details ) && ! empty( $final_product_details ) ) {
 			update_post_meta( $productId, 'ced_amazon_final_pro_det_' . $getopt_data, $final_product_details );
 		} else {
 			update_post_meta( $productId, 'ced_amazon_final_pro_det_' . $getopt_data, array() );
 		}
-
 	}
 
 
@@ -1013,80 +1354,6 @@ class Ced_Amzon_XML_Lib {
 
 
 	/**
-	 * Function to modify product price based on markup
-	 */
-	public function ced_amz_modify_product_price( $markup_type, $markup_value, $final_product_details ) {
-
-		if ( 'Fixed_Increased' == $markup_type ) {
-
-			if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
-				$markup_price                            = (float) $final_product_details['standard_price'] + (float) $markup_value;
-				$final_product_details['standard_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
-				$markup_price                                  = (float) $final_product_details['maximum_retail_price'] + (float) $markup_value;
-				$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
-				$markup_price                        = (float) $final_product_details['sale_price'] + (float) $markup_value;
-				$final_product_details['sale_price'] = round( $markup_price, 2 );
-			}
-		} elseif ( 'Fixed_Decreased' == $markup_type ) {
-
-			if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
-				$markup_price                            = (float) $final_product_details['standard_price'] - (float) $markup_value;
-				$final_product_details['standard_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
-				$markup_price                                  = (float) $final_product_details['maximum_retail_price'] - (float) $markup_value;
-				$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
-				$markup_price                        = (float) $final_product_details['sale_price'] - (float) $markup_value;
-				$final_product_details['sale_price'] = round( $markup_price, 2 );
-			}
-		} elseif ( 'Percentage_Increased' == $markup_type ) {
-
-			if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
-				$markup_price                            = ( ( ( (float) $final_product_details['standard_price'] * (float) $markup_value ) / 100 ) + $final_product_details['standard_price'] );
-				$final_product_details['standard_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
-				$markup_price                                  = ( ( ( (float) $final_product_details['maximum_retail_price'] * (float) $markup_value ) / 100 ) + $final_product_details['maximum_retail_price'] );
-				$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
-				$markup_price                        = ( ( ( (float) $final_product_details['sale_price'] * (float) $markup_value ) / 100 ) + $final_product_details['sale_price'] );
-				$final_product_details['sale_price'] = round( $markup_price, 2 );
-			}
-		} elseif ( 'Percentage_Decreased' == $markup_type ) {
-
-			if ( isset( $final_product_details['standard_price'] ) && ! empty( $final_product_details['standard_price'] ) ) {
-				$markup_price                            = ( (float) $final_product_details['standard_price'] ) - ( ( (float) $final_product_details['standard_price'] * (float) $markup_value ) / 100 );
-				$final_product_details['standard_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['maximum_retail_price'] ) && ! empty( $final_product_details['maximum_retail_price'] ) ) {
-				$markup_price                                  = ( (float) $final_product_details['maximum_retail_price'] ) - ( ( (float) $final_product_details['maximum_retail_price'] * (float) $markup_value ) / 100 );
-				$final_product_details['maximum_retail_price'] = round( $markup_price, 2 );
-			}
-
-			if ( isset( $final_product_details['sale_price'] ) && ! empty( $final_product_details['sale_price'] ) ) {
-				$markup_price                        = ( (float) $final_product_details['sale_price'] ) - ( ( (float) $final_product_details['sale_price'] * (float) $markup_value ) / 100 );
-				$final_product_details['sale_price'] = round( $markup_price, 2 );
-			}
-		}
-
-	}
-
-
-	/**
 	 * This function replace the https:// to http:// as per amazon standard.
 	 *
 	 * @name modifyImageUrl()
@@ -1134,308 +1401,4 @@ class Ced_Amzon_XML_Lib {
 		}
 		return $price;
 	}
-
-	public function ced_amazon_webp_to_jpeg_convertor( $image_path = '' ) {
-
-		$image_name        = basename( $image_path );
-		$upload_dir        = wp_upload_dir();
-		$image_name        = exif_imagetype( $image_path ) == IMAGETYPE_WEBP ? str_replace( '.webp', '.jpeg', $image_name ) : $image_name;
-		$image_custom_path = $upload_dir['baseurl'] . '/ced-amazon/ced_amazon_converted_image/' . $image_name;
-		if ( ! is_dir( ( $upload_dir['basedir'] . '/ced-amazon/ced_amazon_converted_image/' ) ) ) {
-			mkdir( ( $upload_dir['basedir'] . '/ced-amazon/ced_amazon_converted_image/' ), 0755 );
-		}
-		if ( exif_imagetype( $image_path ) == IMAGETYPE_WEBP && ! file_exists( $image_custom_path ) ) {
-			$im = imagecreatefromwebp( $image_path );
-			imagejpeg( $im, $upload_dir['basedir'] . '/ced-amazon/ced_amazon_converted_image/' . $image_name, 100 );
-			imagedestroy( $im );
-			$image_path = $image_custom_path;
-		} elseif ( file_exists( $image_custom_path ) ) {
-			$image_path = $image_custom_path;
-		}
-		return $image_path;
-	}
-
-
-	/**
-	 * Function to Remove unnecessary fields
-	 */
-	public function ced_amz_remove_unnecessary_fields( $product_data, $fields_array = array() ) {
-
-		if ( ! empty( $fields_array ) && is_array( $fields_array ) ) {
-			foreach ( $fields_array as $key ) {
-				if ( isset( $product_data[ $key ] ) ) {
-					unset( $product_data[ $key ] );
-				}
-			}
-		}
-
-	}
-
-
-	/**
-	 * Function to Add necessary fields
-	 */
-	public function ced_amz_add_necessary_fields( $product_array, $fields_array = array() ) {
-
-		if ( ! empty( $fields_array ) && is_array( $fields_array ) ) {
-			foreach ( $fields_array as $key => $value ) {
-				if ( ! isset( $product_array[ $key ] ) || '' == $product_array[ $key ] ) {
-					$product_array[ $key ] = $value;
-				}
-			}
-		}
-
-	}
-
-
-	/**
-	 * Function to set product dimension and ship unit
-	 */
-	public function ced_amz_ship_dimension_and_weight_unit( $product_array, $ship_dimension_unit = '', $ship_weight_unit = '' ) {
-
-		if ( '' != $ship_weight_unit ) {
-			if ( 'G' == $ship_weight_unit ) {
-				$ship_weight_unit = 'GR';
-			}
-			if ( 'LBS' == $ship_weight_unit ) {
-				$ship_weight_unit = 'LB';
-			}
-			$product_array['item_weight_unit_of_measure']             = $ship_weight_unit;
-			$product_array['package_weight_unit_of_measure']          = $ship_weight_unit;
-			$product_array['website_shipping_weight_unit_of_measure'] = $ship_weight_unit;
-		} else {
-			$product_array['item_weight_unit_of_measure']             = 'GR';
-			$product_array['package_weight_unit_of_measure']          = 'GR';
-			$product_array['website_shipping_weight_unit_of_measure'] = 'GR';
-		}
-
-		if ( '' != $ship_dimension_unit ) {
-			$product_array['item_dimensions_unit_of_measure'] = $ship_dimension_unit;
-			$product_array['item_length_unit_of_measure']     = $ship_dimension_unit;
-			$product_array['package_length_unit_of_measure']  = $ship_dimension_unit;
-		}
-
-	}
-
-	/**
-	 * Function to set product quantity
-	 */
-	public function ced_amz_set_product_quantity( $final_product_details, $productId = 0 ) {
-
-		$product_data = wc_get_product( $productId );
-		$qty_status   = $product_data->get_stock_status();
-		if ( ( ! isset( $final_product_details['quantity'] ) || '' == $final_product_details['quantity'] ) && 'instock' == $qty_status ) {
-			$final_product_details['quantity'] = 1;
-		} elseif ( ( ! isset( $final_product_details['quantity'] ) || '' == $final_product_details['quantity'] ) && 'outofstock' == $qty_status ) {
-			$final_product_details['quantity'] = 0;
-		}
-
-		/** Stock quantity thershold */
-		if ( isset( $seller_global_settings['ced_amazon_product_stock_type'] ) && ! empty( $seller_global_settings['ced_amazon_product_stock_type'] ) && isset( $seller_global_settings['ced_amazon_listing_stock'] ) && ! empty( $seller_global_settings['ced_amazon_listing_stock'] ) ) {
-
-			$max_quantity_threshold = $seller_global_settings['ced_amazon_listing_stock'];
-			if ( isset( $final_product_details['quantity'] ) && $final_product_details['quantity'] > $max_quantity_threshold ) {
-				$final_product_details['quantity'] = $max_quantity_threshold;
-			}
-		}
-
-		$ced_amazon_rsrve_stck = isset( $seller_global_settings['ced_amazon_rsrve_stck'] ) ? $seller_global_settings['ced_amazon_rsrve_stck'] : '';
-		if ( is_int( $ced_amazon_rsrve_stck ) && $final_product_details['quantity'] >= $ced_amazon_rsrve_stck ) {
-			$final_product_details['quantity'] = $final_product_details['quantity'] - $ced_amazon_rsrve_stck;
-		}
-
-	}
-
-	/**
-	 * Function to set product description
-	 */
-	public function ced_amz_set_product_description( $productData, $wooc_par_product_data, $product_array, $productType ) {
-
-		$description_amazon = '';
-		$Description_string = '';
-
-		if ( '' != $productData['description'] ) {
-			$description_amazon = isset( $productData['description'] ) ? $productData['description'] : '';
-		}
-
-		// My desc
-		if ( isset( $productData['short_description'] ) && ! empty( $productData['short_description'] ) ) {
-			$description_amazon .= $productData['short_description'];
-
-		}
-
-		if ( '' == $description_amazon ) {
-			$description_amazon = isset( $productData['short_description'] ) ? $productData['short_description'] : '';
-		}
-		if ( '' == $description_amazon && isset( $wooc_par_product_data['description'] ) ) {
-			$description_amazon = isset( $wooc_par_product_data['description'] ) ? $wooc_par_product_data['description'] : '';
-		}
-		if ( '' == $description_amazon && isset( $wooc_par_product_data['short_description'] ) ) {
-			$description_amazon = isset( $wooc_par_product_data['short_description'] ) ? $wooc_par_product_data['short_description'] : '';
-		}
-
-		// My desc
-		if ( isset( $wooc_par_product_data['short_description'] ) && ! empty( $wooc_par_product_data['short_description'] ) ) {
-			$description_amazon .= $wooc_par_product_data['short_description'];
-		}
-
-		if ( '' != $description_amazon ) {
-
-			$Description_string = preg_replace( '/<([a-z][a-z0-9]*)[^>]*?(\/?)>/i', '<$1$2>', $description_amazon );
-			$Description_string = htmlspecialchars_decode( $Description_string );
-			$Description_string = preg_replace( '/(<)([img])(\w+)([^>]*>)/', '', $Description_string );
-			$Description_string = $this->remove_empty_tags_recursive( $Description_string );
-			$Description_string = preg_replace( '/\s+/', ' ', $Description_string );
-
-			if ( '' != $Description_string && ! isset( $product_array['product_description'] ) ) {
-				$product_array['product_description'] = $Description_string;
-			}
-		}
-
-		if ( 'simple' == $productType || 'variation' == $productType ) {
-			$product_array['product_description'] = $Description_string;
-		}
-
-	}
-
-
-	/**
-	 * Function to set product main image and gallery images
-	 */
-	public function ced_amz_set_product_images( $productId, $product_details, $wooc_par_product, $final_product_details, $productType ) {
-
-		$image_url = wp_get_attachment_image_src( get_post_thumbnail_id( $productId ), 'full' );
-		if ( isset( $image_url[0] ) ) {
-			$image_url = $image_url[0];
-
-		} elseif ( 0 != $product_details['parent_id'] ) {
-			$image_url = wp_get_attachment_image_src( get_post_thumbnail_id( $product_details['parent_id'] ), 'full' );
-			if ( isset( $image_url[0] ) ) {
-				$image_url = $image_url[0];
-			}
-		}
-		if ( ! empty( $image_url ) ) {
-			$attachment_url_modified                 = $this->modifyImageUrl( $image_url );
-			$image_url                               = ! empty( $attachment_url_modified ) ? $attachment_url_modified : $image_url;
-			$final_product_details['main_image_url'] = $image_url;
-		}
-
-		$attachment_ids = $wooc_product->get_gallery_image_ids();
-
-		if ( 'variation' == $productType ) {
-			/*********************** GET PARENT IMAGES IF PRODUCT IMAGES DOESN'T EXISTS */
-			if ( ! isset( $attachment_ids['0'] ) && 0 != $productData['parent_id'] ) {
-				$attachment_ids = $wooc_par_product->get_gallery_image_ids();
-			}
-		}
-
-		if ( ! empty( $attachment_ids ) && is_array( $attachment_ids ) ) {
-			foreach ( $attachment_ids  as $key => $attachment_id ) {
-				if ( $key > 7 ) {
-					continue;
-				}
-				$image_id_key            = $key + 1;
-				$attachment_url          = wp_get_attachment_image_src( $attachment_id, 'full' );
-				$attachment_url_modified = $this->modifyImageUrl( $attachment_url[0] );
-
-				$attachment_url = ! empty( $attachment_url_modified ) ? $attachment_url_modified : $attachment_url[0];
-
-				if ( ! empty( $attachment_url ) ) {
-					$gallery_images   = $attachment_url;
-					$converted_images = $this->ced_amazon_webp_to_jpeg_convertor( $gallery_images );
-					$final_product_details[ 'other_image_url' . $image_id_key ] = $converted_images;
-				}
-			}
-		}
-
-		$main_image_url                          = $final_product_details['main_image_url'];
-		$main_converted_image                    = $this->ced_amazon_webp_to_jpeg_convertor( $main_image_url );
-		$final_product_details['main_image_url'] = $main_converted_image;
-
-	}
-
-
-	/**
-	 * Function to set bullet points
-	 */
-	public function ced_amz_set_bullet_points( $product_array, $product_details ) {
-
-		$bullet_point  = $product_array['product_description'];
-		$bullet_point  = strip_tags( $bullet_point );
-		$bullet_point  = explode( '.', $bullet_point );
-		$bullet_points = array();
-
-		if ( isset( $product_details['name'] ) && ! empty( $product_details['name'] ) ) {
-			$bullet_points[] = substr( $product_details['name'], 0, 140 );
-		}
-		if ( isset( $bullet_point['0'] ) && ! empty( $bullet_point['0'] ) ) {
-			$bullet_points[] = substr( $bullet_point['0'], 0, 180 );
-		}
-		if ( isset( $bullet_point['1'] ) && ! empty( $bullet_point['1'] ) ) {
-			$bullet_points[] = substr( $bullet_point['1'], 0, 180 );
-		}
-
-		if ( ( ! isset( $product_details['product_tag_names'] ) || empty( $product_details['product_tag_names'] ) ) && ( isset( $bullet_point['2'] ) && ! empty( $bullet_point['2'] ) ) ) {
-			$bullet_points[] = substr( $bullet_point['2'], 0, 180 );
-		}
-
-		if ( isset( $product_details['product_category_names'] ) && ! empty( $product_details['product_category_names'] ) ) {
-			$bullet_points[] = substr( $product_details['product_category_names'], 0, 140 );
-		}
-
-		if ( isset( $product_details['product_tag_names'] ) && ! empty( $product_details['product_tag_names'] ) ) {
-			$bullet_points[] = substr( $product_details['product_tag_names'], 0, 140 );
-
-			$product_array['generic_keywords'] = substr( $product_details['product_tag_names'], 0, 50 );
-		}
-
-		if ( isset( $bullet_points['1'] ) ) {
-			foreach ( $bullet_points as $key => $value ) {
-				$key_val                                    = $key + 1;
-				$product_array[ 'bullet_point' . $key_val ] = $value;
-			}
-		}
-
-	}
-
-
-	public function ced_amz_set_sale_date( $product_details, $product_array ) {
-
-		$sale_from_date = gmdate( 'Y-m-d' );
-		if ( isset( $product_details['date_on_sale_to'] ) && ! empty( $product_details['date_on_sale_to'] ) ) {
-
-			if ( isset( $product_details['date_on_sale_to']->date ) ) {
-				$sale_to_date = $product_details['date_on_sale_to']->date;
-				if ( strtotime( $sale_to_date ) < strtotime( $sale_from_date ) ) {
-					$sale_to_date = '';
-				}
-			} else {
-				$sale_to_date = '';
-			}
-			if ( '' == $sale_to_date ) {
-				$sale_to_date = gmdate( 'Y-m-d', strtotime( '+3 months' ) );
-			} else {
-				$sale_to_date = gmdate( 'Y-m-d', strtotime( $sale_to_date ) );
-			}
-
-			if ( isset( $sale_to_date ) && '' != $sale_price_val && 0 < $sale_price_val && '' != $sale_to_date ) {
-				$product_array['sale_price']     = $sale_price_val;
-				$product_array['sale_from_date'] = $sale_from_date;
-				$product_array['sale_end_date']  = $sale_to_date;
-			} elseif ( isset( $product_array['sale_price'] ) ) {
-				/********************************* Remove unnecessary fields */
-				$keys_to_remove = array( 'sale_price', 'sale_end_date', 'sale_from_date' );
-				$this->ced_amz_remove_unnecessary_fields( $product_array, $keys_to_remove );
-			}
-		}
-
-		if ( isset( $product_array['sale_price'] ) && empty( $product_array['sale_price'] ) ) {
-			/********************************* Remove unnecessary fields */
-			$keys_to_remove = array( 'sale_price', 'sale_end_date', 'sale_from_date' );
-			$this->ced_amz_remove_unnecessary_fields( $product_array, $keys_to_remove );
-		}
-
-	}
-
-
 }

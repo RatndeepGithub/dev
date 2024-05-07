@@ -1,5 +1,4 @@
 <?php
-namespace Ced\Ebay;
 // If this file is called directly, abort.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -58,8 +57,74 @@ if ( ! class_exists( 'CedeBayProductsFields' ) ) {
 
 		public function ced_ebay_get_profile_framework_specific() {
 			$ebaySpecificFields = array(
-				
-			
+				array(
+					'type'     => '_select',
+					'id'       => '_umb_ebay_listing_duration',
+					'fields'   => array(
+						'id'          => '_umb_ebay_listing_duration',
+						'global_id'   => 'Listing Duration',
+						'label'       => __( 'Listing Duration', 'ced-umb-ebay' ),
+						'desc_tip'    => true,
+						'description' => __( 'Select how long your listing will run. This is a required value.', 'ced-umb-ebay' ),
+						'type'        => 'select',
+						'options'     => array(
+							'Days_1'   => 'Days_1',
+							'Days_10'  => 'Days_10',
+							'Days_120' => 'Days_120',
+							'Days_14'  => 'Days_14',
+							'Days_21'  => 'Days_21',
+							'Days_3'   => 'Days_3',
+							'Days_30'  => 'Days_30',
+							'Days_5'   => 'Days_5',
+							'Days_60'  => 'Days_60',
+							'Days_7'   => 'Days_7',
+							'Days_90'  => 'Days_90',
+							'GTC'      => 'Good Till Cancelled',
+						),
+						'class'       => 'wc_input_price',
+					),
+					'required' => 'required',
+				),
+				array(
+					'type'     => '_select',
+					'id'       => '_umb_ebay_dispatch_time',
+					'fields'   => array(
+						'id'          => '_umb_ebay_dispatch_time',
+						'global_id'   => 'Maximum Dispatch Time',
+						'label'       => __( 'Maximum Dispatch Time', 'ced-umb-ebay' ),
+						'desc_tip'    => true,
+						'description' => __( 'Specifies the maximum number of business days the seller commits to for preparing an item to be shipped after receiving a cleared payment.', 'ced-umb-ebay' ),
+						'type'        => 'text',
+						'options'     => array(
+							'-1' => 'Select an option',
+							'0'  => 'Same Business Day',
+							'1'  => '1 Day',
+							'2'  => '2 Days',
+							'3'  => '3 Days',
+							'4'  => '4 Days',
+							'5'  => '5 Days',
+							'10' => '10 Days',
+							'15' => '15 Days',
+							'20' => '20 Days',
+							'30' => '30 Days',
+						),
+						'class'       => 'wc_input_price',
+					),
+					'required' => 'required',
+				),
+				array(
+					'type'   => '_text_input',
+					'id'     => '_umb_ebay_mpn',
+					'fields' => array(
+						'id'          => '_umb_ebay_mpn',
+						'global_id'   => 'MPN',
+						'label'       => __( 'MPN', 'ced-umb-ebay' ),
+						'desc_tip'    => true,
+						'description' => __( 'manufacturer part number of the product.Brand field must be filled to use it.', 'ced-umb-ebay' ),
+						'type'        => 'text',
+						'class'       => 'wc_input_price',
+					),
+				),
 				array(
 					'type'   => '_text_input',
 					'id'     => '_umb_ebay_ean',
@@ -398,8 +463,7 @@ if ( ! class_exists( 'CedeBayProductsFields' ) ) {
 			foreach ( $templates as $key => $value ) {
 				$description_template_name[ $key ] = $value['template_name'];
 			}
-			$rsid = ced_ebay_get_shop_data($user_id, $site_id);
-			$business_policies = ced_ebay_get_business_policies( $user_id, $site_id, $rsid );
+			$business_policies = ced_ebay_get_business_policies( $user_id, $site_id );
 			if ( ! empty( $business_policies ) && is_array( $business_policies ) && isset( $business_policies['paymentPolicies'] ) && isset( $business_policies['fulfillmentPolicies'] ) && isset( $business_policies['returnPolicies'] ) ) {
 				$payment_policy_options     = array();
 				$return_policy_options      = array();

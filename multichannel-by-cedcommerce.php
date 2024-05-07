@@ -160,8 +160,7 @@ if ( ced_woocommerce_active() ) {
 			'is_on'       => false,
 		),
 	);
-	$mode                   = $_GET['mode'] ?? '';
-	$subscription_details   = get_option( 'ced_mcfw_subscription_details' . $mode, array() );
+	$subscription_details   = get_option( 'ced_mcfw_subscription_details', array() );
 
 	$subscibed_marketplaces = isset( $subscription_details['selected_marketplace'] ) ? explode( ',', base64_decode( $subscription_details['selected_marketplace'] ) ) : array();
 	foreach ( $supported_marketplaces as $marketplace => $marketplace_info ) {

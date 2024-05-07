@@ -1,8 +1,5 @@
 <?php
 
-
-use Automattic\WooCommerce\Internal\DataStores\Orders\OrdersTableDataStore;
-use Automattic\WooCommerce\Utilities\OrderUtil;
 /**
  * The admin-specific functionality of the plugin.
  *
@@ -56,7 +53,8 @@ class Walmart_Woocommerce_Integration_Admin {
 		$this->plugin_name = $plugin_name;
 		$this->version     = $version;
 		$this->load_dependency();
-		add_action( 'woocommerce_loaded', array( $this, 'ced_walmart_fire_hooks' ), 10, 1 );
+		add_action( 'manage_edit-shop_order_columns', array( $this, 'ced_walmart_add_table_columns' ) );
+		add_action( 'manage_shop_order_posts_custom_column', array( $this, 'ced_walmart_manage_table_columns' ), 10, 2 );
 		add_filter( 'woocommerce_order_number', array( $this, 'ced_walmart_modify_woo_order_number' ), 20, 2 );
 		add_action( 'ced_walmart_auto_submit_shipment', array( $this, 'ced_walmart_auto_submit_shipment' ) );
 
@@ -67,34 +65,27 @@ class Walmart_Woocommerce_Integration_Admin {
 	}
 
 
+
+
+
 	/**
 	 * Load the dependencies.
 	 *
 	 * @since    1.0.0
 	 */
 	public function load_dependency() {
-		$ced_walmart_manager_file         = CED_WALMART_DIRPATH . 'admin/walmart/class-ced-walmart-manager.php';
-		$ced_walmart_process_request_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-process-request.php';
-		$ced_walmart_order_file           = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-order.php';
+		$ced_walmart_manager_file = CED_WALMART_DIRPATH . 'admin/walmart/class-ced-walmart-manager.php';
+		$ced_walmart_curl_file    = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-curl-request.php';
+		$ced_walmart_order_file   = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-order.php';
 		include_file( $ced_walmart_manager_file );
-		include_file( $ced_walmart_process_request_file );
+		include_file( $ced_walmart_curl_file );
 		include_file( $ced_walmart_order_file );
 		$this->ced_walmart_manager_instance = Ced_Walmart_Manager::get_instance();
-		$this->ced_walmart_process_instance = Ced_Walmart_Remote_Request::get_instance();
+		$this->ced_walmart_curl_instance    = Ced_Walmart_Curl_Request::get_instance();
 		$this->ced_walmart_order_manager    = Ced_Walmart_Order::get_instance();
 	}
 
-	public function ced_walmart_fire_hooks() {
-		if (OrderUtil::custom_orders_table_usage_is_enabled()) {
-			add_filter( 'woocommerce_shop_order_list_table_columns' , array( $this, 'ced_walmart_add_table_columns' ));
-			add_action( 'manage_woocommerce_page_wc-orders_custom_column' , array( $this, 'ced_walmart_manage_table_columns' ) , 10 , 2 );
-			
-		} else {
-			add_filter( 'manage_edit-shop_order_columns' , array( $this, 'ced_walmart_add_table_columns' ));
-			add_action( 'manage_shop_order_posts_custom_column' , array( $this, 'ced_walmart_manage_table_columns' ) , 10 , 2 );
-		}
-	}
-	
+
 	/**
 	 * Register the stylesheets for the admin area.
 	 *
@@ -183,7 +174,6 @@ class Walmart_Woocommerce_Integration_Admin {
 		$localize_array = array(
 			'ajax_url'   => admin_url( 'admin-ajax.php' ),
 			'ajax_nonce' => $ajax_nonce,
-			'category_url' => CED_WALMART_URL . 'admin/walmart/lib/json/walmart-categories-latest.json',
 			'store_id'   => isset( $_GET['store_id'] ) ? sanitize_text_field( $_GET['store_id'] ) : '',
 		);
 		wp_localize_script( $this->plugin_name, 'ced_walmart_admin_obj', $localize_array );
@@ -384,9 +374,8 @@ class Walmart_Woocommerce_Integration_Admin {
 	public function ced_walmart_manage_table_columns( $column, $post_id ) {
 		switch ( $column ) {
 			case 'order_from':
-				$order				   = wc_get_order($post_id);
-				$_ced_walmart_order_id = $order->get_meta( '_ced_walmart_order_id', true );
-				$store_id              = $order->get_meta( '_ced_walmart_order_store_id' . wifw_environment(), true );
+				$_ced_walmart_order_id = get_post_meta( $post_id, '_ced_walmart_order_id', true );
+				$store_id              = get_post_meta( $post_id, '_ced_walmart_order_store_id' . wifw_environment(), true );
 				if ( ! empty( $_ced_walmart_order_id ) ) {
 					echo '<p><a>[ Walmart Order ]</a><br>Store : ' . esc_attr( ced_walmart_get_store_name_by_id( $store_id ) ) . '</p>';
 				}
@@ -395,8 +384,8 @@ class Walmart_Woocommerce_Integration_Admin {
 
 
 	public function ced_walmart_modify_woo_order_number( $order_id, $order ) {
-		$_ced_walmart_order_id = $order->get_meta( '_ced_walmart_order_id', true );
-		$store_id              = $order->get_meta( '_ced_walmart_order_store_id' . wifw_environment(), true );
+		$_ced_walmart_order_id = get_post_meta( $order->get_id(), '_ced_walmart_order_id', true );
+		$store_id              = get_post_meta( $order->get_id(), '_ced_walmart_order_store_id' . wifw_environment(), true );
 
 		if ( ! empty( $_ced_walmart_order_id ) ) {
 
@@ -433,16 +422,16 @@ class Walmart_Woocommerce_Integration_Admin {
 	 */
 
 	public function ced_walmart_auto_submit_shipment() {
-		$walmart_orders = wc_get_orders(
+		$walmart_orders = get_posts(
 			array(
-				'limit' => -1,
+				'numberposts' => -1,
 				'meta_key'    => '_ced_walmart_order_status',
 				'meta_value'  => 'Acknowledged',
-				'type'        => wc_get_order_types(),
-				'status'      => array_keys( wc_get_order_statuses() ),
+				'post_type'   => wc_get_order_types(),
+				'post_status' => array_keys( wc_get_order_statuses() ),
 				'orderby'     => 'date',
 				'order'       => 'DESC',
-				'return'      => 'ids',
+				'fields'      => 'ids',
 			)
 		);
 
@@ -464,8 +453,7 @@ class Walmart_Woocommerce_Integration_Admin {
 
 	public function ced_walmart_auto_ship_order( $woo_order_id = 0 ) {
 
-		$order                     = wc_get_order( $woo_order_id );
-		$_ced_walmart_order_status = $order->get_meta( '_ced_walmart_order_status', true );
+		$_ced_walmart_order_status = get_post_meta( $woo_order_id, '_ced_walmart_order_status', true );
 		if ( empty( $_ced_walmart_order_status ) || 'Acknowledged' != $_ced_walmart_order_status ) {
 			return;
 		}
@@ -499,8 +487,8 @@ class Walmart_Woocommerce_Integration_Admin {
 		$method_code   = '';
 		$date          = '';
 
-		$tracking_details = $order->get_meta( '_wc_shipment_tracking_items', true );
-		$ship_service     = $order->get_meta( 'ship_service', true );
+		$tracking_details = get_post_meta( $woo_order_id, '_wc_shipment_tracking_items', true );
+		$ship_service     = get_post_meta( $woo_order_id, 'ship_service', true );
 		$method_code      = array_search( strtolower( $ship_service ), $method_codes );
 
 		if ( ! empty( $tracking_details ) ) {
@@ -513,9 +501,9 @@ class Walmart_Woocommerce_Integration_Admin {
 
 			if ( ! empty( $tracking_no ) && ! empty( $tracking_code ) ) {
 
-				$order_line_items  = $order->get_meta( 'order_detail', true );
+				$order_line_items  = get_post_meta( $woo_order_id, 'order_detail', true );
 				$purchase_order_id = $order_line_items['purchaseOrderId'];
-				$order_id          = $order->get_meta( 'purchaseOrderId', true );
+				$order_id          = get_post_meta( $woo_order_id, 'purchaseOrderId', true );
 				$tracking_url      = '';
 
 				if ( empty( $method_code ) ) {
@@ -532,11 +520,11 @@ class Walmart_Woocommerce_Integration_Admin {
 				 * @since 1.0.0
 				 */
 				do_action( 'ced_walmart_refresh_token' );
-				$response = $this->ced_walmart_process_request_instance->ced_walmart_process_request( $action, $shipment_array, array(), 'POST' );
+				$response = $this->ced_walmart_curl_instance->ced_walmart_post_request( $action, $shipment_array );
 				if ( isset( $response['order']['orderLines'] ) ) {
-					$order->add_meta_data( '_ced_walmart_order_status', 'Shipped' );
-					$order->update_status( 'wc-completed' );
-					$order->save();
+					update_post_meta( $woo_order_id, '_ced_walmart_order_status', 'Shipped' );
+					$_order = wc_get_order( $woo_order_id );
+					$_order->update_status( 'wc-completed' );
 				}
 			}
 		}
@@ -663,13 +651,13 @@ class Walmart_Woocommerce_Integration_Admin {
 
 
 	public function ced_walmart_update_partnet_detail( $token = '', $query_args = array() ) {
-		$action   = 'partnerprofile';
-		$response = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), $query_args, 'GET' );
+		$action   = 'settings/partnerprofile';
+		$response = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '', $query_args, $token );
 
-		if ( isset( $response['result'] ) && isset( $response['result']['partner'] ) ) {
-			update_option( 'ced_walmart_us_partner_details', json_encode( $response['result'] ) );
+		if ( isset( $response ) && isset( $response['partner'] ) ) {
+			update_option( 'ced_walmart_us_partner_details', json_encode( $response ) );
 		}
-		return $response['result'];
+		return $response;
 	}
 
 	/**
@@ -678,10 +666,10 @@ class Walmart_Woocommerce_Integration_Admin {
 	 * @since 2.0.0
 	 */
 
-	public function ced_walmart_save_cat( $cat, $cat_id, $profile_type) {
-	
-		$mapped_cat = get_option( 'ced_mapped_cat_' . $profile_type );
-		
+	public function ced_walmart_save_cat( $cat, $cat_id ) {
+
+		$mapped_cat = get_option( 'ced_mapped_cat' );
+
 		if ( ! empty( $mapped_cat ) ) {
 			$mapped_cat = json_decode( $mapped_cat, 1 );
 		} else {
@@ -696,10 +684,10 @@ class Walmart_Woocommerce_Integration_Admin {
 					foreach ( $mapped_cat['profile'] as $key => $value ) {
 						if ( ! empty( $mapped_cat['profile'][ $key ] ) ) {
 							unset( $mapped_cat['profile'][ $key ]['woo_cat'][ $cat_id ] );
-							update_option( 'ced_mapped_cat_' . $profile_type, json_encode( $mapped_cat ), 1 );
+							update_option( 'ced_mapped_cat', json_encode( $mapped_cat ), 1 );
 						} else {
 							unset( $mapped_cat['profile'][ $key ] );
-							update_option( 'ced_mapped_cat_' . $profile_type, json_encode( $mapped_cat ), 1 );
+							update_option( 'ced_mapped_cat', json_encode( $mapped_cat ), 1 );
 						}
 					}
 				} else {
@@ -707,10 +695,9 @@ class Walmart_Woocommerce_Integration_Admin {
 					if ( empty( $mapped_cat ) ) {
 						$mapped_cat['profile'][ $cat ]['woo_cat'][ $cat_id ] = $cat_id;
 						$mapped_cat['profile'][ $cat ]['profile_data']       = '';
-						update_option( 'ced_mapped_cat_' . $profile_type, json_encode( $mapped_cat ), 1 );
+						update_option( 'ced_mapped_cat', json_encode( $mapped_cat ), 1 );
 					} else {
 						foreach ( $mapped_cat['profile'] as $key => $value ) {
-							
 							if ( in_array( $cat_id, $value['woo_cat'] ) ) {
 								$temp_cat = $key;
 								unset( $mapped_cat['profile'][ $temp_cat ]['woo_cat'][ $cat_id ] );
@@ -722,13 +709,15 @@ class Walmart_Woocommerce_Integration_Admin {
 									$mapped_cat['profile'][ $cat ]['profile_data'] = '';
 
 								}
-								update_option( 'ced_mapped_cat_' . $profile_type, json_encode( $mapped_cat ), 1 );
+
+								update_option( 'ced_mapped_cat', json_encode( $mapped_cat ), 1 );
 							} else {
 								$mapped_cat['profile'][ $cat ]['woo_cat'][ $cat_id ] = $cat_id;
 								if ( ! isset( $mapped_cat['profile'][ $cat ]['profile_data'] ) ) {
 									$mapped_cat['profile'][ $cat ]['profile_data'] = '';
 								}
-								update_option( 'ced_mapped_cat_' . $profile_type, json_encode( $mapped_cat ), 1 );
+								update_option( 'ced_mapped_cat', json_encode( $mapped_cat ), 1 );
+
 							}
 						}
 					}
@@ -1030,17 +1019,17 @@ class Walmart_Woocommerce_Integration_Admin {
 			$response = $this->fetch_walmart_orders( $store_id );
 			$status   = 400;
 			$message  = 'some error occurred.';
-			if ( isset( $response['result']['list']['elements']['order'][0] ) ) {
-				$orders  = $response['result']['list']['elements']['order'];
+			if ( isset( $response['list']['elements']['order'][0] ) ) {
+				$orders  = $response['list']['elements']['order'];
 				$message = 'Orders fetched successfully.';
 				$status  = 200;
 				$this->ced_walmart_order_manager->create_local_order( $orders, $store_id );
-			} elseif ( isset( $response['result']['list']['elements']['order'] ) && empty( $response['result']['list']['elements']['order'] ) ) {
+			} elseif ( isset( $response['list']['elements']['order'] ) && empty( $response['list']['elements']['order'] ) ) {
 				$message = 'No new orders to fetch.';
-			} elseif ( isset( $response['error']['error'] ) ) {
-				$message = isset( $response['error']['error'][0]['description'] ) ? $response['error']['error'][0]['description'] : 'some error occurred.';
-			} elseif ( isset( $response['error']['error'] ) ) {
-				$message = isset( $response['error']['error']['description'] ) ? $response['errors']['error']['description'] : 'some error occurred.';
+			} elseif ( isset( $response['error'] ) ) {
+				$message = isset( $response['error'][0]['description'] ) ? $response['error'][0]['description'] : 'some error occurred.';
+			} elseif ( isset( $response['errors']['error'] ) ) {
+				$message = isset( $response['errors']['error']['description'] ) ? $response['errors']['error']['description'] : 'some error occurred.';
 			}
 			echo json_encode(
 				array(
@@ -1060,8 +1049,8 @@ class Walmart_Woocommerce_Integration_Admin {
 	public function ced_walmart_auto_fetch_orders() {
 		$store_id = str_replace( 'ced_walmart_auto_fetch_orders_', '', current_action() );
 		$response = $this->fetch_walmart_orders( $store_id );
-		if ( isset( $response['result']['list']['elements']['order'][0] ) ) {
-			$orders  = $response['result']['list']['elements']['order'];
+		if ( isset( $response['list']['elements']['order'][0] ) ) {
+			$orders  = $response['list']['elements']['order'];
 			$message = 'Orders fetched successfully.';
 			$status  = 200;
 			$this->ced_walmart_order_manager->create_local_order( $orders, $store_id );
@@ -1072,7 +1061,8 @@ class Walmart_Woocommerce_Integration_Admin {
 		if ( ! is_object( $order ) ) {
 			return $enable;
 		}
-		$marketplace    = $order->get_meta( '_order_marketplace', true );
+		$order_id       = $order->get_id();
+		$marketplace    = get_post_meta( $order_id, '_order_marketplace', true );
 		$email_restrict = get_option( 'ced_walmart_email_restriction', true );
 		if ( 'Walmart' == $marketplace ) {
 			$enable = false;
@@ -1098,19 +1088,19 @@ class Walmart_Woocommerce_Integration_Admin {
 			'offset' => $offset,
 			'limit'  => $limit,
 		);
-		$action     = 'product';
+		$action     = 'items';
 		/** Refresh token hook for walmart
 		 *
 		 * @since 1.0.0
 		 */
 		do_action( 'ced_walmart_refresh_token', $store_id );
-		$this->ced_walmart_process_instance->store_id = $store_id;
-		$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), $query_args , 'GET' );
-		if ( isset( $response['result']['ItemResponse'] ) && ! empty( $response['result']['ItemResponse'] ) && is_array( $response['result']['ItemResponse'] ) ) {
+		$this->ced_walmart_curl_instance->store_id = $store_id;
+		$response                                  = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '', $query_args );
+		if ( isset( $response['ItemResponse'] ) && ! empty( $response['ItemResponse'] ) && is_array( $response['ItemResponse'] ) ) {
 			$offset = $offset + $limit;
 			update_option( '_ced_walmart_offset_new_' . $store_id, $offset );
 
-			foreach ( $response['result']['ItemResponse'] as $key => $item_data ) {
+			foreach ( $response['ItemResponse'] as $key => $item_data ) {
 				$sku = isset( $item_data['sku'] ) ? $item_data['sku'] : '';
 				if ( ! empty( $sku ) ) {
 					$product_id               = wc_get_product_id_by_sku( $sku );
@@ -1237,7 +1227,7 @@ class Walmart_Woocommerce_Integration_Admin {
 			}
 		}
 		if ( isset( $products_ids[0] ) && is_array( $products_ids[0] ) && ! empty( $products_ids[0] ) ) {
-			$this->ced_walmart_process_instance->store_id = $store_id;
+			$this->ced_walmart_curl_instance->store_id = $store_id;
 			$this->ced_walmart_manager_instance->ced_walmart_update_stock( $products_ids[0], $store_id );
 			unset( $products_ids[0] );
 			$products_ids = array_values( $products_ids );
@@ -1270,12 +1260,8 @@ class Walmart_Woocommerce_Integration_Admin {
 		 * @since 1.0.0
 		 */
 		do_action( 'ced_walmart_refresh_token', $store_id );
-		$this->ced_walmart_process_instance->store_id = $store_id;
-		$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), $query_args, 'GET' );
-
-		echo '<pre>';
-		print_r($response);
-		die('>>>');
+		$this->ced_walmart_curl_instance->store_id = $store_id;
+		$response                                  = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '', $query_args );
 		return $response;
 	}
 
@@ -1288,7 +1274,6 @@ class Walmart_Woocommerce_Integration_Admin {
 		$check_ajax = check_ajax_referer( 'ced-walmart-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
 			$order_id = isset( $_POST['order_id'] ) ? sanitize_text_field( $_POST['order_id'] ) : '';
-			$order    = wc_get_order($order_id);
 			if ( ! empty( $order_id ) ) {
 				$response = $this->ced_walmart_order_manager->acknowledge_order( $order_id );
 				if ( isset( $response['error'] ) ) {
@@ -1298,8 +1283,7 @@ class Walmart_Woocommerce_Integration_Admin {
 					$status  = 400;
 					$message = isset( $response['errors']['error'][0]['description'] ) ? $response['errors']['error'][0]['description'] : 'some error occurred';
 				} elseif ( isset( $response['order']['orderLines']['orderLine'][0] ) ) {
-					$order->add_meta_data( '_ced_walmart_order_status', 'Acknowledged' );
-					$order->save();
+					update_post_meta( $order_id, '_ced_walmart_order_status', 'Acknowledged' );
 					$status  = 200;
 					$message = 'Order acknowledged successfully.';
 				}
@@ -1336,8 +1320,7 @@ class Walmart_Woocommerce_Integration_Admin {
 			$offset            = '.000Z';
 			$ship_todate       = gmdate( 'Y-m-d', strtotime( $ship_todate ) ) . 'T' . gmdate( 'H:i:s', strtotime( $ship_todate ) ) . $offset;
 			$return_address    = get_return_address();
-			$_order            = wc_get_order($order);
-			$order_line_items  = $_order->get_meta( 'order_detail', true );
+			$order_line_items  = get_post_meta( $order, 'order_detail', true );
 			$ship_order_lines  = array();
 			$purchase_order_id = $order_line_items['purchaseOrderId'];
 			foreach ( $order_line_items['orderLines']['orderLine'] as $key => $value ) {
@@ -1375,8 +1358,8 @@ class Walmart_Woocommerce_Integration_Admin {
 			 * @since 1.0.0
 			 */
 			do_action( 'ced_walmart_refresh_token', $store_id );
-			$this->ced_walmart_process_instance->store_id = $store_id;
-			$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, $shipment_array, array(), 'POST' );
+			$this->ced_walmart_curl_instance->store_id = $store_id;
+			$response                                  = $this->ced_walmart_curl_instance->ced_walmart_post_request( $action, $shipment_array );
 
 			if ( isset( $response['error'] ) ) {
 				$status  = 400;
@@ -1402,10 +1385,10 @@ class Walmart_Woocommerce_Integration_Admin {
 				$shipped_detail['cancel_items']             = $walmart_order_cancel_item;
 
 				$walmart_shipped_details['shipments'][0] = $shipped_detail;
-				$_order->add_meta_data( '_ced_walmart_order_status', 'Shipped' );
-				$_order->add_meta_data( '_ced_walmart_shipped_data', $walmart_shipped_details );
+				update_post_meta( $order, '_ced_walmart_order_status', 'Shipped' );
+				update_post_meta( $order, '_ced_walmart_shipped_data', $walmart_shipped_details );
+				$_order = wc_get_order( $order );
 				$_order->update_status( 'wc-completed' );
-				$_order->save();
 				$status  = 200;
 				$message = 'Order shipped successfully.';
 			}
@@ -1540,7 +1523,7 @@ class Walmart_Woocommerce_Integration_Admin {
 
 		$check_ajax = check_ajax_referer( 'ced-walmart-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
-			$action   = 'shippingtemplates';
+			$action   = 'settings/shipping/templates';
 			$status   = 400;
 			$message  = 'Some error occurred';
 			$store_id = isset( $_POST['store_id'] ) ? sanitize_text_field( $_POST['store_id'] ) : '';
@@ -1549,10 +1532,10 @@ class Walmart_Woocommerce_Integration_Admin {
 			 * @since 1.0.0
 			 */
 			do_action( 'ced_walmart_refresh_token', $store_id );
-			$this->ced_walmart_process_instance->store_id = $store_id;
-			$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array() , array() , 'GET' );
-			if ( isset( $response['result']['shippingTemplates'] ) ) {
-				$shipping_templates = json_encode( $response['result'] );
+			$this->ced_walmart_curl_instance->store_id = $store_id;
+			$response                                  = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '' );
+			if ( isset( $response['shippingTemplates'] ) ) {
+				$shipping_templates = json_encode( $response );
 				update_option( 'ced_walmart_shipping_templates' . wifw_environment() . $store_id, $shipping_templates, true );
 				$status  = 200;
 				$message = 'Shipping Templates Fetched Successfully';
@@ -1580,7 +1563,7 @@ class Walmart_Woocommerce_Integration_Admin {
 	public function ced_walmart_save_fulfillment_center() {
 		$check_ajax = check_ajax_referer( 'ced-walmart-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
-			$action  = 'shipnodes';
+			$action  = 'settings/shipping/shipnodes';
 			$status  = 400;
 			$message = 'Some error occurred';
 
@@ -1592,9 +1575,9 @@ class Walmart_Woocommerce_Integration_Admin {
 		 * @since  1.0.0
 		 */
 			do_action( 'ced_walmart_refresh_token', $store_id );
-			$this->ced_walmart_process_instance->store_id = $store_id;
-			$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), array(), 'GET' );
-			if ( isset( $response['result'][0]['shipNode'] ) ) {
+			$this->ced_walmart_curl_instance->store_id = $store_id;
+			$response                                  = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '' );
+			if ( isset( $response[0]['shipNode'] ) ) {
 				$fulfillment_center = json_encode( $response );
 				update_option( 'ced_walmart_fulfillment_center' . wifw_environment() . $store_id, $fulfillment_center, true );
 				$status  = 200;
@@ -1830,8 +1813,8 @@ class Walmart_Woocommerce_Integration_Admin {
 			 * @since 1.0.0
 			 */
 			do_action( 'ced_walmart_refresh_token', $store_id );
-			$this->ced_walmart_process_instance->store_id = $store_id;
-			$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, $saveData, array(), 'POST' );
+			$this->ced_walmart_curl_instance->store_id = $store_id;
+			$response                                  = $this->ced_walmart_curl_instance->ced_walmart_post_request( $action, $saveData, '' );
 
 			if ( isset( $response['id'] ) ) {
 				$status  = 200;
@@ -1967,8 +1950,8 @@ class Walmart_Woocommerce_Integration_Admin {
 			 * @since 1.0.0
 			 */
 			do_action( 'ced_walmart_refresh_token', $store_id );
-			$this->ced_walmart_process_instance->store_id = $store_id;
-			$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, $saveData, array(), 'POST' );
+			$this->ced_walmart_curl_instance->store_id = $store_id;
+			$response                                  = $this->ced_walmart_curl_instance->ced_walmart_post_request( $action, $saveData, '' );
 
 			if ( isset( $response['id'] ) ) {
 				$status  = 200;
@@ -2040,7 +2023,7 @@ class Walmart_Woocommerce_Integration_Admin {
 
 	// Function for fetching the pro seller badge data
 	public function ced_walmart_fetch_pro_seller_badge( $store_id = '' ) {
-		$action     = 'prosellerbadge';
+		$action     = 'insights/prosellerbadge';
 		$result     = array();
 		$query_args = array();
 		/** Refresh token hook for walmart
@@ -2048,9 +2031,9 @@ class Walmart_Woocommerce_Integration_Admin {
 		 * @since 1.0.0
 		 */
 		do_action( 'ced_walmart_refresh_token', $store_id );
-		$this->ced_walmart_process_instance->store_id = $store_id;
-		$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), $query_args, 'GET' );
-		if ( isset( $response['result']['meetsCriteria'] ) ) {
+		$this->ced_walmart_curl_instance->store_id = $store_id;
+		$response                                  = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '', $query_args );
+		if ( isset( $response['meetsCriteria'] ) ) {
 			update_option( 'ced_walmart_pro_seller_badge_details' . $store_id, json_encode( $response ) );
 
 			$result['code']    = 200;
@@ -2070,7 +2053,7 @@ class Walmart_Woocommerce_Integration_Admin {
 
 	// Function for fetching the Overall Listing Quality data
 	public function ced_walmart_fetch_over_all_listing_quality( $store_id = '' ) {
-		$action     = 'qualityscore';
+		$action     = 'insights/items/listingQuality/score';
 		$result     = array();
 		$query_args = array();
 		/** Refresh token hook for walmart
@@ -2078,14 +2061,14 @@ class Walmart_Woocommerce_Integration_Admin {
 		 * @since 1.0.0
 		 */
 		do_action( 'ced_walmart_refresh_token' );
-		$response = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), $query_args, 'GET' );
-		if ( isset( $response['result']['payload'] ) ) {
-			update_option( 'ced_walmart_overall_listing_quality_details' . $store_id, json_encode( $response['result'] ) );
+		$response = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '', $query_args );
+		if ( isset( $response['payload'] ) ) {
+			update_option( 'ced_walmart_overall_listing_quality_details' . $store_id, json_encode( $response ) );
 			$result['code']    = 200;
 			$result['message'] = 'Data Fetched Successfully for overall listing quality';
-		} elseif ( isset( $response['error']['error'] ) ) {
+		} elseif ( isset( $response['error'] ) ) {
 			$result['code']    = 400;
-			$result['message'] = $response['error']['error'][0]['info'];
+			$result['message'] = $response['error'][0]['info'];
 		} else {
 			$result['code']    = 400;
 			$result['message'] = 'Internal Error';
@@ -2097,7 +2080,7 @@ class Walmart_Woocommerce_Integration_Admin {
 
 	// Function for fetching the Overall Listing Quality data
 	public function ced_walmart_fetch_unpublished_reports( $store_id = '' ) {
-		$action     = 'itemcount';
+		$action     = 'insights/items/unpublished/counts';
 		$fromDate   = gmdate( 'Y-m-d', strtotime( ' -30 day' ) );
 		$result     = array();
 		$query_args = array(
@@ -2108,14 +2091,14 @@ class Walmart_Woocommerce_Integration_Admin {
 		 * @since 1.0.0
 		 */
 		do_action( 'ced_walmart_refresh_token' );
-		$response = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), $query_args, 'GET' );
-		if ( isset( $response['result']['payload'] ) ) {
+		$response = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, '', $query_args );
+		if ( isset( $response['payload'] ) ) {
 			update_option( 'ced_walmart_unpublished_items_counts' . $store_id, json_encode( $response ) );
 			$result['code']    = 200;
 			$result['message'] = 'Data Fetched Successfully for unpublished counts';
-		} elseif ( isset( $response['error']['error'] ) ) {
+		} elseif ( isset( $response['error'] ) ) {
 			$result['code']    = 400;
-			$result['message'] = $response['error']['error'][0]['info'];
+			$result['message'] = $response['error'][0]['info'];
 		} else {
 			$result['code']    = 400;
 			$result['message'] = 'Internal Error';
@@ -2209,7 +2192,7 @@ class Walmart_Woocommerce_Integration_Admin {
 		 * @since 1.0.0
 		 */
 		do_action( 'ced_walmart_refresh_token' );
-		$response = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, $parameters, $query_args, 'POST' );
+		$response = $this->ced_walmart_curl_instance->ced_walmart_post_request( $action, $parameters, $query_args );
 		return $response;
 	}
 
@@ -2229,16 +2212,15 @@ class Walmart_Woocommerce_Integration_Admin {
 	public function ced_walmart_append_category_attr() {
 		$check_ajax = check_ajax_referer( 'ced-walmart-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
-		
+
 			$sanitized_array = filter_input_array( INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS );
 			$catId           = isset( $sanitized_array['catId'] ) ? html_entity_decode( $sanitized_array['catId'] ) : '';
-			$profile_type    = isset( $sanitized_array['profileType'] ) ? html_entity_decode( $sanitized_array['profileType'] ) : '';
-			$profile_id      = str_replace( ' and ', ' & ', $catId );
+
+			$profile_id = str_replace( ' and ', ' & ', $catId );
 
 			include_once CED_WALMART_DIRPATH . 'admin/partials/class-ced-walmart-category-attributes.php';
-
-			$obj = new Walmart_Category_Attributes( $catId, $profile_type );
-			print_r( $obj->render_attributes( $catId , $profile_type ) );
+			$obj = new Walmart_Category_Attributes( $catId );
+			print_r( $obj->render_attributes( $catId ) );
 
 		}
 		wp_die();

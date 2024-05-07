@@ -1,5 +1,5 @@
 <?php
-namespace Ced\Ebay;
+namespace Ced_Ebay_WooCommerce_Core;
 
 if ( ! class_exists( 'Ebayconfig' ) ) {
 	class Ebayconfig {

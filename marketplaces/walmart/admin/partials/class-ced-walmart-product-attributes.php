@@ -1,11 +1,14 @@
 <?php
 
+
+
+
 class Ced_Walmart_Product_Attributes {
 
-	public function render_main( $profile_id = '', $profile_type = '' ) {
 
-		// $profile_type       =  isset($_GET['profile_type']) ? sanitize_text_field($_GET['profile_type']) : '';
-		$profile_type       = isset($profile_type) ?  $profile_type : '';
+
+	public function render_main( $profile_id = '' ) {
+
 		$global_fields_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/json/walmart-global-setting.json';
 		$global_fields      = file_get_contents( $global_fields_file );
 		$global_fields      = json_decode( $global_fields, true );
@@ -25,7 +28,7 @@ class Ced_Walmart_Product_Attributes {
 		}
 
 		// Fetch Profile data from db and assing previous seleceted value in fields .
-		$ced_walmart_profile_details = get_option( 'ced_mapped_cat_' . $profile_type );
+		$ced_walmart_profile_details = get_option( 'ced_mapped_cat' );
 		$ced_walmart_profile_details = json_decode( $ced_walmart_profile_details, 1 );
 		$ced_walmart_profile_data    = isset( $ced_walmart_profile_details['profile'][ $profile_id ] ) ? $ced_walmart_profile_details['profile'][ $profile_id ] : array();
 
@@ -33,26 +36,12 @@ class Ced_Walmart_Product_Attributes {
 			$ced_walmart_category_id = json_decode( $ced_walmart_profile_data['profile_data'], true );
 			$ced_walmart_category_id = isset( $ced_walmart_category_id['_umb_walmart_category']['default'] ) ? $ced_walmart_category_id['_umb_walmart_category']['default'] : '';
 		}
-		
-		$table_data = $this->ced_walmart_product_specific_attributes( $global_fields, $attr_options, $product_field_instance, $ced_walmart_profile_data, 'product' );
-		
+
+		$table_data               = $this->ced_walmart_product_specific_attributes( $global_fields, $attr_options, $product_field_instance, $ced_walmart_profile_data, 'product' );
 		$table_data_for_orderable = $this->ced_walmart_product_specific_attributes( $global_fields, $attr_options, $product_field_instance, $ced_walmart_profile_data, 'orderable' );
 
 		print_r( $this->ced_walmart_render_section_html( 'Product Specific Attributes', $table_data ) );
 		print_r( $this->ced_walmart_render_section_html( 'Orderable Specific Attributes', $table_data_for_orderable ) );
-		
-		if ('MP_WFS_ITEM' == $profile_type  || 'OMNI_WFS' == $profile_type ) {
-			
-			$wfs_trade_items_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/json-schema/schema/wfs_convert/TradeItem-wfsorderable.json';
-			$wfs_trade_items_file = file_get_contents( $wfs_trade_items_file );
-			$wfs_trade_items_file = json_decode( $wfs_trade_items_file , true);
-			
-				$wfs_table_data = $this->ced_walmart_trade_specific_attributes( $wfs_trade_items_file, $attr_options, $product_field_instance, $ced_walmart_profile_data, $profile_type );
-
-			print_r( $this->ced_walmart_render_section_html( 'Trade Item Specific Attributes', $wfs_table_data ) );
-
-		}
-		
 	}
 
 
@@ -63,12 +52,17 @@ class Ced_Walmart_Product_Attributes {
 		$store_id = isset( $_GET['store_id'] ) ? sanitize_text_field( $_GET['store_id'] ) : '';
 
 		$html = '';
+
 		if ( ! empty( $global_fields ) && ! empty( $global_fields ) ) {
 			$global_data    = isset( $global_data ) ? $global_data : array();
 			$market_place   = 'ced_walmart_required_common';
 			$product_id     = 0;
 			$index_to_use   = 0;
 			$ced_walmart_id = 'global';
+
+			// echo "<pre>";
+			// print_r($global_data);
+			// die;
 
 			// Fetching Shipping Template
 			$shipping_template_array        = array();
@@ -93,7 +87,7 @@ class Ced_Walmart_Product_Attributes {
 				}
 			}
 
-			// Fetching Fulfillment Centers
+					// Fetching Fulfillment Centers
 			$fulfillment_center_array        = array();
 			$ced_walmart_fulfillment_centers = get_option( 'ced_walmart_fulfillment_center' . $store_id . wifw_environment() );
 			$ced_walmart_fulfillment_centers = json_decode( $ced_walmart_fulfillment_centers, 1 );
@@ -130,7 +124,6 @@ class Ced_Walmart_Product_Attributes {
 				}
 
 				foreach ( $value as $index => $fields_data ) {
-
 					$is_add_html    = false;
 					$is_text        = true;
 					$required       = isset( $fields_data['required'] ) ? $fields_data['required'] : false;
@@ -223,222 +216,7 @@ class Ced_Walmart_Product_Attributes {
 	}
 
 
-	public function ced_walmart_trade_specific_attributes( $wfs_trade_items_file = array(), $attr_options = array(), $product_field_instance = '', $ced_walmart_profile_data = array(), $profile_type) {
-
-		$global_data = isset( $ced_walmart_profile_data['profile_data'] ) ? json_decode( $ced_walmart_profile_data['profile_data'], 1 ) : array();
-		$store_id    = isset( $_GET['store_id'] ) ? sanitize_text_field( $_GET['store_id'] ) : '';
-		
-		$html                  = '';
-		$type_cat_attr         = array();
-		$ced_walmart_trade_arr = array();
-		if ( ! empty( $wfs_trade_items_file ) && ! empty( $wfs_trade_items_file ) ) {
-			$trade_required       = isset($wfs_trade_items_file['required']) ? $wfs_trade_items_file['required']  : array();
-			$wfs_trade_items_file = isset($wfs_trade_items_file['properties']) ? $wfs_trade_items_file['properties'] : array();
-			
-			$global_data    = isset( $global_data ) ? $global_data : array();
-			$market_place   = 'ced_walmart_required_common';
-			$product_id     = 0;
-			$index_to_use   = 0;
-			$ced_walmart_id = isset($global_data['_umb_walmart_category'])  ? $global_data['_umb_walmart_category']['default'] : '' ;
-			
-			foreach ( $wfs_trade_items_file as $index => $fields_data ) {
-				
-				$key         =$index;
-				$is_add_html = false;
-				$is_text     = true;
-				
-				$description = isset( $fields_data['description'] ) ? $fields_data['description'] : '';
-				if ( empty( $description ) ) {
-					$description = isset( $fields_data['title'] ) ? $fields_data['title'] : '';
-				}
-				$field_id   = trim( $index);
-				$field_name = $ced_walmart_id . '_' . $field_id;
-
-				$default = isset( $global_data[ $field_name ] ) ? $global_data[ $field_name ] : '';
-
-				$default = isset( $default['default'] ) ? $default['default'] : '';
-
-				$html .= '<tr class="form-field ' . esc_attr( $key ) . '">';
-				if ( isset($fields_data['items']['enum'] )) {
-					
-					$ced_walmart_trade_arr[$index] = $fields_data;
-					$type_walmart_trade            = 'text';
-					if ( 'integer' == $fields_data['type'] || 'number' == $fields_data['type'] ) {
-						$type_walmart_trade = 'number';
-					} elseif ( 'array' == $fields_data['type'] ) {
-						$type_walmart_trade = 'array';
-					}
-
-					$type_walmart_trade_attribute[$index] = $type_walmart_trade;
-					$value_for_dropdown                   = ! empty( $fields_data['items']['enum'] ) ? $fields_data['items']['enum'] : array();
-
-					$html .= '<input type="hidden" name="' . esc_attr( $market_place ) . '[]" value="' . esc_attr( $field_name ) . '"/>';
-					$html .= '<td>';
-					if (in_array($index , $trade_required)) {
-						$html .= '<label for=""><b> ' . esc_attr( ucfirst( $fields_data['title'] ) ) . ' </b>Required</label';
-					} else {
-						$html .= '<label for=""><b> ' . esc_attr( ucfirst( $fields_data['title'] ) ) . ' </b> </label';
-					}
-					
-					$html .= '</td>';
-					$html .= '<td>';
-
-					$html .= '<select id=""  name="' . esc_attr( $field_name . '[' . $index_to_use . ']' ) . '" class="" style="">';
-					$html .= '<option value="">' . esc_html( __( 'Select', 'walmart-woocommerce-integration' ) ) . '</option>';
-					foreach ( $value_for_dropdown as $dropdown_key => $dropdown_value ) {
-						if ( isset( $dropdown_value ) ) {
-							if ( $default == $dropdown_value ) {
-								$html .= '<option value="' . esc_attr( $dropdown_value ) . '" selected>' . esc_attr( $dropdown_value ) . '</option>';
-							} else {
-								$html .= '<option value="' . esc_attr( $dropdown_value) . '">' . esc_attr( $dropdown_value) . '</option>';
-							}
-						} elseif ( $default == $dropdown_key ) {
-								$html .= '<option value="' . esc_attr( $dropdown_key ) . '" selected>' . esc_attr( $dropdown_value ) . '</option>';
-						} else {
-							$html .= '<option value="' . esc_attr( $dropdown_key ) . '">' . esc_attr( $dropdown_value ) . '</option>';
-						}
-					}
-					$html   .= '</select>';
-					$html   .= '</td>';
-					$is_text = false;
-				} elseif ('object' == $fields_data['type']) {
-					$objData = isset( $fields_data['properties']) ? $fields_data['properties'] : array();
-					
-					foreach ($objData as $objKey   => $objValue) {
-																	
-						$ced_walmart_trade_arr[$objKey] = $objValue;
-						$type_walmart_trade             = 'text';
-						if ( 'integer' == $objValue['type'] || 'number' == $objValue['type'] ) {
-							$type_walmart_trade = 'number';
-						} elseif ( 'array' == $objValue['type'] ) {
-							$type_walmart_trade = 'array';
-						}
-						$type_walmart_trade_attribute[$objKey] = $type_walmart_trade;
-						$required                              = isset( $fields_data['required'] ) ? $fields_data['required'] : array();
-						$required_label                        = '*';
-						$description                           = isset( $objValue['description'] ) ? $objValue['description'] : '';
-						if ( empty( $description ) ) {
-							$description = isset( $objValue['title'] ) ? $objValue['title'] : '';
-						}
-						$field_id   = trim( $objKey);
-						$field_name = $ced_walmart_id . '_' . $field_id;
-
-						$default = isset( $global_data[ $field_name ] ) ? $global_data[ $field_name ] : '';
-
-						$default = isset( $default['default'] ) ? $default['default'] : '';
-						$is_text = true;
-						$html   .= '<tr class="form-field ' . esc_attr( $objKey ) . '">';
-						$html   .= '<input type="hidden" name="' . esc_attr( $market_place ) . '[]" value="' . esc_attr( $field_name ) . '"/>';
-						$html   .= '<td>';
-						if (in_array($objKey , $required)) {
-							$html .= '<label for=""><b> ' . esc_attr( ucfirst( $objValue['title'] ) ) . ' </b>Required  [For : ' . $index . ']</label';
-						} else {
-							$html .= '<label for=""><b> ' . esc_attr( ucfirst( $objValue['title'] ) ) . ' </b> </label';
-						}
-						
-						$html .= '</td>';
-						$html .= '<td>';
-						$html .= '<input class="short" style="" name="' . esc_attr( $field_name . '[' . $index_to_use . ']' ) . '" id="" value="' . esc_attr( $default ) . '" placeholder="" type="text" />';
-						$html .= '</td>';
-						$html .= '<td>';
-						if ( $is_text ) {
-							$previous_selected_value = 'null';
-							if ( isset( $global_data[ $field_name ] ) && ! empty( $global_data[ $field_name ] ) ) {
-								$previous_selected_value = $global_data[ $field_name ]['metakey'];
-							}
-							$select_id = $ced_walmart_id . '_' . $index . '_attribute_meta';
-
-							$html .= '<select id="' . esc_attr( $select_id ) . '" name="' . esc_attr( $select_id ) . '[]"  multiple class="select2">';
-
-							if ( is_array( $attr_options ) ) {
-								$selected = '';
-								foreach ( $attr_options as $attr_key => $attr_name ) :
-									if ( is_array( $previous_selected_value ) ) {
-										if ( in_array( $attr_key, $previous_selected_value ) ) {
-											$selected = 'selected';
-										} else {
-											$selected = '';
-										}
-									}
-
-									$html .= '<option value="' . esc_attr( $attr_key ) . '"  ' . esc_attr( $selected ) . '> ' . esc_attr( $attr_name ) . '</option>';
-
-									endforeach;
-							}
-
-							$html .= '</select>';
-						}
-						$html .= '</td>';
-						$html .= '</tr>';
-
-					}
-				} else {
-					$ced_walmart_trade_arr[$index] = $fields_data;
-					$type_walmart_trade            = 'text';
-					if ( 'integer' == $fields_data['type'] || 'number' == $fields_data['type'] ) {
-						$type_walmart_trade = 'number';
-					} elseif ( 'array' == $fields_data['type'] ) {
-						$type_walmart_trade = 'array';
-					}
-					$type_walmart_trade_attribute[$index] = $type_walmart_trade;
-					$is_text                              = true;
-					$html                                .= '<input type="hidden" name="' . esc_attr( $market_place ) . '[]" value="' . esc_attr( $field_name ) . '"/>';
-					$html                                .= '<td>';
-					if (in_array($index, $trade_required)) {
-						$html .= '<label for=""><b> ' . esc_attr( ucfirst( $fields_data['title'] ) ) . ' </b>Required</label';
-					} else {
-						$html .= '<label for=""><b> ' . esc_attr( ucfirst( $fields_data['title'] ) ) . ' </b> </label';
-					}
-					$html .= '</td>';
-					$html .= '<td>';
-					$html .= '<input class="short" style="" name="' . esc_attr( $field_name . '[' . $index_to_use . ']' ) . '" id="" value="' . esc_attr( $default ) . '" placeholder="" type="text" />';
-					$html .= '</td>';
-					$html .= '<td>';
-					if ( $is_text ) {
-						$previous_selected_value = 'null';
-						if ( isset( $global_data[ $field_name ] ) && ! empty( $global_data[ $field_name ] ) ) {
-							$previous_selected_value = $global_data[ $field_name ]['metakey'];
-						}
-						$select_id = $ced_walmart_id . '_' . $index . '_attribute_meta';
-
-						$html .= '<select id="' . esc_attr( $select_id ) . '" name="' . esc_attr( $select_id ) . '[]"  multiple class="select2">';
-
-						if ( is_array( $attr_options ) ) {
-							$selected = '';
-							foreach ( $attr_options as $attr_key => $attr_name ) :
-								if ( is_array( $previous_selected_value ) ) {
-									if ( in_array( $attr_key, $previous_selected_value ) ) {
-										$selected = 'selected';
-									} else {
-										$selected = '';
-									}
-								}
-
-								$html .= '<option value="' . esc_attr( $attr_key ) . '"  ' . esc_attr( $selected ) . '> ' . esc_attr( $attr_name ) . '</option>';
-
-							endforeach;
-						}
-
-						$html .= '</select>';
-					}
-					$html .= '</td>';
-				}
-				
-				$html .= '</tr>';
-
-			}
-
-			update_option( 'ced_walmart_trade_specific_' . $profile_type . '_' . $ced_walmart_id, json_encode( unserialize( str_replace( array( 'NAN;', 'INF;' ), '0;', serialize( $ced_walmart_trade_arr ) ) ) ) );
-			update_option( 'ced_walmart_trade_specific_attribute_' . $profile_type . '_' . $ced_walmart_id , json_encode( $type_walmart_trade_attribute ) );
-			return $html;
-
-		}
-		
-	}
-
-	
 	public function ced_walmart_render_section_html( $parent_section_name = '', $table_data = '' ) {
-		
 		$html  = '<div class="ced-walmart-integ-wrapper">';
 		$html .= '<input class="ced-faq-trigger" id="ced-walmart-pro-exprt-' . strtolower( str_replace( ' ', '', $parent_section_name ) ) . '" type="checkbox" >';
 		$html .= '<label class="ced-walmart-settng-title" for="ced-walmart-pro-exprt-' . strtolower( str_replace( ' ', '', $parent_section_name ) ) . '">';

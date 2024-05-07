@@ -238,17 +238,9 @@ function ced_walmart_get_active_action_steps_template( $action = '', $step = '' 
 if ( ! function_exists( 'get_walmart_orders_count' ) ) {
 	function get_walmart_orders_count( $shop_id ) {
 
-		$args = array(
-			'meta_key'      => '_ced_walmart_order_store_id' . wifw_environment(), 
-			'meta_value'    => $shop_id, 
-			'meta_compare'  => '=', 
-			'return'        => 'ids',
-
-		 );
-		$orders_post_ids = wc_get_orders($args);
-		
+		global $wpdb;
+		$orders_post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT `post_id` FROM $wpdb->postmeta WHERE `meta_key`=%s AND `meta_value`=%s", '_ced_walmart_order_store_id' . wifw_environment(), $shop_id ), 'ARRAY_A' );
 		return count( $orders_post_ids );
-		
 	}
 }
 

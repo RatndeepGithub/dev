@@ -78,7 +78,12 @@ if ( isset( $_POST['shipping_settings'] ) ) {
 
 			}
 
-			$shop_id  = get_etsy_shop_id( $shop_name );
+			$shop_id = get_etsy_shop_id( $shop_name );
+			/** Refresh token
+			 *
+			 * @since 2.0.0
+			 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
 			$_action  = "application/shops/{$shop_id}/shipping-profiles";
 			$response = etsy_request()->post( $_action, $params, $shop_name );
 			if ( isset( $response['shipping_profile_id'] ) ) {

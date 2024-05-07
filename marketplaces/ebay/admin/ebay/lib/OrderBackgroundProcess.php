@@ -1,10 +1,9 @@
 <?php
 
-namespace Ced\Ebay;
 defined( 'ABSPATH' ) || die( 'Direct access not allowed' );
 
 
-class OrderBackground_Process extends \WP_Background_Process {
+class OrderBackground_Process extends WP_Background_Process {
 
 	public function __construct() {
 		parent::__construct();

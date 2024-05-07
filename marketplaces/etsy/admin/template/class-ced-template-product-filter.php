@@ -31,19 +31,11 @@ class Ced_Template_Product_Filter {
 				$stock_status     = isset( $_POST['stock_status'] ) ? sanitize_text_field( wp_unslash( $_POST['stock_status'] ) ) : '';
 				$current_url      = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
 				$shop_name        = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-				wp_safe_redirect( $current_url . '&status_sorting=' . $status_sorting . '&pro_cat_sorting=' . $pro_cat_sorting . '&pro_type_sorting=' . $pro_type_sorting . '&stock_status=' . $stock_status . '&shop_name=' . $shop_name );
-				exit;
+				wp_redirect( $current_url . '&status_sorting=' . $status_sorting . '&pro_cat_sorting=' . $pro_cat_sorting . '&pro_type_sorting=' . $pro_type_sorting . '&stock_status=' . $stock_status . '&shop_name=' . $shop_name );
 		} else {
-			$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-			$url       = ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'products',
-					'shop_name' => $shop_name,
-				)
-			);
-			wp_safe_redirect( $url );
-			exit;
+				$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
+			$url           = admin_url( 'admin.php?page=sales_channel&channel=etsy&section=products&shop_name=' . $shop_name );
+			wp_redirect( $url );
 		}
 	}//end ced_etsy_filters_on_products()
 
@@ -57,19 +49,11 @@ class Ced_Template_Product_Filter {
 			$shop_name   = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
 			$searchdata  = isset( $_POST['s'] ) ? sanitize_text_field( wp_unslash( $_POST['s'] ) ) : '';
 			$searchdata  = str_replace( ' ', ',', urlencode( $searchdata ) );
-			wp_safe_redirect( $current_url . '&s=' . $searchdata );
-			exit;
+			wp_redirect( $current_url . '&s=' . $searchdata );
 		} else {
 			$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-			$url       = ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'products',
-					'shop_name' => $shop_name,
-				)
-			);
-			wp_safe_redirect( $url );
-			exit;
+			$url       = admin_url( 'admin.php?page=sales_channel&channel=etsy&section=products&shop_name=' . $shop_name );
+			wp_redirect( $url );
 		}
 	}
 }//end class

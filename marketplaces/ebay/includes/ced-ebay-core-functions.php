@@ -96,7 +96,7 @@ function ced_ebay_get_options_for_dropdown() {
 function ced_ebay_get_site_details( $site_id ) {
 	if ( file_exists( CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php' ) ) {
 		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
-		$ebayConfig         = new \Ced\Ebay\Ebayconfig();
+		$ebayConfig         = new Ced_Ebay_WooCommerce_Core\Ebayconfig();
 		$ebayConfigInstance = $ebayConfig->get_instance();
 		$ebaySiteDetails    = $ebayConfig->getEbaycountrDetail( $site_id );
 		if ( ! empty( $ebaySiteDetails ) && is_array( $ebaySiteDetails ) ) {
@@ -110,7 +110,7 @@ function ced_ebay_get_site_details( $site_id ) {
 function ced_ebay_get_site_using_marketplace_enum( $marketplace_enum ) {
 	if ( file_exists( CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php' ) ) {
 		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
-		$ebayConfig         = new \Ced\Ebay\Ebayconfig();
+		$ebayConfig         = new Ced_Ebay_WooCommerce_Core\Ebayconfig();
 		$ebayConfigInstance = $ebayConfig->get_instance();
 		$ebaySiteDetails    = $ebayConfig->getSiteIdUsingMarketplaceEnum( $marketplace_enum );
 		if ( ! empty( $ebaySiteDetails ) && is_array( $ebaySiteDetails ) ) {
@@ -121,121 +121,104 @@ function ced_ebay_get_site_using_marketplace_enum( $marketplace_enum ) {
 	}
 }
 function ced_ebay_get_shop_data( $user_id = '', $site_id = '' ) {
-	if(!empty(get_option('ced_ebay_user_shop_details'))){
-		$shop_data = get_option( 'ced_ebay_user_shop_details', true );
-		if ( ! empty( $shop_data[ $user_id ][$site_id] ) ){
-            return $shop_data[$user_id][$site_id];
+	if ( ! empty( get_option( 'ced_ebay_user_access_token' ) ) ) {
+		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayAuthorization.php';
+		$shop_data = get_option( 'ced_ebay_user_access_token' );
+		if ( ! empty( $shop_data[ $user_id ] ) ) {
+			$connected_ebay_accounts = ! empty( get_option( 'ced_ebay_connected_accounts' ) ) ? get_option( 'ced_ebay_connected_accounts', true ) : array();
+			if ( ! empty( $connected_ebay_accounts ) ) {
+				foreach ( $connected_ebay_accounts as $ebay_user => $connected_sites ) {
+					if ( $ebay_user == $user_id ) {
+						if ( isset( $connected_sites[ $site_id ] ) ) {
+							$shop_data[ $user_id ]['is_site_valid'] = true;
+						} else {
+							$shop_data[ $user_id ]['is_site_valid'] = false;
+						}
+						if ( isset( $shop_data[ $user_id ]['is_primary_site'] ) && ! empty( $shop_data[ $user_id ]['is_primary_site'] ) ) {
+							$shop_data[ $user_id ]['is_primary_site'] = true;
+						} else {
+							$shop_data[ $user_id ]['is_primary_site'] = false;
+						}
+					}
+				}
+			}
+			return $shop_data[ $user_id ];
 		} else {
 			return false;
 		}
 	}
 }
 
-function ced_ebay_get_details_using_rsid($rsid){
-	if(!empty(get_option('ced_ebay_user_shop_details'))){
-		$shop_data = get_option( 'ced_ebay_user_shop_details', true );
-		foreach($shop_data as $user_id => $shops)
-			foreach($shops as $site_id => $rs){
-				if(isset($shop_data[$user_id][$site_id]) && $rsid == $rs['remote_shop_id']){
-					return array('user_id' => $user_id, 'site_id' => $site_id);
-				}
-		}
-			
-		}
-}
-
-
-function ced_ebay_get_business_policies( $user_id, $siteID, $rsid ) {
-		if ( '' !== $siteID && ! empty( $user_id ) && !empty($rsid) ) {
-			$apiResponse = [];
+function ced_ebay_get_business_policies( $user_id, $siteID ) {
+	if ( file_exists( CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php' ) ) {
+		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php';
+		if ( '' !== $siteID && ! empty( $user_id ) ) {
+			$shop_data = ced_ebay_get_shop_data( $user_id, $siteID );
+			if ( empty( $shop_data ) || false === $shop_data['is_site_valid'] ) {
+				return array();
+			}
+			// set_transient( 'ced_ebay_user_access_token_' . $user_id, $accessToken, 2 * HOUR_IN_SECONDS );
 			$getBusinessPoliciesFromTransient = get_transient( 'ced_ebay_business_policies_' . $user_id . '>' . $siteID );
 			if ( false === $getBusinessPoliciesFromTransient || null == $getBusinessPoliciesFromTransient || empty( $getBusinessPoliciesFromTransient ) ) {
 				$business_policies        = array();
-				$configInstance           = \Ced\Ebay\Ebayconfig::get_instance();
+				$token                    = $shop_data['access_token'];
+				$accountRequest           = new Ced_Marketing_API_Request( $siteID );
+				$configInstance           = Ced_Ebay_WooCommerce_Core\Ebayconfig::get_instance();
 				$countryDetails           = $configInstance->getEbaycountrDetail( $siteID );
 				$country_code             = $countryDetails['countrycode'];
 				$marketplace_enum         = 'EBAY_' . $country_code;
-				// $account_payment_policies = $accountRequest->sendHttpRequestForAccountAPI( 'payment_policy?marketplace_id=' . $marketplace_enum, $token );
-				// $account_payment_policies = json_decode( $account_payment_policies, true );
-				$apiClient = new \Ced\Ebay\CED_EBAY_API_Client();
-				$apiClient->setJwtToken('abc');
-				$apiClient->setRequestTopic('seller-profiles');
-				$apiClient->setRequestRemoteMethod('GET');
-				$apiClient->setRequestRemoteQueryParams([
-					'marketplace_id' => $marketplace_enum,
-					'new_api' => true,
-					'shop_id' => $rsid,
-					'type' => 'GetPaymentPolicy'
-				]);
-				$apiResponse = $apiClient->post();
-				if(isset($apiResponse['data'])){
-					$account_payment_policies = json_decode($apiResponse['data'], true);
-				} else {
-					if(isset($apiResponse['error_code'])){
-						return $apiResponse;
-					} else {
-						return false;
-					}
-				}
+				$shop_data                = ced_ebay_get_shop_data( $user_id );
+				$account_payment_policies = $accountRequest->sendHttpRequestForAccountAPI( 'payment_policy?marketplace_id=' . $marketplace_enum, $token );
+				$account_payment_policies = json_decode( $account_payment_policies, true );
 				if ( isset( $account_payment_policies['total'] ) && $account_payment_policies['total'] > 0 ) {
 					$business_policies['paymentPolicies'] = $account_payment_policies;
 				}
-				
-				$apiClient->setRequestTopic('seller-profiles');
-				$apiClient->setRequestRemoteMethod('GET');
-				$apiClient->setRequestRemoteQueryParams([
-					'marketplace_id' => $marketplace_enum,
-					'new_api' => true,
-					'shop_id' => $rsid,
-					'type' => 'GetReturnPolicy'
-				]);
-				$apiResponse = $apiClient->post();
-				if(isset($apiResponse['data'])){
-					$account_return_policies = json_decode($apiResponse['data'], true);
-				} else {
-					if(isset($apiResponse['error_code'])){
-						return $apiResponse;
-					} else {
-						return false;
-					}
-				}
+				$account_return_policies = $accountRequest->sendHttpRequestForAccountAPI( 'return_policy?marketplace_id=' . $marketplace_enum, $token );
+				$account_return_policies = json_decode( $account_return_policies, true );
 				if ( isset( $account_return_policies['total'] ) && $account_return_policies['total'] > 0 ) {
 					$business_policies['returnPolicies'] = $account_return_policies;
 				}
-				
-				$apiClient->setRequestTopic('seller-profiles');
-				$apiClient->setRequestRemoteMethod('GET');
-				$apiClient->setRequestRemoteQueryParams([
-					'marketplace_id' => $marketplace_enum,
-					'new_api' => true,
-					'shop_id' => $rsid,
-					'type' => 'GetShippingPolicy'
-				]);
-				$apiResponse = $apiClient->post();
-				if(isset($apiResponse['data'])){
-					$account_shipping_policies = json_decode($apiResponse['data'], true);
-				} else {
-					if(isset($apiResponse['error_code'])){
-						return $apiResponse;
-					} else {
-						return false;
-					}
-				}
+				$account_shipping_policies = $accountRequest->sendHttpRequestForAccountAPI( 'fulfillment_policy?marketplace_id=' . $marketplace_enum, $token );
+				$account_shipping_policies = json_decode( $account_shipping_policies, true );
 				if ( isset( $account_shipping_policies['total'] ) && $account_shipping_policies['total'] > 0 ) {
 					$business_policies['fulfillmentPolicies'] = $account_shipping_policies;
 				}
-				if(isset($business_policies['fulfillmentPolicies']) && isset($business_policies['returnPolicies']) && isset($business_policies['paymentPolicies'])){
-					set_transient( 'ced_ebay_business_policies_' . $user_id . '>' . $siteID, $business_policies, 2 * HOUR_IN_SECONDS );
-				}
+				set_transient( 'ced_ebay_business_policies_' . $user_id . '>' . $siteID, $business_policies, 2 * HOUR_IN_SECONDS );
 				return $business_policies;
 			} else {
 				return $getBusinessPoliciesFromTransient;
 			}
 		}
-	
+	}
 }
 
-
+function ced_ebay_pre_flight_check( $user_id, $site_id = '' ) {
+	if ( ! empty( get_option( 'ced_ebay_user_access_token' ) ) ) {
+		require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayAuthorization.php';
+		$shop_data = get_option( 'ced_ebay_user_access_token' );
+		if ( ! empty( $shop_data ) ) {
+			$token   = isset( $shop_data[ $user_id ]['access_token'] ) ? $shop_data[ $user_id ]['access_token'] : '';
+			$site_id = '' !== $site_id ? $site_id : $shop_data[ $user_id ]['site_id'];
+			if ( ! empty( $token ) && '' != $site_id ) {
+				require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
+				$ebayUploadInstance     = EbayUpload::get_instance( $site_id, $token );
+				$check_token_status_xml = '<?xml version="1.0" encoding="utf-8"?>
+				<GeteBayOfficialTimeRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+				<RequesterCredentials>
+				<eBayAuthToken>' . $token . '</eBayAuthToken>
+				</RequesterCredentials>
+				</GeteBayOfficialTimeRequest>';
+				$get_ebay_time          = $ebayUploadInstance->get_ebay_time( $check_token_status_xml );
+				update_option( 'ced_ebay_pre_flight_check_response_' . $user_id, $get_ebay_time );
+				if ( isset( $get_ebay_time['Ack'] ) && 'Success' == $get_ebay_time['Ack'] ) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+		}
+	}
+}
 
 function ced_ebay_test_cron_spawn( $cache = true ) {
 	global $wp_version;

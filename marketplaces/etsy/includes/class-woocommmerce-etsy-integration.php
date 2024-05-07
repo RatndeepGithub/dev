@@ -150,8 +150,11 @@ if ( ! class_exists( 'Woocommmerce_Etsy_Integration' ) ) {
 			 * ADD MENUS AND SUBMENUS
 			 **************************
 			 */
+			// $this->loader->add_action( 'admin_menu', $plugin_admin, 'ced_etsy_add_menus', 23 );
+			// $this->loader->add_filter( 'ced_sales_channels_list', $plugin_admin, 'ced_etsy_add_marketplace_menus_to_array', 13 );
 			$this->loader->add_filter( 'ced_marketplaces_logged_array', $plugin_admin, 'ced_etsy_marketplace_to_be_logged' );
 			$this->loader->add_filter( 'cron_schedules', $plugin_admin, 'my_etsy_cron_schedules' );
+
 			$ced_ajaxs = array(
 				'ced_etsy_delete_account',
 				'ced_etsy_authorize_account',
@@ -160,12 +163,9 @@ if ( ! class_exists( 'Woocommmerce_Etsy_Integration' ) ) {
 				'ced_etsy_submit_shipment',
 				'ced_etsy_map_shipping_profiles_woo_cat',
 				'ced_etsy_delete_shipping_profile',
-				'ced_etsy_import_products_bulk_action',
-				'ced_etsy_add_searching_on_timeline',
-				'ced_etsy_refresh_required_recommended',
 			);
 			foreach ( $ced_ajaxs as $action_name ) {
-				$this->loader->add_action( 'wp_ajax_' . $action_name, $plugin_admin, $action_name );
+				$this->loader->add_filter( 'wp_ajax_' . $action_name, $plugin_admin, $action_name );
 			}
 
 			/**

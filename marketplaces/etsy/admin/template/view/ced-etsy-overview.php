@@ -54,8 +54,6 @@ $setup_steps = get_option( 'ced_etsy_setup_steps', array() );
 	if ( ! empty( $total_products ) ) {
 		$pecentage = ( (int) $imported_pros / (int) $total_products ) * 100;
 	}
-
-	do_action( 'ced_etsy_before_overview_start', $shop_name, $setup_steps );
 	?>
 	<div class="woocommerce-progress-form-wrapper">
 		<div class="wc-progress-form-content">
@@ -245,6 +243,5 @@ $setup_steps = get_option( 'ced_etsy_setup_steps', array() );
 </div>
 </div>
 </div>
-<?php do_action( 'ced_etsy_after_overview_end', $shop_name, $setup_steps ); ?>
 </body>
 </html>

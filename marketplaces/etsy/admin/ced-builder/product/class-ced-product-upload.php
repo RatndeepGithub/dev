@@ -48,46 +48,6 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 		 */
 		public $shop_name;
 		/**
-		 * To check if the current action is scheduler or manual.
-		 *
-		 * @since    3.1.2
-		 * @var      string    $is_cron  Current action flag.
-		 */
-		public $is_cron;
-
-		/**
-		 * Store prepare payload of products.
-		 *
-		 * @since    3.1.2
-		 * @var      string    $data  Prepared product payload to request API Calls.
-		 */
-		public $data;
-
-		/**
-		 * To return processed response.
-		 *
-		 * @since    3.1.2
-		 * @var      string    $upload_response  return processed response from Etsy.
-		 */
-		public $upload_response;
-
-		/**
-		 * To manage product digital file download exception while Uploading/Updating.
-		 *
-		 * @since    3.1.2
-		 * @var      string    $error_msg  To manage product digital file download exception.
-		 */
-		public $error_msg;
-
-		/**
-		 * To manage product digital file download exception while Uploading/Updating.
-		 *
-		 * @since    3.1.2
-		 * @var      string    $error_msg  To manage product digital file download exception.
-		 */
-		public $downloadable_data;
-
-		/**
 		 * Ced_Etsy_Config Instance.
 		 *
 		 * Ensures only one instance of Ced_Etsy_Config is loaded or can be loaded.
@@ -147,11 +107,6 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 			if ( '' == $shop_name || empty( $shop_name ) ) {
 				return;
 			}
-
-			if ( has_filter( 'ced_etsy_modify_product_upload' ) ) {
-				return apply_filters( 'ced_etsy_modify_product_upload', $pro_ids, $shop_name );
-			}
-
 			$notification = array();
 			foreach ( $pro_ids as $key => $pr_id ) {
 				$already_uploaded = get_post_meta( $pr_id, '_ced_etsy_listing_id_' . $shop_name, true );
@@ -296,11 +251,6 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 		 * @return
 		 */
 		private function ced_upload_downloadable( $p_id = '', $shop_name = '', $l_id = '', $downloadable_data = array() ) {
-
-			if ( has_filter( 'ced_etsy_modify_downloadable_file_upload' ) ) {
-				return apply_filters( 'ced_etsy_modify_downloadable_file_upload', $p_id, $shop_name, $l_id, $downloadable_data );
-			}
-
 			$listing_files_uploaded = get_post_meta( $p_id, '_ced_etsy_product_files_uploaded' . $l_id, true );
 			if ( empty( $listing_files_uploaded ) ) {
 				$listing_files_uploaded = array();
@@ -318,27 +268,19 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 					try {
 						$file_path = str_replace( wp_upload_dir()['baseurl'], wp_upload_dir()['basedir'], $file_data['file'] );
 						$extension = ! empty( $file_path ) ? pathinfo( $file_path )['extension'] : '';
-						$shop_id   = get_etsy_shop_id( $shop_name );
-						$file_body = array(
-							'file'       => (string) $file_path,
-							'shop_id'    => $shop_id,
-							'listing_id' => $l_id,
-						);
-						$response  = parent::ced_etsy_remote_req(
-							'listings/file',
-							$file_body,
-							array(
-								'shop_id'    => $shop_id,
-								'listing_id' => $l_id,
-							),
-							'POST'
-						);
+						/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+						do_action( 'ced_etsy_refresh_token', $shop_name );
+						$shop_id  = get_etsy_shop_id( $shop_name );
+						$response = parent::ced_etsy_upload_image_and_file( 'file', "application/shops/{$shop_id}/listings/{$l_id}/files", $file_path, ( $file_data['name'] . '.' . $extension ), $shop_name );
 						if ( isset( $response['listing_file_id'] ) ) {
 							$listing_files_uploaded[ $file_data['id'] ] = $response['listing_file_id'];
 							update_post_meta( $p_id, '_ced_etsy_product_files_uploaded' . $l_id, $listing_files_uploaded );
 						}
-					} catch ( \Exception $e ) {
-						$this->error_msg['msg'] = 'Message:' . ! empty( $e->getMessage() ) ? $e->getMessage() : '';
+					} catch ( Exception $e ) {
+						$this->error_msg['msg'] = 'Message:' . $e->getMessage();
 						return $this->error_msg;
 					}
 				}
@@ -360,11 +302,6 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 		 * @return
 		 */
 		public function ced_etsy_prep_and_upload_img( $p_id = '', $shop_name = '', $listing_id = '' ) {
-
-			if ( has_filter( 'ced_etsy_modify_product_image_upload' ) ) {
-				return apply_filters( 'ced_etsy_modify_product_image_upload', $p_id, $shop_name, $listing_id );
-			}
-
 			if ( empty( $p_id ) || empty( $shop_name ) ) {
 				return;
 			}
@@ -429,35 +366,48 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 		 */
 
 		public function do_image_upload( $l_id, $pr_id, $img_id, $shop_name ) {
-
-			if ( has_filter( 'ced_etsy_modify_do_image_upload' ) ) {
-				return apply_filters( 'ced_etsy_modify_do_image_upload', $l_id, $pr_id, $img_id, $shop_name );
-			}
 			$image_path = wp_get_attachment_url( $img_id );
-			if ( empty( $image_path ) || null == $image_path ) {
-				return false;
-			}
-			$shop_id    = get_etsy_shop_id( $shop_name );
-			$image_body = array(
-				'image'      => (string) $image_path,
-				'shop_id'    => $shop_id,
-				'listing_id' => $l_id,
-			);
-
-			$response = parent::ced_etsy_remote_req(
-				'listings/image',
-				$image_body,
-				array(
-					'shop_id'    => $shop_id,
-					'listing_id' => $l_id,
-				),
-				'POST'
-			);
-			return $response;
+			$image_name = basename( $image_path );
+			/** Refresh token
+							 *
+							 * @since 2.0.0
+							 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$shop_id  = get_etsy_shop_id( $shop_name );
+			$response = parent::ced_etsy_upload_image_and_file( 'image', "application/shops/{$shop_id}/listings/{$l_id}/images", $image_path, $image_name, $shop_name );
+			return $this->ced_etsy_parse_response( $response );
 		}
 
 		public function ced_etsy_parse_response( $json ) {
 			return json_decode( $json, true );
+		}
+
+		/**
+		 * *************************
+		 * Prepare file to be upload.
+		 * *************************
+		 *
+		 * @since 2.0.5
+		 *
+		 * @param array  $p_id Checked Product ids
+		 * @param string $shopName Active Shop Name
+		 * @param string $listingID Listing ID from Etsy.
+		 *
+		 * @return
+		 */
+
+		public function prepare_files( $product_id, $shop_name, $listingID ) {
+			$downloadable_data = $this->downloadable_data;
+			if ( ! empty( $downloadable_data ) ) {
+				$count = 0;
+				foreach ( $downloadable_data as $data ) {
+					if ( $count > 4 ) {
+						break;
+					}
+					$file_data = $data->get_data();
+					$this->upload_files( $product_id, $shop_name, $listingID, $file_data, $count );
+				}
+			}
 		}
 
 
@@ -475,12 +425,13 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 		 * @return $reponse
 		 */
 
-		public function update_variation_sku_to_etsy( $product_id = '', $listing_id = '', $shop_name = '', $offerings_payload = '', $is_sync = false ) {
-
-			if ( has_filter( 'ced_etsy_modify_upload_variation_sku_to_etsy' ) ) {
-				return apply_filters( 'ced_etsy_modify_upload_variation_sku_to_etsy', $product_id, $listing_id, $shop_name, $offerings_payload, $is_sync );
-			}
-			$response = parent::ced_etsy_remote_req( 'listings/inventory', array_merge( array( 'shop_id' => get_etsy_shop_id( $shop_name ) ), $offerings_payload ), array( 'listing_id' => $listing_id ), 'PUT' );
+		private function update_variation_sku_to_etsy( $product_id = '', $listing_id = '', $shop_name = '', $offerings_payload = '', $is_sync = false ) {
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$response = parent::put( "application/listings/{$listing_id}/inventory", $offerings_payload, $shop_name );
 			if ( isset( $response['products'][0]['product_id'] ) ) {
 				update_post_meta( $product_id, 'ced_etsy_last_updated' . $shop_name, gmdate( 'l jS \of F Y h:i:s A' ) );
 			}
@@ -504,11 +455,13 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 		 */
 
 		public function doupload( $product_id, $shop_name ) {
-
-			if ( has_filter( 'ced_etsy_modify_doupload' ) ) {
-				return apply_filters( 'ced_etsy_modify_doupload', $product_id, $this->data, $shop_name );
-			}
-			$response = parent::ced_etsy_remote_req( 'listings/create', array_merge( array( 'shop_id' => get_etsy_shop_id( $shop_name ) ), $this->data ), array(), 'POST' );
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$shop_id  = get_etsy_shop_id( $shop_name );
+			$response = parent::post( "application/shops/{$shop_id}/listings", $this->data, $shop_name );
 			/**
 			 * ************************************************
 			 *  Update post meta after uploading the Products.
@@ -529,8 +482,6 @@ if ( ! class_exists( 'Ced_Product_Upload' ) ) {
 			} else {
 				$this->upload_response = $response;
 			}
-
-			return $this->upload_response;
 		}
 	}
 }

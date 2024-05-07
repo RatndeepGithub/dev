@@ -6,11 +6,29 @@
  * @version  1.0.0
  * @since    1.0.0
  */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
+global $post;
 
+$order_id              = isset( $post->ID ) ? intval( $post->ID ) : '';
+$umb_etsy_order_status = get_post_meta( $order_id, '_etsy_umb_order_status', true );
 
+$merchant_order_id = get_post_meta( $order_id, 'merchant_order_id', true );
+$purchase_order_id = get_post_meta( $order_id, 'purchaseOrderId', true );
+$fulfillment_node  = get_post_meta( $order_id, 'fulfillment_node', true );
+$order_detail      = get_post_meta( $order_id, 'order_detail', true );
+$order_item        = get_post_meta( $order_id, 'order_items', true );
+
+if ( isset( $order_item[0] ) ) {
+	$order_items = $order_item;
+} else {
+	$order_items[0] = $order_item['orderLine'];
+}
+
+$number_items          = 0;
+$umb_etsy_order_status = get_post_meta( $order_id, '_etsy_umb_order_status', true );
 if ( empty( $umb_etsy_order_status ) || 'Fetched' == $umb_etsy_order_status ) {
 	$umb_etsy_order_status = 'Created';
 }

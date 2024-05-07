@@ -52,15 +52,8 @@ if ( isset( $_POST['ced_etsy_custom_meta_keys_and_attributes'] ) || isset( $_POS
 			update_term_meta( $value12, 'ced_etsy_profile_id_' . $shop_name, $profileId );
 			update_term_meta( $value12, 'ced_etsy_mapped_category_' . $shop_name, $profileName );
 		}
-		$profile_edit_url = ced_get_navigation_url(
-			'etsy',
-			array(
-				'section'   => 'templates',
-				'profileID' => $profileId,
-				'details'   => 'edit',
-				'shop_name' => $shop_name,
-			)
-		);
+
+		$profile_edit_url = admin_url( 'admin.php?page=sales_channel&channel=etsy&profileID=' . $profileId . '&section=templates&details=edit&shop_name=' . $shop_name );
 		header( 'location:' . $profile_edit_url . '' );
 	} elseif ( $profileID ) {
 		$wpdb->update(
@@ -105,7 +98,6 @@ echo '</select>';
 $selectDropdownHTML     = ob_get_clean();
 $product_instance_field = \Cedcommerce\Template\Ced_Template_Product_Fields::get_instance();
 $settings               = $product_instance_field->get_custom_products_fields();
-
 ?>
 <form action="" method="post">
 	<?php wp_nonce_field( 'ced_etsy_profile_save_button', 'profile_settings_submit' ); ?>
@@ -180,7 +172,7 @@ $settings               = $product_instance_field->get_custom_products_fields();
 		<div>
 			<?php
 			include_once CED_ETSY_DIRPATH . 'admin/template/view/class-ced-get-template-categories.php';
-			$template_categories = new Ced_Etsy_Categories();
+			$template_categories = new Ced_Etsy_Get_Categories();
 			$template_categories->ced_etsy_get_categories();
 			?>
 		</div>
@@ -197,15 +189,7 @@ $settings               = $product_instance_field->get_custom_products_fields();
 					<div class="ced_etsy_child_element default_modal">
 
 						<?php
-						echo '<input type="hidden" value="' . esc_url(
-							ced_get_navigation_url(
-								'etsy',
-								array(
-									'section'   => 'add-shipping-profile',
-									'shop_name' => $shop_name,
-								)
-							)
-						) . '" id="ced_create_new_shipping_profile" >';
+						echo '<input type="hidden" value="' . esc_url( admin_url( 'admin.php?page=sales_channel&channel=etsy&section=add-shipping-profile&shop_name=' . $shop_name ) ) . '" id="ced_create_new_shipping_profile" >';
 						$requiredInAnyCase                      = array( '_umb_id_type', '_umb_id_val', '_umb_brand' );
 						$global_settings_field_data             = get_option( 'ced_etsy_global_settings', '' );
 						$marketPlace                            = 'ced_etsy_required_common';
@@ -370,10 +354,6 @@ $settings               = $product_instance_field->get_custom_products_fields();
 							</div>
 							<?php
 							$count++;
-						}
-
-						if ( has_filter( 'ced_etsy_modify_template_for_category_specific' ) ) {
-							apply_filters( 'ced_etsy_modify_template_for_category_specific', $shop_name, $profile_data, $settings, $profile_category_id, $profileID, $categoryID, $productID, $marketPlace, $indexToUse, $selectDropdownHTML, $data );
 						}
 						?>
 					</div>

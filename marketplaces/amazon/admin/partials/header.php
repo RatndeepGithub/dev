@@ -14,6 +14,8 @@ $seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id
 $user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : false;
 
 
+
+
 $sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 
 if ( empty( $seller_id ) ) {
@@ -39,47 +41,20 @@ if ( isset( $_GET['section'] ) ) {
 	$section = isset( $_GET['section'] ) ? sanitize_text_field( $_GET['section'] ) : '';
 }
 
-$mode         = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-$ced_base_uri = ced_amazon_base_uri( $mode );
-
 ?>
 
 
 <div class="ced-menu-container">
 	<ul class="subsubsub">
-
-			<?php
-			// $header_contents = array(
-			// 'overview' => array( 'label' => 'Overview', 'selecetd' => array( 'overview' ) ),
-			// 'settings' => array( 'label' => 'Settings', 'selecetd' => array( 'settings' ) ),
-			// 'templates-view' => array( 'label' => 'Templates', 'selecetd' => array( 'templates-view', 'add-new-template' ) ),
-			// 'products-view' => array( 'label' => 'Products', 'selecetd' => array( 'products-view' ) ),
-			// 'orders-view' => array( 'label' => 'Orders', 'selecetd' => array('orders-view') ),
-			// 'feeds-view' => array( 'label' => 'Feeds', 'selecetd' => array( 'feeds-view', 'feed-view' ) ),
-			// );
-
-
-			// foreach( $header_contents as $key => $value ){
-
-			?>
-
-				<!-- <li>
-					<a href="<?php echo esc_attr( admin_url( $ced_base_uri . '&section=' . $key . '&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
-					class="
-					<?php
-					if ( in_array() ) {
-						echo 'current';}
-					?>
-					"><?php echo esc_html__( $value['label'], 'amazon-for-woocommerce' ); ?></a> |
-					
-				</li> -->
-			<?php
-			// }
-
-			?>
-		
-
-				<li><a href="<?php echo esc_attr( admin_url( $ced_base_uri . '&section=settings&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
+		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=overview&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
+				class="
+				<?php
+				if ( 'overview' == $section ) {
+					echo 'current';
+				}
+				?>
+								"><?php echo esc_html__( 'Overview', 'amazon-for-woocommerce' ); ?></a> |</li>
+					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=settings&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
 				class="
 				<?php
 				if ( 'settings' == $section ) {
@@ -87,7 +62,7 @@ $ced_base_uri = ced_amazon_base_uri( $mode );
 				}
 				?>
 								"><?php echo esc_html__( 'Settings', 'amazon-for-woocommerce' ); ?></a>|</li>
-					<li><a href="<?php echo esc_attr( admin_url( $ced_base_uri . '&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
+					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
 				class="
 				<?php
 				if ( 'templates-view' == $section || 'add-new-template' == $section ) {
@@ -97,7 +72,7 @@ $ced_base_uri = ced_amazon_base_uri( $mode );
 								"><?php echo esc_html__( 'Templates', 'amazon-for-woocommerce' ); ?></a> |</li>
 		
 	
-		<li><a href="<?php echo esc_attr( admin_url( $ced_base_uri . '&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
+		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
 				class="
 				<?php
 				if ( 'products-view' == $section ) {
@@ -105,7 +80,7 @@ $ced_base_uri = ced_amazon_base_uri( $mode );
 				}
 				?>
 								"><?php echo esc_html__( 'Products', 'amazon-for-woocommerce' ); ?></a> |</li>
-					<li><a href="<?php echo esc_attr( admin_url( $ced_base_uri . '&section=orders-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
+					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=orders-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
 				class="
 				<?php
 				if ( 'orders-view' == $section ) {
@@ -113,7 +88,7 @@ $ced_base_uri = ced_amazon_base_uri( $mode );
 				}
 				?>
 								"><?php echo esc_html__( 'Orders', 'amazon-for-woocommerce' ); ?></a> |</li>
-		<li><a href="<?php echo esc_attr( admin_url( $ced_base_uri . '&section=feeds-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
+		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=feeds-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>"
 				class="
 				<?php
 				if ( 'feeds-view' == $section || 'feed-view' == $section ) {
@@ -184,7 +159,7 @@ $ced_base_uri = ced_amazon_base_uri( $mode );
 							$part = 'section=overview';
 						}
 
-						$url = get_admin_url() . $ced_base_uri . '&' . $urlKey . '&user_id=' . $sellernextId . '&seller_id=' . $sellernextData['ced_mp_seller_key'];
+						$url = get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&' . $urlKey . '&user_id=' . $sellernextId . '&seller_id=' . $sellernextData['ced_mp_seller_key'];
 
 						?>
 						<option value="all" <?php echo esc_attr( $selected ); ?> data-href="<?php echo esc_url( $url ); ?>"><?php echo esc_attr( $current_marketplace_name ); ?></option>
@@ -194,7 +169,7 @@ $ced_base_uri = ced_amazon_base_uri( $mode );
 				?>
 
 				<option value="image"
-					data-href="<?php echo esc_url( get_admin_url() . $ced_base_uri . '&section=setup-amazon&add-new-account=yes' ); ?>">
+					data-href="<?php echo esc_url( get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=setup-amazon&add-new-account=yes' ); ?>">
 					+ Add New Account</option>
 			</select>
 			<?php

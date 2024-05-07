@@ -87,7 +87,7 @@ $step_index  = array_search( $this->step, $keys, true );
 						<tr>
 							<?php
 							require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
-							$ebayConfig            = new \Ced\Ebay\Ebayconfig();
+							$ebayConfig            = new Ced_Ebay_WooCommerce_Core\Ebayconfig();
 							$ebayConfigInstance    = $ebayConfig->get_instance();
 							$ebaySites             = $ebayConfigInstance->getEbaysites();
 							$selectedSiteId        = '';
@@ -138,14 +138,12 @@ $step_index  = array_search( $this->step, $keys, true );
 
 		} else {
 			$user_id   = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : false;
-			$remote_shop_id   = isset( $_GET['rsid'] ) ? wc_clean( $_GET['rsid'] ) : false;
-			$site_id   = isset( $_GET['sid'] ) ? wc_clean( $_GET['sid'] ) : false;
-			if ( ! empty( $user_id ) && !empty($remote_shop_id) && '' !== $site_id) {
-				$user_shop_details = !empty(get_option('ced_ebay_user_shop_details')) ? get_option('ced_ebay_user_shop_details') : [];
-				$user_shop_details[$user_id][$site_id]['remote_shop_id'] = $remote_shop_id;
-				update_option('ced_ebay_user_shop_details', $user_shop_details);
+			$shop_data = ced_ebay_get_shop_data( $user_id );
+			if ( ! empty( $shop_data ) ) {
+				$siteID = $shop_data['site_id'];
+				$token  = $shop_data['access_token'];
 			} else {
-				$current_uri = home_url( remove_query_arg( array( 'user_id', 'site_id', 'remote_shop_id' ) ) );
+				$current_uri = home_url( remove_query_arg( array( 'user_id', 'site_id' ) ) );
 				wp_safe_redirect(
 					esc_url_raw(
 						add_query_arg(
@@ -159,7 +157,11 @@ $step_index  = array_search( $this->step, $keys, true );
 				);
 				exit();
 			}
-			
+			require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php';
+			$cedMarketingRequest = new \Ced_Marketing_API_Request( $siteID );
+			$endpoint            = 'privilege';
+			$responseAccountsApi = $cedMarketingRequest->sendHttpRequestForAccountAPI( $endpoint, $token, '' );
+			$account_privileg    = json_decode( $responseAccountsApi, true );
 			?>
 
 		<form class="wc-progress-form-content woocommerce-importer" name="ced_eBay_onboarding" enctype="multipart/form-data"

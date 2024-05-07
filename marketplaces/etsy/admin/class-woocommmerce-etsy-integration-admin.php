@@ -1,9 +1,6 @@
 <?php
-use Automattic\WooCommerce\Internal\DataStores\Orders\CustomOrdersTableController;
-use Automattic\WooCommerce\Internal\DataStores\Orders\OrdersTableDataStore;
-use Automattic\WooCommerce\Utilities\OrderUtil as CedEtsyHPOSInAdmin;
 use Cedcommerce\EtsyManager\Ced_Etsy_Manager as EtsyManager;
-
+use Cedcommerce\Product\Ced_Product_Category as EtsyCategory;
 /**
  * The admin-specific functionality of the plugin.
  *
@@ -32,48 +29,6 @@ class Woocommmerce_Etsy_Integration_Admin {
 	 */
 	private $plugin_name;
 
-
-	/**
-	 * Etsy plugin manager to access manage class method.
-	 *
-	 * @since    1.0.0
-	 * @var      string    $etsy_manager    Manage class object.
-	 */
-	private $etsy_manager;
-
-
-	/**
-	 * Etsy create order object to access create order class.
-	 *
-	 * @since    1.0.0
-	 * @var      string    $ced_etsy_order    Create order class.
-	 */
-	private $ced_etsy_order;
-
-	/**
-	 * Etsy Upload product class object.
-	 *
-	 * @since    1.0.0
-	 * @var      string    $ced_etsy_product    Etsy Upload product class object to access create product class.
-	 */
-	private $ced_etsy_product;
-
-	/**
-	 * Etsy Import Product class object.
-	 *
-	 * @since    1.0.0
-	 * @var      string    $import_product    Etsy Import product class object to access import product class.
-	 */
-	private $import_product;
-
-	/**
-	 * Current Etsy shop name.
-	 *
-	 * @since    1.0.0
-	 * @var      string    $shop_name    current active Etsy shop name.
-	 */
-	private $shop_name;
-
 	/**
 	 * The version of this plugin.
 	 *
@@ -97,6 +52,7 @@ class Woocommmerce_Etsy_Integration_Admin {
 		$this->ced_etsy_product = $this->etsy_manager->{'etsy_product_upload'};
 		require_once CED_ETSY_DIRPATH . 'admin/ced-builder/product/class-ced-product-import.php';
 		$this->import_product = Ced_Product_Import::get_instance();
+		$this->etsy_cat_obj   = EtsyCategory::get_instance();
 		$this->plugin_name    = $plugin_name;
 		require_once CED_ETSY_DIRPATH . 'admin/lib/class-ced-etsy-activities.php';
 		$activity            = new Etsy_Activities();
@@ -105,13 +61,8 @@ class Woocommmerce_Etsy_Integration_Admin {
 		add_action( 'ced_show_connected_accounts', array( $this, 'ced_show_connected_accounts' ) );
 		add_action( 'ced_show_connected_accounts_details', array( $this, 'ced_show_connected_accounts_details' ) );
 
-		// Manage order source column for HPOS
-		add_filter( 'manage_woocommerce_page_wc-orders_columns', array( $this, 'ced_etsy_add_table_columns' ), 20 );
-		add_action( 'manage_woocommerce_page_wc-orders_custom_column', array( $this, 'ced_etsy_manage_table_columns' ), 20, 2 );
-		// Mange order column for order source for post tables
-		add_action( 'manage_edit-shop_order_columns', array( $this, 'ced_etsy_add_table_columns' ), 20 );
-		add_action( 'manage_shop_order_posts_custom_column', array( $this, 'ced_etsy_manage_table_columns' ), 20, 2 );
-
+		add_action( 'manage_edit-shop_order_columns', array( $this, 'ced_etsy_add_table_columns' ) );
+		add_action( 'manage_shop_order_posts_custom_column', array( $this, 'ced_etsy_manage_table_columns' ), 10, 2 );
 		add_action( 'wp_ajax_ced_etsy_update_inventory', array( $this, 'ced_etsy_inventory_schedule_manager' ) );
 		add_action( 'wp_ajax_nopriv_ced_etsy_update_inventory', array( $this, 'ced_etsy_inventory_schedule_manager' ) );
 
@@ -157,11 +108,11 @@ class Woocommmerce_Etsy_Integration_Admin {
 			if ( ! empty( $connected_accounts ) ) {
 
 				?>
-				<div class="ced_etsy_error"></div>
 				<div id="ced-etsy-disconnect-account-modal" class="ced-modal">
 
 					<div class="ced-modal-text-content">
-						<h4>Are you sure want to disconnect the account ?</h4>
+						<div class="ced_etsy_error"></div>
+						<h4>Are you sure want to delete the account ?</h4>
 						<div class="ced-button-wrap-popup">
 							<span class="spinner"></span>
 							<span id="ced-etsy-delete-account" data-shop-name="" class="button-primary">Confirm</span>
@@ -193,6 +144,7 @@ class Woocommmerce_Etsy_Integration_Admin {
 											<strong><?php echo esc_attr( $account['details']['ced_etsy_shop_name'] ); ?></strong>
 										</div>
 										<div class="ced-connected-button-wrapper">
+
 											<?php
 											$overview    = ced_get_navigation_url(
 												'etsy',
@@ -220,21 +172,13 @@ class Woocommmerce_Etsy_Integration_Admin {
 
 										</div>
 										<div class="ced-account-button">
-											<?php
-											if ( ! array_key_exists( 'remote_shop_id', $account['details'] ) || 'yes' == get_option( 'ced_etsy_reauthorise' ) ) {
-												?>
-												<div class="ced-account-button">
-													<button type="button" class="components-button is-primary ced-manage" style="margin:unset;"><a href="<?php echo esc_url( ced_etsy_get_auth_url() ); ?>">Reauthorise</a></button>
-												</div>
-												<?php
-											} else {
-												?>
-												<button type="button" class="components-button is-tertiary" id="ced_etsy_disconnect_account" data-shop-name="<?php echo esc_attr( $account['details']['ced_etsy_shop_name'] ); ?>"> Disconnect</button>
-												<button type="button" class="components-button is-primary ced-manage" style="margin:unset;"><a href="<?php echo esc_url( $overview ); ?>">Manage</a></button>
-											<?php } ?>
+											<button type="button" class="components-button is-tertiary" id="ced_etsy_disconnect_account" data-shop-name="<?php echo esc_attr( $account['details']['ced_etsy_shop_name'] ); ?>"> Disconnect</button>
+											<button type="button" class="components-button is-primary ced-manage" style="margin:unset;"><a href="<?php echo esc_url( $overview ); ?>">Manage</a></button>
+											
 										</div>
 										
 									</div>
+
 									<?php
 								}
 								?>
@@ -311,15 +255,10 @@ class Woocommmerce_Etsy_Integration_Admin {
 	}
 
 
-	public function ced_etsy_manage_table_columns( $column, $order_id ) {
+	public function ced_etsy_manage_table_columns( $column, $post_id ) {
 		switch ( $column ) {
 			case 'order_from':
-				if ( CedEtsyHPOSInAdmin::custom_orders_table_usage_is_enabled() ) {
-					$wc_order_obj       = wc_get_order( $order_id );
-					$_ced_etsy_order_id = $wc_order_obj->get_meta( '_ced_etsy_order_id', true );
-				} else {
-					$_ced_etsy_order_id = get_post_meta( $order_id, '_ced_etsy_order_id', true );
-				}
+				$_ced_etsy_order_id = get_post_meta( $post_id, '_ced_etsy_order_id', true );
 				if ( ! empty( $_ced_etsy_order_id ) ) {
 					echo '<p><b><h3>Etsy</h3></b></p>';
 				}
@@ -534,7 +473,6 @@ class Woocommmerce_Etsy_Integration_Admin {
 	 * @since    1.0.0
 	 */
 	public function ced_sales_channel_include_template( $channel = 'etsy' ) {
-
 		if ( 'etsy' === $channel ) {
 			$shop_name       = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
 			$step            = isset( $_GET['step'] ) ? sanitize_text_field( wp_unslash( $_GET['step'] ) ) : '';
@@ -542,37 +480,42 @@ class Woocommmerce_Etsy_Integration_Admin {
 			$this->shop_name = ! empty( $shop_name ) ? $shop_name : get_option( 'ced_etsy_shop_name', '' );
 			$account         = new Cedcommerce\Template\View\Ced_View_Etsy_Accounts();
 			$current_setup   = get_option( 'ced_etsy_setup_steps', array() );
-			if ( 'connected' === $section && count( get_option( 'ced_etsy_details', array() ) ) ) {
-				$current_setup[ $this->shop_name ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : ced_get_navigation_url(
-					'etsy',
-					array(
-						'section'   => 'connected',
-						'shop_name' => $this->shop_name,
-					)
-				);
+			if ( 0 == count( get_option( 'ced_etsy_details', array() ) ) || isset( $_GET['add-new-account'] ) ) {
+				$show_message = '';
+				$message      = isset( $_GET['message'] ) ? sanitize_text_field( wp_unslash( $_GET['message'] ) ) : '';
+				if ( 'blank' === $message ) {
+					$show_message = $account->ced_etsy_onboarding_message( 'Before moving forward, please input the shop name', 'ced-onboarding-error-notification' );
+				} elseif ( 'same_shop' === $message ) {
+					$show_message = $account->ced_etsy_onboarding_message( 'This shop is already connected, please try another shop.', 'ced-onboarding-error-notification' );
+				}
+				if ( 'reconnect' === $section && ! empty( $this->shop_name ) ) {
+					$connected_accounts = get_etsy_connected_accounts();
+					unset( $connected_accounts[ $this->shop_name ] );
+					update_option( 'ced_etsy_details', $connected_accounts );
+				}
+				print_r( $account->ced_etsy_connect_e_shop_onboarding_html( '', $show_message ) );
+			} elseif ( 'connected' === $section && count( get_option( 'ced_etsy_details', array() ) ) ) {
+				$current_setup[ $this->shop_name ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : admin_url( 'admin.php?page=sales_channel&channel=etsy&section=connected&shop_name=' . $this->shop_name );
 				$user_details                                      = get_option( 'ced_etsy_details', array() );
 				$account->shop_name                                = $this->shop_name;
 				$form = new \Cedcommerce\Template\View\Render\Ced_Render_Form();
-				print_r( $form->form_open( 'POST', '' ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				print_r( $form->form_open( 'POST', '' ) );
 				wp_nonce_field( 'ced_etsy_verify_and_continue', 'ced_etsy_verify_and_continue_submit' );
-				print_r( $account->ced_etsy_completed_authorisation_view( $user_details, '', $shop_name ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
-				print_r( $form->form_close() ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				print_r( $account->ced_etsy_completed_authorisation_view( $user_details, '', $shop_name ) );
+				print_r( $form->form_close() );
 			} elseif ( 'sync_existing' === $section ) {
-				$current_setup[ $this->shop_name ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : ced_get_navigation_url(
-					'etsy',
-					array(
-						'section'   => 'connected',
-						'shop_name' => $this->shop_name,
-					)
-				);
+
+				$current_setup[ $this->shop_name ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : admin_url( 'admin.php?page=sales_channel&channel=etsy&section=connected&shop_name=' . $this->shop_name );
 				$all_e_pro = isset( $_GET['count'] ) ? sanitize_text_field( wp_unslash( $_GET['count'] ) ) : '';
 				$message   = $account->ced_etsy_onboarding_message( 'We found ' . $all_e_pro . ' items in your Etsy store. Enable syncing and enjoy real-time updates between Etsy and WooCommerce stores. ' );
 				$form      = new \Cedcommerce\Template\View\Render\Ced_Render_Form();
-				print_r( $form->form_open( 'POST', '' ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				print_r( $form->form_open( 'POST', '' ) );
 				wp_nonce_field( 'ced_etsy_verify_and_continue', 'ced_etsy_verify_and_continue_submit' );
-				print_r( $account->ced_etsy_sync_existing_products_html_view( $message, $shop_name ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
-				print_r( $form->form_close() ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				print_r( $account->ced_etsy_sync_existing_products_html_view( $message, $shop_name ) );
+				print_r( $form->form_close() );
+
 			} elseif ( 'setup' === $section ) {
+
 				$account->ced_etsy_setup_wizard();
 				return true;
 
@@ -582,10 +525,10 @@ class Woocommmerce_Etsy_Integration_Admin {
 				$user_details                                      = get_option( 'ced_etsy_details', array() );
 				$account->shop_name                                = get_option( 'ced_etsy_shop_name', '' );
 				$form = new \Cedcommerce\Template\View\Render\Ced_Render_Form();
-				print_r( $form->form_open( 'POST', '' ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				print_r( $form->form_open( 'POST', '' ) );
 				wp_nonce_field( 'ced_etsy_verify_and_continue', 'ced_etsy_verify_and_continue_submit' );
-				print_r( $account->ced_etsy_completed_authorisation_view( $user_details ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
-				print_r( $form->form_close() ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				print_r( $account->ced_etsy_completed_authorisation_view( $user_details ) );
+				print_r( $form->form_close() );
 
 			} else {
 
@@ -605,9 +548,6 @@ class Woocommmerce_Etsy_Integration_Admin {
 					case 'products':
 						$file = CED_ETSY_DIRPATH . 'admin/template/view/class-ced-view-products.php';
 						break;
-					case 'importer':
-							$file = CED_ETSY_DIRPATH . 'admin/template/view/class-ced-view-importer.php';
-						break;
 					case 'orders':
 						$file = CED_ETSY_DIRPATH . 'admin/template/view/class-ced-view-orders.php';
 						break;
@@ -620,13 +560,11 @@ class Woocommmerce_Etsy_Integration_Admin {
 					case 'overview':
 						$file = CED_ETSY_DIRPATH . 'admin/template/view/ced-etsy-overview.php';
 						break;
-					default:
-						$file = do_action( 'ced_etsy_add_template_file', $section );
 				}
 
-				if ( ! empty( $file ) && file_exists( $file ) ) { // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				if ( $file && file_exists( $file ) ) {
 					echo "<div class='ced_etsy_body'>";
-							require_once $file; // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+						require_once $file;
 					echo '</div>';
 				}
 			}
@@ -642,17 +580,19 @@ class Woocommmerce_Etsy_Integration_Admin {
 	 * @since 1.0.0
 	 */
 	public function ced_etsy_add_order_metabox() {
-		$screen = wc_get_container()->get( CustomOrdersTableController::class )->custom_orders_table_usage_is_enabled()
-				? wc_get_page_screen_id( 'shop-order' )
-				: 'shop_order';
-		add_meta_box(
-			'ced_etsy_manage_orders_metabox',
-			__( 'Manage Etsy Orders', 'woocommerce-etsy-integration' ) . wc_help_tip( __( 'Please send shipping confirmation.', 'woocommerce-etsy-integration' ) ),
-			array( $this, 'ced_etsy_render_orders_metabox' ),
-			$screen,
-			'advanced',
-			'high'
-		);
+		global $post;
+		$product    = wc_get_product( $post->ID );
+		$order_from = get_post_meta( $post->ID, '_umb_etsy_marketplace', true );
+		if ( 'etsy' == strtolower( $order_from ) ) {
+			add_meta_box(
+				'ced_etsy_manage_orders_metabox',
+				__( 'Manage Etsy Orders', 'woocommerce-etsy-integration' ) . wc_help_tip( __( 'Please send shipping confirmation.', 'woocommerce-etsy-integration' ) ),
+				array( $this, 'ced_etsy_render_orders_metabox' ),
+				'shop_order',
+				'advanced',
+				'high'
+			);
+		}
 	}
 
 	/**
@@ -666,41 +606,29 @@ class Woocommmerce_Etsy_Integration_Admin {
 			$ced_etsy_tracking_code = isset( $_POST['ced_etsy_tracking_code'] ) ? sanitize_text_field( wp_unslash( $_POST['ced_etsy_tracking_code'] ) ) : '';
 			$ced_etsy_carrier_name  = isset( $_POST['ced_etsy_carrier_name'] ) ? sanitize_text_field( wp_unslash( $_POST['ced_etsy_carrier_name'] ) ) : '';
 			$order_id               = isset( $_POST['order_id'] ) ? sanitize_text_field( wp_unslash( $_POST['order_id'] ) ) : '';
-
-			if ( CedEtsyHPOSInAdmin::custom_orders_table_usage_is_enabled() ) {
-				$wc_order_obj       = wc_get_order( $order_id );
-				$shop_name          = $wc_order_obj->get_meta( 'ced_etsy_order_shop_id', true );
-				$_ced_etsy_order_id = $wc_order_obj->get_meta( '_ced_etsy_order_id', true );
-			} else {
-				$shop_name          = get_post_meta( $order_id, 'ced_etsy_order_shop_id', true );
-				$_ced_etsy_order_id = get_post_meta( $order_id, '_ced_etsy_order_id', true );
+			$shop_name              = get_option( 'ced_etsy_shop_name', '' );
+			if ( empty( $shop_name ) ) {
+				$shop_name = get_post_meta( $order_id, 'ced_etsy_order_shop_id', true );
 			}
-			if ( empty( $shop_name ) || is_null( $shop_name ) ) {
-				$shop_name = get_option( 'ced_etsy_shop_name', '' );
-			}
-			$shop_id    = get_etsy_shop_id( $shop_name );
-			$parameters = array(
+			$_ced_etsy_order_id = get_post_meta( $order_id, '_ced_etsy_order_id', true );
+			$saved_etsy_details = get_option( 'ced_etsy_details', array() );
+			$shopDetails        = $saved_etsy_details[ $shop_name ];
+			$shop_id            = $shopDetails['details']['shop_id'];
+			$parameters         = array(
 				'tracking_code' => $ced_etsy_tracking_code,
 				'carrier_name'  => $ced_etsy_carrier_name,
 			);
-			$response   = etsy_request()->ced_etsy_remote_req(
-				'shop/receipt',
-				$parameters,
-				array(
-					'shop_id' => $shop_id,
-					'',
-				),
-				'POST'
-			);
+			/** Refresh token
+									 *
+									 * @since 2.0.0
+									 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$action   = 'application/shops/' . $shop_id . '/receipts/' . $_ced_etsy_order_id . '/tracking';
+			$response = etsy_request()->post( $action, $parameters, $shop_name );
 			if ( isset( $response['receipt_id'] ) || isset( $response['Shipping_notification_email_has_already_been_sent_for_this_receipt_'] ) ) {
-
-				$wc_order_obj = wc_get_order( $order_id );
-				if ( CedEtsyHPOSInAdmin::custom_orders_table_usage_is_enabled() ) {
-					$umb_etsy_order_status = $wc_order_obj->update_meta_data( '_etsy_umb_order_status', 'Shipped' );
-				} else {
-					update_post_meta( $order_id, '_etsy_umb_order_status', 'Shipped' );
-				}
-				$wc_order_obj->update_status( 'wc-completed' );
+				update_post_meta( $order_id, '_etsy_umb_order_status', 'Shipped' );
+				$_order = wc_get_order( $order_id );
+				$_order->update_status( 'wc-completed' );
 				echo json_encode(
 					array(
 						'status'  => 200,
@@ -711,7 +639,7 @@ class Woocommmerce_Etsy_Integration_Admin {
 			} elseif ( is_array( $response ) ) {
 				foreach ( $response as $error => $value ) {
 					$message = isset( $error ) ? ucwords( str_replace( '_', ' ', $error ) ) : '';
-					echo json_encode( // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+					echo json_encode(
 						array(
 							'status'  => 400,
 							'message' => $message,
@@ -720,7 +648,7 @@ class Woocommmerce_Etsy_Integration_Admin {
 					wp_die();
 				}
 			} else {
-				echo json_encode( // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+				echo json_encode(
 					array(
 						'status'  => 400,
 						'message' => 'Shipment not submitted.',
@@ -737,30 +665,14 @@ class Woocommmerce_Etsy_Integration_Admin {
 	 *
 	 * @since 1.0.0
 	 */
-	public function ced_etsy_render_orders_metabox( $post_or_order_object ) {
+	public function ced_etsy_render_orders_metabox() {
 		global $post;
 		$order_id = isset( $post->ID ) ? intval( $post->ID ) : '';
-		if ( empty( $order_id ) ) {
-			$order_id = isset( $_GET['id'] ) ? sanitize_text_field( $_GET['id'] ) : '';
-		}
-
 		if ( ! is_null( $order_id ) ) {
-			$is_etsy_order = false;
-			if ( CedEtsyHPOSInAdmin::custom_orders_table_usage_is_enabled() ) {
-				$wc_order_obj = wc_get_order( $order_id );
-				if ( is_object( $wc_order_obj ) ) {
-					$umb_etsy_order_status = $wc_order_obj->get_meta( '_etsy_umb_order_status', true );
-					$is_etsy_order         = $wc_order_obj->get_meta( '_is_ced_etsy_order', true );
-				}
-			} else {
-				$umb_etsy_order_status = get_post_meta( $order_id, '_etsy_umb_order_status', true );
-				$is_etsy_order         = get_post_meta( $order_id, '_is_ced_etsy_order', true );
-			}
-			if ( $is_etsy_order ) {
-				$template_path = CED_ETSY_DIRPATH . 'admin/template/view/class-ced-view-order-template.php';
-				if ( file_exists( $template_path ) ) {
-					include_once $template_path;
-				}
+			$order         = wc_get_order( $order_id );
+			$template_path = CED_ETSY_DIRPATH . 'admin/template/view/class-ced-view-order-template.php';
+			if ( file_exists( $template_path ) ) {
+				include_once $template_path;
 			}
 		}
 	}
@@ -774,12 +686,8 @@ class Woocommmerce_Etsy_Integration_Admin {
 		if ( ! is_object( $order ) ) {
 			return $enable;
 		}
-		if ( CedEtsyHPOSInAdmin::custom_orders_table_usage_is_enabled() ) {
-			$order_from = $order->get_meta( '_umb_etsy_marketplace', true );
-		} else {
-			$order_id   = $order->get_id();
-			$order_from = get_post_meta( $order_id, '_umb_etsy_marketplace', true );
-		}
+		$order_id   = $order->get_id();
+		$order_from = get_post_meta( $order_id, '_umb_etsy_marketplace', true );
 		if ( 'etsy' == strtolower( $order_from ) ) {
 			$enable = false;
 		}
@@ -849,9 +757,9 @@ class Woocommmerce_Etsy_Integration_Admin {
 		$hook    = current_action();
 		$shop_id = str_replace( 'ced_etsy_inventory_scheduler_job_', '', $hook );
 		$shop_id = trim( $shop_id );
-		if ( empty( $shop_id ) || null === $shop_id || '' === $shop_id ) {
-			$shop_id = get_option( 'ced_etsy_shop_name', '' );
-		}
+
+		$shop_id = get_option( 'ced_etsy_shop_name', '' );
+
 		$products_to_sync = get_option( 'ced_etsy_chunk_products_' . $shop_id, array() );
 		if ( empty( $products_to_sync ) ) {
 			$store_products   = get_posts(
@@ -872,9 +780,6 @@ class Woocommmerce_Etsy_Integration_Admin {
 		}
 		if ( is_array( $products_to_sync[0] ) && ! empty( $products_to_sync[0] ) ) {
 			foreach ( $products_to_sync[0] as $product_id ) {
-				if ( empty( $product_id ) || null == $product_id || '' == $product_id ) {
-					continue;
-				}
 				$response = ( new \Cedcommerce\Product\Ced_Product_Update( $shop_id, $product_id ) )->ced_etsy_update_inventory( $product_id, $shop_id, true );
 			}
 			unset( $products_to_sync[0] );
@@ -888,9 +793,8 @@ class Woocommmerce_Etsy_Integration_Admin {
 		$shop_name     = str_replace( 'ced_etsy_auto_upload_products_', '', current_action() );
 		$shop_name     = trim( $shop_name );
 		$product_chunk = get_option( 'ced_etsy_product_upload_chunk_' . $shop_name, array() );
-		if ( empty( $shop_name ) ) {
-			$shop_name = get_option( 'ced_etsy_shop_name', '' );
-		}
+
+		$shop_name = get_option( 'ced_etsy_shop_name', '' );
 
 		if ( empty( $product_chunk ) ) {
 			$store_products = get_posts(
@@ -940,7 +844,14 @@ class Woocommmerce_Etsy_Integration_Admin {
 			'limit'  => 25,
 			'state'  => 'active',
 		);
-		$response   = etsy_request()->ced_etsy_remote_req( 'listings/byShop', array(), array_merge( $query_args, array( 'shop_id' => $shop_id ) ), 'GET' );
+
+		/** Refresh token
+		 *
+		 * @since 2.0.0
+		 */
+		do_action( 'ced_etsy_refresh_token', $shop_name );
+		$action   = "application/shops/{$shop_id}/listings";
+		$response = etsy_request()->get( $action, $shop_name, $query_args );
 		if ( isset( $response['results'][0] ) ) {
 
 			// Manage syncing with Etsy and WC identifier
@@ -1015,9 +926,13 @@ class Woocommmerce_Etsy_Integration_Admin {
 				'offset' => $offset,
 				'limit'  => 20,
 			);
-
+			/** Refresh token
+			 *
+			 * @since 2.0.0
+			 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
 			$shop_id      = get_etsy_shop_id( $shop_name );
-			$response     = etsy_request()->ced_etsy_remote_req( 'listings/byShop', array(), array_merge( $query_args, array( 'shop_id' => $shop_id ) ), 'GET' );
+			$response     = etsy_request()->get( "application/shops/{$shop_id}/listings", $shop_name, $params );
 			$total_e_pros = isset( $response['count'] ) && $response['count'] > 0 ? $response['count'] : 0;
 			update_option( 'ced_etsy_total_shop_products_' . $shop_name, $total_e_pros );
 			if ( isset( $response['results'] ) && count( $response['results'] ) ) {
@@ -1037,15 +952,13 @@ class Woocommmerce_Etsy_Integration_Admin {
 	 * @since    1.0.0
 	 */
 	public function ced_etsy_order_schedule_manager() {
-		$hook      = current_action();
-		$shop_name = str_replace( 'ced_etsy_order_scheduler_job_', '', $hook );
-		$shop_name = trim( $shop_name );
-		if ( empty( $shop_name ) || null == $shop_name || '' == $shop_name ) {
-			$shop_name = get_option( 'ced_etsy_shop_name', '' );
-		}
-		$get_orders = $this->ced_etsy_order->get_orders( $shop_name );
+		$hook       = current_action();
+		$shop_id    = str_replace( 'ced_etsy_order_scheduler_job_', '', $hook );
+		$shop_id    = trim( $shop_id );
+		$shop_id    = get_option( 'ced_etsy_shop_name', '' );
+		$get_orders = $this->ced_etsy_order->get_orders( $shop_id );
 		if ( ! empty( $get_orders ) ) {
-			$createOrder = $this->ced_etsy_order->createLocalOrder( $get_orders, $shop_name );
+			$createOrder = $this->ced_etsy_order->createLocalOrder( $get_orders, $shop_id );
 		}
 	}
 
@@ -1057,21 +970,11 @@ class Woocommmerce_Etsy_Integration_Admin {
 	public function ced_etsy_get_orders() {
 		$check_ajax = check_ajax_referer( 'ced-etsy-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
-			$shop_name     = isset( $_POST['shopid'] ) ? sanitize_text_field( wp_unslash( $_POST['shopid'] ) ) : '';
-			$order_created = $this->ced_etsy_order->get_orders( $shop_name );
-			$status        = 200;
-			$message       = 'Your Etsy order has been successfully fetched. You can review the process in the timeline.';
-			if ( ! $order_created ) {
-				$status  = 400;
-				$message = "We're sorry, but your Etsy order could not be fetched at this time.";
+			$shop_id    = isset( $_POST['shopid'] ) ? sanitize_text_field( wp_unslash( $_POST['shopid'] ) ) : '';
+			$get_orders = $this->ced_etsy_order->get_orders( $shop_id );
+			if ( ! empty( $get_orders ) ) {
+				$createOrder = $etsyOrdersInstance->createLocalOrder( $get_orders, $shop_id );
 			}
-			echo json_encode(
-				array(
-					'status'  => $status,
-					'message' => $message,
-				)
-			);
-			wp_die();
 		}
 	}
 
@@ -1135,9 +1038,9 @@ class Woocommmerce_Etsy_Integration_Admin {
 					break;
 			}
 
-			echo wp_json_encode(
+			echo json_encode(
 				array(
-					'status'  => isset( $response['status'] ) ? $response['status'] : 200,
+					'status'  => $response['status'],
 					'message' => $title . ' : ' . ced_etsy_format_response( $response['message'], $shop_name ),
 				)
 			);
@@ -1164,17 +1067,12 @@ class Woocommmerce_Etsy_Integration_Admin {
 	 * @since 2.0.0
 	 */
 	public function ced_etsy_product_data_tabs( $tabs ) {
-		global $post;
-		if ( empty( $post->post_title ) ) {
-			return $tabs;
-		}
 		$tabs['etsy_inventory'] = array(
 			'label'  => __( 'Etsy', 'woocommerce-etsy-integration' ),
 			'target' => 'etsy_inventory_options',
 			'class'  => array( 'show_if_simple', 'show_if_variable' ),
 		);
-		 return $tabs;
-
+		return $tabs;
 	}
 
 
@@ -1261,47 +1159,49 @@ class Woocommmerce_Etsy_Integration_Admin {
 			'_ced_etsy_stock',
 		);
 
-		$product_fields = isset( $settings['optional'] ) ? $settings['optional'] : array();
-		if ( ! empty( $product_fields ) ) {
-			foreach ( $product_fields as $key => $value ) {
-				$label    = isset( $value['fields']['label'] ) ? $value['fields']['label'] : '';
-				$field_id = isset( $value['fields']['id'] ) ? $value['fields']['id'] : '';
+		if ( ! empty( $settings ) ) {
+			foreach ( $settings as $section => $product_fields ) {
+				foreach ( $product_fields as $key => $value ) {
 
-				if ( ! in_array( $field_id, $variation_fields ) && ! $simple_product ) {
-					continue;
-				}
+					$label    = isset( $value['fields']['label'] ) ? $value['fields']['label'] : '';
+					$field_id = isset( $value['fields']['id'] ) ? $value['fields']['id'] : '';
 
-				$id             = 'ced_etsy_data[' . $product_id . '][' . $field_id . ']';
-				$selected_value = get_post_meta( $product_id, $field_id, true );
-
-				if ( '_select' == $value['type'] ) {
-					$option_array     = array();
-					$option_array[''] = '--select--';
-					foreach ( $value['fields']['options'] as $option_key => $option ) {
-						$option_array[ $option_key ] = $option;
+					if ( ! in_array( $field_id, $variation_fields ) && ! $simple_product ) {
+						continue;
 					}
-					woocommerce_wp_select(
-						array(
-							'id'          => $id,
-							'label'       => $value['fields']['label'],
-							'options'     => $option_array,
-							'value'       => $selected_value,
-							'desc_tip'    => 'true',
-							'description' => $value['fields']['description'],
-							'class'       => 'ced_etsy_product_select',
-						)
-					);
-				} elseif ( '_text_input' == $value['type'] ) {
-					woocommerce_wp_text_input(
-						array(
-							'id'          => $id,
-							'label'       => $value['fields']['label'],
-							'desc_tip'    => 'true',
-							'description' => $value['fields']['description'],
-							'type'        => 'text',
-							'value'       => $selected_value,
-						)
-					);
+
+					$id             = 'ced_etsy_data[' . $product_id . '][' . $field_id . ']';
+					$selected_value = get_post_meta( $product_id, $field_id, true );
+
+					if ( '_select' == $value['type'] ) {
+						$option_array     = array();
+						$option_array[''] = '--select--';
+						foreach ( $value['fields']['options'] as $option_key => $option ) {
+							$option_array[ $option_key ] = $option;
+						}
+						woocommerce_wp_select(
+							array(
+								'id'          => $id,
+								'label'       => $value['fields']['label'],
+								'options'     => $option_array,
+								'value'       => $selected_value,
+								'desc_tip'    => 'true',
+								'description' => $value['fields']['description'],
+								'class'       => 'ced_etsy_product_select',
+							)
+						);
+					} elseif ( '_text_input' == $value['type'] ) {
+						woocommerce_wp_text_input(
+							array(
+								'id'          => $id,
+								'label'       => $value['fields']['label'],
+								'desc_tip'    => 'true',
+								'description' => $value['fields']['description'],
+								'type'        => 'text',
+								'value'       => $selected_value,
+							)
+						);
+					}
 				}
 			}
 		}
@@ -1366,6 +1266,36 @@ class Woocommmerce_Etsy_Integration_Admin {
 	}
 
 
+
+	public function ced_etsy_delete_shipping_profile() {
+		$check_ajax = check_ajax_referer( 'ced-etsy-ajax-seurity-string', 'ajax_nonce' );
+		if ( $check_ajax ) {
+			$sanitized_array = filter_input_array( INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+			$e_shiping_id    = isset( $sanitized_array['e_profile_id'] ) ? $sanitized_array['e_profile_id'] : array();
+			$shop_name       = isset( $sanitized_array['shop_name'] ) ? $sanitized_array['shop_name'] : '';
+			if ( '' != $shop_name && ! empty( $e_shiping_id ) ) {
+				$shop_id = get_etsy_shop_id( $shop_name );
+				$action  = 'application/shops/' . $shop_id . '/shipping-profiles/' . $e_shiping_id;
+				/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+				do_action( 'ced_etsy_refresh_token', $shop_name );
+				$is_deleted = etsy_request()->delete( $action, $shop_name, array(), 'DELETE' );
+				echo json_encode(
+					array(
+						'status'  => 200,
+						'message' => __(
+							'Profile is Deleted!',
+							'woocommerce-etsy-integration'
+						),
+					)
+				);
+				wp_die();
+			}
+		}
+	}
+
 	public function ced_etsy_delete_account() {
 		$check_ajax = check_ajax_referer( 'ced-etsy-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
@@ -1377,143 +1307,4 @@ class Woocommmerce_Etsy_Integration_Admin {
 			die;
 		}
 	}
-
-	public function ced_etsy_import_products_bulk_action() {
-			$check_ajax = check_ajax_referer( 'ced-etsy-ajax-seurity-string', 'ajax_nonce' );
-		if ( $check_ajax ) {
-			$sanitized_array = filter_input_array( INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS );
-			$operation       = isset( $sanitized_array['operation_to_be_performed'] ) ? $sanitized_array['operation_to_be_performed'] : '';
-			$listing_ids     = isset( $sanitized_array['listing_id'] ) ? $sanitized_array['listing_id'] : '';
-			$shop_name       = isset( $sanitized_array['shop_name'] ) ? $sanitized_array['shop_name'] : '';
-
-			foreach ( $listing_ids as $key => $listing_id ) {
-				$if_product_exists = etsy_get_product_id_by_shopname_and_listing_id( $shop_name, $listing_id );
-				if ( ! empty( $if_product_exists ) ) {
-					echo json_encode(
-						array(
-							'status'  => 200,
-							'message' => __(
-								'Product exists in store !'
-							),
-						)
-					);
-				} else {
-					$response = $this->import_product->ced_etsy_import_products( $listing_id, $shop_name );
-					$message  = isset( $response['msg'] ) ? $response['msg'] : 'Product Imported Successfully !';
-					echo json_encode(
-						array(
-							'status'  => 200,
-							'message' => $message,
-						)
-					);
-				}
-				break;
-			}
-			wp_die();
-		}
-
-	}
-
-
-	 /**
-	  * **************************************************************
-	  * Woocommerce_Etsy_Integration_Admin add searching functinality on timeline
-	  * **************************************************************
-	  */
-
-	public function ced_etsy_add_searching_on_timeline() {
-		$html            = '';
-		$sanitized_array = filter_input_array( INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS );
-		$seach_sku_ipt   = isset( $sanitized_array['search_key'] ) ? strtolower( $sanitized_array['search_key'] ) : '';
-		$log_type        = isset( $sanitized_array['option_name'] ) ? $sanitized_array['option_name'] : '';
-		$log_info        = get_option( $log_type, array() );
-		$decoded_info    = is_array( $log_info ) ? $log_info : json_decode( $log_info, true );
-		foreach ( $decoded_info as $key  => $info ) {
-			$order_number  = isset( $info['input_payload']['OrderNumber'] ) ? $info['input_payload']['OrderNumber'] : '';
-			$sku_to_search = isset( $info['input_payload']['products'][0]['sku'] ) ? strtolower( $info['input_payload']['products'][0]['sku'] ) : $info['sku'];
-			$was_auto      = isset( $info['is_auto'] ) && ! empty( $info['is_auto'] ) ? 'Automatic' : 'Manual';
-			if ( str_contains( $sku_to_search, $seach_sku_ipt ) || ( isset( $info['post_title'] ) && str_contains( strtolower( $info['post_title'] ), $seach_sku_ipt ) ) || ( isset( $order_number ) && str_contains( (string) $order_number, (string) $seach_sku_ipt ) ) ) {
-				$html .= '<tr class="ced_etsy_log_rows">';
-				$html .= "<td>
-     					<span data-post_id='" . esc_attr( $info['post_id'] ) . "' class='log_item_label ced_etsy_timeline_popup'><a class='row-title'>" . esc_attr( $info['post_title'] ) . '</a></span>';
-				$html .= '<!-- // Start of popup rap -->
-     					<div id="" class="ced-modal ced-etsy-timeline-logs-modal" style="display:none;">
-     						<div class="ced-modal-text-content ced_etsy_timeline_box_content">
-     							<h3>Input payload for ' . esc_html( $info['post_title'] ) . '</h3>
-     							<button id="ced_close_log_message">Close</button>
-     							<div class="ced-etsy-res-popup-wrapper">
-     							<pre style="overflow: auto; height: 60vh;">
-     								' . ( ! empty( $info['input_payload'] ) ? json_encode( $info['input_payload'], JSON_PRETTY_PRINT ) : '' ) . '
-     							</pre>
-     							</div>
-     						</div>
-     					</div>
-     				<!-- // End of popup rap -->
-     			</td>';
-				$html .= "<td><span class=''>" . esc_html( $info['action'] ) . '</span></td>';
-				$html .= "<td><span class=''>" . esc_html( $info['time'] ) . '</span></td>';
-				$html .= "<td><span class=''>" . esc_html( $was_auto ) . '</span></td>';
-				$html .= '<td>';
-				if ( isset( $info['response']['response']['results'] ) || isset( $info['response']['results'] ) || isset( $info['response']['listing_id'] ) || isset( $info['response']['response']['products'] ) || isset( $info['response']['products'] ) || isset( $info['response']['listing_id'] ) ) {
-					$html .= "<span class='etsy_log_success ced_s_f_log_details row-title ced-sucess'>" . esc_html__( 'Success', 'woocommerce-etsy-integration' ) . '</span>';
-				} else {
-					$html .= "<span class='etsy_log_fail ced_s_f_log_details row-title  ced-failed'>" . esc_html__( 'Failed', 'woocommerce-etsy-integration' ) . '</span>';
-				}
-				$html .= '<!-- // Start of popup rap -->
-     					<div id="" class="ced-modal ced-etsy-timeline-logs-sc-fld-modal" style="display:none;">
-     						<div class="ced-modal-text-content ced_etsy_timeline_box_content">
-     							<h3> Reponse from Etsy : ' . esc_html( $info['post_title'] ) . '</h3>
-     							<button id="ced_close_log_message">Close</button>
-     							<pre style="overflow: auto; height: 60vh;">
-     							<div class="ced-etsy-res-popup-wrapper">
-     								' . ( ! empty( $info['response'] ) ? json_encode( $info['response'], JSON_PRETTY_PRINT ) : '' ) . '
-     							</div>
-     							</pre>
-     						</div>
-     					</div>
-     				<!-- // End of popup rap -->';
-				$html .= '</td>';
-				$html .= '</tr>';
-			}
-		}
-
-		if ( ! isset( $html ) || empty( $html ) ) {
-			$html = '<tr>
-     		<td colspan="6" style="text-align: center;padding: 15px 0;font-weight: 400;">No Result Found</td>
-     		</tr>';
-		}
-		echo json_encode( $html );
-		wp_die();
-
-	}
-
-	public function ced_etsy_refresh_required_recommended() {
-
-		$check_ajax = check_ajax_referer( 'ced-etsy-ajax-seurity-string', 'ajax_nonce' );
-		if ( $check_ajax !== false ) {
-			$sanitized_array = filter_input_array( INPUT_POST, FILTER_SANITIZE_FULL_SPECIAL_CHARS );
-			$shop_name       = isset( $sanitized_array['shop_name'] ) ? $sanitized_array['shop_name'] : '';
-			$operation_type  = isset( $sanitized_array['operation_type'] ) ? $sanitized_array['operation_type'] : '';
-			ced_get_etsy_req_params( $shop_name, $operation_type, true );
-			$message = ucfirst( str_replace( '_', ' ', $operation_type ) ) . ' updated successfully!';
-			echo json_encode(
-				array(
-					'status'  => 200,
-					'message' => $message,
-				)
-			);
-		} else {
-			echo json_encode(
-				array(
-					'status'  => 400,
-					'message' => 'Invalid nonce or security check failed',
-				)
-			);
-		}
-		wp_die();
-	}
-
-
-
-
 }

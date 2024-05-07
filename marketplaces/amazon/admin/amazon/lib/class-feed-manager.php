@@ -41,7 +41,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		public $product_upload_notice;
 		public $feed_xml_notice;
 		public $amzonCurlRequestInstance;
-		private static $mode;
 
 		/**
 		 * Ced_Umb_Amazon_Feed_Manager Instance.
@@ -54,12 +53,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 * @return Ced_Umb_Amazon_Feed_Manager instance.
 		 * @link  http://www.cedcommerce.com/
 		 */
-		public static function get_instance( $mode = 'production' ) {
-
+		public static function get_instance() {
 			if ( is_null( self::$_instance ) ) {
 				self::$_instance = new self();
 			}
-			self::$mode = $mode;
 			return self::$_instance;
 		}
 
@@ -80,7 +77,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			if ( file_exists( $amzonCurlRequest ) ) {
 				require_once $amzonCurlRequest;
 				$this->amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-			}
+			} 
 
 			add_action( 'ced_amazon_order_product_inventory_update', array( $this, 'ced_amazon_order_product_inventory_update_on_marketplace' ), 25, 3 );
 
@@ -113,13 +110,44 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return wp_json_encode( $error );
 			} else {
 
-				if ( ! empty( $action ) ) {
-					return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
-				} else {
-					return;
+				switch ( $action ) {
+					case 'upload_product':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					case 'update_product':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					case 'relist_product':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					case 'update_price':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					case 'update_inventory':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					case 'update_images':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					case 'delete_product':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					case 'look_up':
+						return $this->upload_products_details( $proIds, $action, $mplocation, $seller_mp_key );
+					break;
+
+					default:
+						return;
+					break;
 				}
 			}
-
 		}
 
 		/**
@@ -143,7 +171,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return wp_json_encode( $error );
 			}
 
-			if ( 'upload_product' == $action || 'update_product' == $action || 'delete_product' == $action || 'look_up' == $action ) {
+			if ( 'upload_product' == $action || 'update_product' == $action || 'delete_product' == $action ) {
 				if ( is_array( $proIds ) && ! empty( $proIds ) ) {
 					$final_pro_ids = array();
 					foreach ( $proIds as $key => $pro_id ) {
@@ -186,7 +214,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					break;
 
 					case 'update_price':
-						return $this->ced_amazon_bulk_price_update( $proIds, $mplocation, $seller_mp_key, 'Manual' );
+						return $this->ced_amazon_bulk_price_update( $proIds, $mplocation, $seller_mp_key );
 					break;
 
 					case 'update_images':
@@ -206,6 +234,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				}
 			}
 
+			
 			$message = esc_attr_e( 'An unexpected error occurred. Please try again.', 'amazon-for-woocommerce' );
 			$classes = 'error is-dismissable';
 			$error   = array(
@@ -233,14 +262,14 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			$seller_mp_key = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
 
 			// throttle check
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
 
 			if ( $ced_amazon_create_feed_throttle ) {
-
+		
 				$notice['message'] = 'Create feed API call limit exceeded. Please try after 5 mins.';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
-
+				
 			}
 
 			if ( empty( $mplocation ) ) {
@@ -265,10 +294,11 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 					$allDetails = json_decode( $allDetails, true );
 
+				
 					if ( isset( $allDetails['profile_with_pro_ids'] ) && ! empty( $allDetails['profile_with_pro_ids'] ) && is_array( $allDetails['profile_with_pro_ids'] ) ) {
 
 						foreach ( $allDetails['profile_with_pro_ids'] as $profileId => $product_ids ) {
-
+							
 							$this->exportCsvToUploadUsingPorIds( $product_ids, $mplocation );
 						}
 
@@ -297,12 +327,12 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$shop_data = $saved_amazon_details[ $grtopt_data ];
 				}
 
+				$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 				$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 				$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-				$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-				if ( empty( $seller_id ) || empty( $marketplace_id ) ) {
-					$notice['message']           = 'Seller Id or Mareketplace Id is missing. Please check.';
+				if ( empty( $refresh_token ) || empty( $seller_id ) || empty( $marketplace_id ) ) {
+					$notice['message']           = 'Seller credentials are missing. Please check.';
 					$notice['classes']           = 'notice notice-error is-dismissable';
 					$this->product_upload_notice = $notice;
 					return;
@@ -325,18 +355,21 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$contract_data = get_option( 'ced_unified_contract_details', array() );
 					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
-					// create feed for product upload
 
-					$feed_topic = 'create-feed';
-					$feed_data  = array(
+					// create feed for product upload
+					
+					$feed_topic = 'webapi/amazon/create_feed';
+					$feed_data  =  array(
 						'feed_action'    => 'POST_FLAT_FILE_LISTINGS_DATA',
+						'seller_id'      => $seller_id,
+
+						'marketplace_id' => $marketplace_id,
+						'token'          => $refresh_token,
 						'feed_content'   => $template_content,
 						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
 					);
 
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
@@ -365,7 +398,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					if ( isset( $productuploadreponse['feed_id'] ) && ! empty( $productuploadreponse['feed_id'] ) ) {
 						$feedId    = $productuploadreponse['feed_id'];
 						$feed_type = 'POST_FLAT_FILE_LISTINGS_DATA';
-						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation, $product_ids_for_feed, 'Manual' );
+						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation );
 
 						// Save feed action with respect to each product
 						if ( is_array( $product_ids_for_feed ) && ! empty( $product_ids_for_feed ) ) {
@@ -417,15 +450,16 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function ced_amazon_relist_product( $product_ids = array(), $mplocation = '', $seller_mp_key = '' ) {
 
+
 			// throttle check
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
 
 			if ( $ced_amazon_create_feed_throttle ) {
-
+		
 				$notice['message'] = 'Create feed API call limit exceeded. Please try after 5 mins.';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
-
+				
 			}
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
@@ -441,12 +475,12 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $seller_id ) || empty( $mplocation ) ) {
-				$notice['message'] = 'Seller Id and Marketplace Id are missing, please check!';
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $seller_id ) || empty( $mplocation ) ) {
+				$notice['message'] = 'Seller credentials are missing, please check!';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
 			}
@@ -475,23 +509,25 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 					// Product relist feed API call using SP-API endpoint
-
-					$feed_topic = 'create-feed';
+					
+					$feed_topic = 'webapi/amazon/create_feed';
 					$feed_data  = array(
-						'feed_action'    => 'POST_PRODUCT_DATA',
-						'feed_content'   => $relist_content,
-						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
+							'feed_action'    => 'POST_PRODUCT_DATA',
+							'seller_id'      => $seller_id,
+							'marketplace_id' => $marketplace_id,
+							'token'          => $refresh_token,
+							'feed_content'   => $relist_content,
+							'contract_id'    => $contract_id,
 					);
 
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
 						set_transient( 'ced_amazon_create_feed_throttle', 'on', 300 );
 					}
 
+					
 					if ( is_wp_error( $feed_reponse ) ) {
 						$notice['message'] = 'Something went wrong with the product re-list feed submission. Please try again later!';
 						$notice['classes'] = 'notice notice-error is-dismissable';
@@ -564,47 +600,52 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			ignore_user_abort( true );
 
 			// Log file name
-			$logger  = wc_get_logger();
-			$context = array( 'source' => 'ced_amazon_inventory_sync' );
-			$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
+			$log_date = gmdate( 'Y-m-d' );
+			$log_name = 'inventory_api_' . $log_date . '.txt';
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
-				$logger->info( "Marketplace location or seller ID is missing during bulk inventory update. Please check! \n", $context );
-
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Marketplace location or seller ID is missing during bulk inventory update. Please check! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
 			$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', false );
-			$grtopt_data          = $seller_mp_key;
+
+			$grtopt_data = $seller_mp_key;
 			if ( isset( $saved_amazon_details[ $grtopt_data ] ) && ! empty( $saved_amazon_details[ $grtopt_data ] ) && is_array( $saved_amazon_details[ $grtopt_data ] ) ) {
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $seller_id ) ) {
-				$logger->info( "Seller credentials are missing! \n", $context );
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $seller_id ) ) {
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Seller credentials are missing! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
 			if ( is_array( $product_ids ) && ! empty( $product_ids ) ) {
 				$products = $product_ids;
 			} else {
-				$logger->info( "No products were found to update inventory on Amazon! \n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "No products were found to update inventory on Amazon! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
-			$isWriteXML              = true;
-			$xmlFileName             = 'bulk-inventory-' . $mplocation . '.xml';
-			$inventory_content_array = $this->create_inventory_xml_data_file( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );// create inventory xml file
-			$inventory_content       = isset( $inventory_content_array['xmlString'] ) ? $inventory_content_array['xmlString'] : '';
-
-			$logger->info( wc_print_r( $inventory_content, true ), $context );
-
-			$directorypath = CED_AMAZON_DIRPATH . 'marketplaces/amazon';
-			$xsdfile       = "$directorypath/upload/xsds/amzn-envelope.xsd";
+			$isWriteXML        = true;
+			$xmlFileName       = 'bulk-inventory-' . $mplocation . '.xml';
+			$inventory_content = $this->create_inventory_xml_data_file( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );// create inventory xml file
+			
+			$directorypath     = CED_AMAZON_DIRPATH . 'marketplaces/amazon';
+			$xsdfile           = "$directorypath/upload/xsds/amzn-envelope.xsd";
 
 			if ( $this->validateXML( $xsdfile, $xmlFileName ) ) {
 				$XMLfilePath  = get_site_url() . '/wp-content/uploads/ced-amazon/';
@@ -616,16 +657,18 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 					// Inventory update feed API call using SP-API endpoint
+					
+					$feed_topic = 'webapi/amazon/create_feed';
+					$feed_data  = array(
+							'feed_action'    => 'POST_INVENTORY_AVAILABILITY_DATA',
+							'seller_id'      => $seller_id,
 
-					$feed_topic   = 'create-feed';
-					$feed_data    = array(
-						'feed_action'    => 'POST_INVENTORY_AVAILABILITY_DATA',
-						'feed_content'   => $inventory_content,
-						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
+							'marketplace_id' => $marketplace_id,
+							'token'          => $refresh_token,
+							'feed_content'   => $inventory_content,
+							'contract_id'    => $contract_id,
 					);
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
@@ -633,39 +676,50 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					}
 
 					if ( is_wp_error( $feed_reponse ) ) {
-						$logger->info( wc_print_r( $feed_reponse, true ), $context );
+						// Save error in log
+						ced_amazon_log_data( $feed_reponse, $log_name, 'feed' );
 						return;
 					}
 
 					$inventoryuploadreponse = json_decode( $feed_reponse['body'], true );
 					$inventoryuploadreponse = isset( $inventoryuploadreponse['data'] ) ? $inventoryuploadreponse['data'] : array();
 					if ( isset( $inventoryuploadreponse['success'] ) && 'false' == $inventoryuploadreponse['success'] ) {
-						$logger->info( wc_print_r( $feed_reponse, true ), $context );
+						// Save error in log
+						ced_amazon_log_data( $feed_reponse, $log_name, 'feed' );
 						return;
 					}
 
 					if ( isset( $inventoryuploadreponse['feed_id'] ) && ! empty( $inventoryuploadreponse['feed_id'] ) ) {
 						$feedId    = $inventoryuploadreponse['feed_id'];
 						$feed_type = 'POST_INVENTORY_AVAILABILITY_DATA';
-						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation, $inventory_content_array['SKUs'], 'Automatic' );
+						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation );
 
-						$logger->info( "Bulk inventory feed has processed and submitted. \n", $context );
+						// Save error in log
+						$log_message  = ced_woo_timestamp() . "\n";
+						$log_message .= "Bulk inventory feed has processed and submitted. \n\n\n";
+						ced_amazon_log_data( $log_message, $log_name, 'feed' );
 						return;
 
 					} else {
-						$logger->info( "Something went wrong with the inventory feed submission. Please check the inventory feed URL! \n", $context );
+						// Save error in log
+						$log_message  = ced_woo_timestamp() . "\n";
+						$log_message .= "Something went wrong with the inventory feed submission. Please check the inventory feed URL! \n\n\n";
+						ced_amazon_log_data( $log_message, $log_name, 'feed' );
 						return;
 					}
 				} catch ( Exception $e ) {
-					$logger->info( wc_print_r( 'An error occured: ', true ), $context );
-					$logger->info( wc_print_r( $e->getMessage(), true ), $context );
+					echo 'An exception occurred when calling inventory feed API endpoint: ', esc_attr( $e->getMessage() ), PHP_EOL;
+					// Save error in log
+					ced_amazon_log_data( $e->getMessage(), $log_name, 'feed' );
 					return;
 				}
 			} else {
-				$logger->info( "Inventory data validation failed! \n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Inventory data validation failed! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
-
 		}
 
 
@@ -677,14 +731,16 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function ced_amazon_manual_inventory_update( $product_ids = array(), $mplocation = '', $seller_mp_key = '' ) {
 
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
-			if ( $ced_amazon_create_feed_throttle ) {
 
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
+			if ( $ced_amazon_create_feed_throttle ) {
+		
 				$notice['message'] = 'Create feed API call limit exceeded. Please try after 5 mins.';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
-
+				
 			}
+
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
 				$notice['message'] = 'Marketplace location or seller ID is missing. Please check!';
@@ -699,12 +755,12 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $seller_id ) ) {
-				$notice['message'] = 'Seller Id and Marketplace Id are missing, please check!';
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $seller_id ) ) {
+				$notice['message'] = 'Seller credentials are missing. Please check.';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
 			}
@@ -717,14 +773,15 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return wp_json_encode( $notice );
 			}
 
-			$isWriteXML  = true;
-			$xmlFileName = 'inventory-' . $mplocation . '.xml';
+			$isWriteXML        = true;
+			$xmlFileName       = 'inventory-' . $mplocation . '.xml'; 
 
-			$inventory_content_array = $this->create_inventory_xml_data_file( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );// create inventory xml file
-			$inventory_content       = isset( $inventory_content_array['xmlString'] ) ? $inventory_content_array['xmlString'] : '';
+		
+			$inventory_content = $this->create_inventory_xml_data_file( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );// create inventory xml file
+			$directorypath     = CED_AMAZON_DIRPATH . 'marketplaces/amazon';
+			$xsdfile           = "$directorypath/upload/xsds/amzn-envelope.xsd";
 
-			$directorypath = CED_AMAZON_DIRPATH . 'marketplaces/amazon';
-			$xsdfile       = "$directorypath/upload/xsds/amzn-envelope.xsd";
+		
 
 			if ( $this->validateXML( $xsdfile, $xmlFileName ) ) {
 				$XMLfilePath  = get_site_url() . '/wp-content/uploads/ced-amazon/';
@@ -736,17 +793,20 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 					// Inventory update feed API call using SP-API endpoint
-					$feed_topic = 'create-feed';
+					
+					$feed_topic = 'webapi/amazon/create_feed';
 					$feed_data  = array(
-						'feed_action'    => 'POST_INVENTORY_AVAILABILITY_DATA',
-						'feed_content'   => $inventory_content,
-						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
+							'feed_action'    => 'POST_INVENTORY_AVAILABILITY_DATA',
+							'seller_id'      => $seller_id,
+
+							'marketplace_id' => $marketplace_id,
+							'token'          => $refresh_token,
+							'feed_content'   => $inventory_content,
+							'contract_id'    => $contract_id,
 					);
-
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
-
+					
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
+					
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
 						set_transient( 'ced_amazon_create_feed_throttle', 'on', 300 );
@@ -769,7 +829,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					if ( isset( $inventoryuploadreponse['feed_id'] ) && ! empty( $inventoryuploadreponse['feed_id'] ) ) {
 						$feedId    = $inventoryuploadreponse['feed_id'];
 						$feed_type = 'POST_INVENTORY_AVAILABILITY_DATA';
-						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation, $inventory_content_array['SKUs'], 'Manual' );
+						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation );
 
 						// Save feed action with respect to each product
 						foreach ( $products as $pkey => $product_id ) {
@@ -817,20 +877,21 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 * @name ced_amazon_bulk_price_update
 		 * @since 1.0.0
 		 */
-		public function ced_amazon_bulk_price_update( $product_ids = array(), $mplocation = '', $seller_mp_key = '', $opt_type = '' ) {
+		public function ced_amazon_bulk_price_update( $product_ids = array(), $mplocation = '', $seller_mp_key = '' ) {
 
 			set_time_limit( 600 );
 			wp_raise_memory_limit( -1 );
 
 			ignore_user_abort( true );
 
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
-			if ( $ced_amazon_create_feed_throttle ) {
 
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
+			if ( $ced_amazon_create_feed_throttle ) {
+		
 				$notice['message'] = 'Create feed API call limit exceeded. Please try after 5 mins.';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
-
+				
 			}
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
@@ -846,12 +907,12 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $seller_id ) ) {
-				$notice['message'] = 'Seller Id and Marketplace Id are missing, please check!';
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $seller_id ) ) {
+				$notice['message'] = 'Seller credentials are missing. Please check!';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
 			}
@@ -864,11 +925,9 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return wp_json_encode( $notice );
 			}
 
-			$isWriteXML          = true;
-			$xmlFileName         = 'price-' . $mplocation . '.xml';
-			$price_content_array = $this->makePriceXMLFileToSendOnAmazon( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );// create Price xml file
-			$price_content       = isset( $price_content_array['xmlString'] ) ? $price_content_array['xmlString'] : '';
-
+			$isWriteXML    = true;
+			$xmlFileName   = 'price-' . $mplocation . '.xml';
+			$price_content = $this->makePriceXMLFileToSendOnAmazon( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );// create Price xml file
 			$directorypath = CED_AMAZON_DIRPATH . 'marketplaces/amazon';
 			$xsdfile       = "$directorypath/upload/xsds/amzn-envelope.xsd";
 
@@ -883,15 +942,17 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 					// Price update feed API call using SP-API endpoint
 
-					$feed_topic   = 'create-feed';
-					$feed_data    = array(
-						'feed_action'    => 'POST_PRODUCT_PRICING_DATA',
-						'feed_content'   => $price_content,
-						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
+					$feed_topic = 'webapi/amazon/create_feed';
+					$feed_data  = array(
+							'feed_action'    => 'POST_PRODUCT_PRICING_DATA',
+							'seller_id'      => $seller_id,
+
+							'marketplace_id' => $marketplace_id,
+							'token'          => $refresh_token,
+							'feed_content'   => $price_content,
+							'contract_id'    => $contract_id,
 					);
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
@@ -916,7 +977,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					if ( isset( $priceuploadreponse['feed_id'] ) && ! empty( $priceuploadreponse['feed_id'] ) ) {
 						$feedId    = $priceuploadreponse['feed_id'];
 						$feed_type = 'POST_PRODUCT_PRICING_DATA';
-						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation, $price_content_array['SKUs'], $opt_type );
+						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation );
 
 						// Save feed action with respect to each product
 						foreach ( $products as $pkey => $product_id ) {
@@ -971,13 +1032,13 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 			ignore_user_abort( true );
 
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
 			if ( $ced_amazon_create_feed_throttle ) {
-
+		
 				$notice['message'] = 'Create feed API call limit exceeded. Please try after 5 mins.';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
-
+				
 			}
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
@@ -987,24 +1048,25 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			}
 
 			$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', false );
-			$grtopt_data          = $seller_mp_key;
+
+			$grtopt_data = $seller_mp_key;
 			if ( isset( $saved_amazon_details[ $grtopt_data ] ) && ! empty( $saved_amazon_details[ $grtopt_data ] ) && is_array( $saved_amazon_details[ $grtopt_data ] ) ) {
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
 			if ( empty( $shop_data ) ) {
-				$notice['message'] = 'Seller data is missing. Please check!';
+				$notice['message'] = 'Seller credentials are missing. Please check!';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$region         = isset( $shop_data['marketplace_region'] ) ? $shop_data['marketplace_region'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $seller_id ) ) {
-				$notice['message'] = 'Seller Id and Marketplace Id are missing, please check!';
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $seller_id ) ) {
+				$notice['message'] = 'Seller credentials are missing. Please check!';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
 			}
@@ -1017,11 +1079,9 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return wp_json_encode( $notice );
 			}
 
-			$isWriteXML          = true;
-			$xmlFileName         = 'image-' . $mplocation . '.xml';
-			$image_content_array = $this->makeImageXMLFileToSendOnAmazon( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );
-			$image_content       = isset( $image_content_array['xmlString'] ) ? $image_content_array['xmlString'] : '';
-
+			$isWriteXML    = true;
+			$xmlFileName   = 'image-' . $mplocation . '.xml';
+			$image_content = $this->makeImageXMLFileToSendOnAmazon( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );
 			$directorypath = CED_AMAZON_DIRPATH . 'marketplaces/amazon';
 			$xsdfile       = "$directorypath/upload/xsds/amzn-envelope.xsd";
 			if ( $this->validateXML( $xsdfile, $xmlFileName ) ) {
@@ -1033,16 +1093,19 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$contract_data = get_option( 'ced_unified_contract_details', array() );
 					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
-					$feed_topic = 'create-feed';
+					
+					$feed_topic = 'webapi/amazon/create_feed';
 					$feed_data  = array(
-						'feed_action'    => 'POST_PRODUCT_IMAGE_DATA',
-						'feed_content'   => $image_content,
-						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
+							'feed_action'    => 'POST_PRODUCT_IMAGE_DATA',
+							'seller_id'      => $seller_id,
+
+							'marketplace_id' => $marketplace_id,
+							'token'          => $refresh_token,
+							'feed_content'   => $image_content,
+							'contract_id'    => $contract_id,
 					);
 
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
@@ -1066,7 +1129,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					if ( isset( $imageuploadreponse['feed_id'] ) && ! empty( $imageuploadreponse['feed_id'] ) ) {
 						$feedId    = $imageuploadreponse['feed_id'];
 						$feed_type = 'POST_PRODUCT_IMAGE_DATA';
-						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation, $image_content_array['SKUs'], 'Manual' );
+						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation );
 
 						// Save feed action with respect to each product
 						foreach ( $products as $pkey => $product_id ) {
@@ -1117,13 +1180,14 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function ced_amazon_delete_product( $product_ids = array(), $mplocation = '', $seller_mp_key = '' ) {
 
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
-			if ( $ced_amazon_create_feed_throttle ) {
 
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
+			if ( $ced_amazon_create_feed_throttle ) {
+		
 				$notice['message'] = 'Create feed API call limit exceeded. Please try after 5 mins.';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
-
+				
 			}
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
@@ -1139,13 +1203,13 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$region         = isset( $shop_data['marketplace_region'] ) ? $shop_data['marketplace_region'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $seller_id ) ) {
-				$notice['message'] = 'Seller Id and Marketplace Id are missing, please check!';
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $seller_id ) ) {
+				$notice['message'] = 'Seller credentials are missing. Please check!';
 				$notice['classes'] = 'notice notice-error is-dismissable';
 				return wp_json_encode( $notice );
 			}
@@ -1172,17 +1236,18 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 					// Product delete feed API call using SP-API endpoint
-
-					$feed_topic = 'create-feed';
+					
+					$feed_topic = 'webapi/amazon/create_feed';
 					$feed_data  = array(
 						'feed_action'    => 'JSON_LISTINGS_FEED',
+						'seller_id'      => $seller_id,
+						'marketplace_id' => $marketplace_id,
+						'token'          => $refresh_token,
 						'feed_content'   => $delete_content,
 						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
 					);
 
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
@@ -1278,12 +1343,14 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$mod_product   = wc_get_product( $product_id );
 					$mod_parent_id = $mod_product->get_parent_id();
 
+					
 					if ( 0 == $mod_parent_id || '0' == $mod_parent_id ) {
 						$terms = get_the_terms( $product_id, 'product_cat' );
 					} else {
 						$terms = get_the_terms( $mod_parent_id, 'product_cat' );
 					}
 
+					
 					$term_array = array();
 					if ( $terms && ! is_wp_error( $terms ) ) {
 						foreach ( $terms as $term ) {
@@ -1291,10 +1358,12 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						}
 					}
 
+					
 					$profileID              = '';
 					$ced_woo_amazon_mapping = get_option( 'ced_woo_amazon_mapping', array() );
 					$ced_woo_amazon_mapping = isset( $ced_woo_amazon_mapping[ $seller_id ] ) ? $ced_woo_amazon_mapping[ $seller_id ] : array();
 
+					
 					if ( ! empty( $ced_woo_amazon_mapping ) ) {
 						foreach ( $ced_woo_amazon_mapping as $key => $woo_cat_array ) {
 
@@ -1308,15 +1377,17 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						}
 					}
 
+
 					update_post_meta( $product_id, 'ced_amazon_profile_template_type_' . $getopt_data, $template_type );
 					// new code end.
 
 					update_post_meta( $product_id, 'ced_umb_amazon_profile_updated_' . $getopt_data, 'yes' );
 					delete_post_meta( $product_id, 'ced_prepared_for_template_temp' );
 
+					
 					$profileIDPerProduct = '';
 					if ( ! empty( $profileID ) ) {
-
+						
 						$profileIDPerProduct = $profileID;
 					} else {
 
@@ -1339,6 +1410,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				}
 			}
 
+			
 			return wp_json_encode(
 				array(
 					'invntory_loder_ids'   => array_unique( $finalAllLoaderProductIds ),
@@ -1384,7 +1456,9 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$getopt_data = $mplocation;
 				$profileID   = '';
 
+
 				if ( isset( $posts['0'] ) ) {
+
 
 					foreach ( $posts as $pro_key => $product_id ) {
 
@@ -1437,6 +1511,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 							$this->amazon_xml_lib->fetchAssignedProfileDataOfProduct( $posts[0], $getopt_data, $profileIDPerProduct );
 							$template_fields_details = $this->amazon_xml_lib->template_details;
+
+							
 
 							$temp_details_info   = isset( $template_fields_details['template_details_info'] ) ? $template_fields_details['template_details_info'] : '';
 							$temp_fields_details = isset( $template_fields_details['template_fields_details'] ) ? $template_fields_details['template_fields_details'] : '';
@@ -1501,20 +1577,26 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						return wp_json_encode( $notice );
 					}
 
+					
 					if ( isset( $template_details_info['template_name'] ) ) {
 
-						$tempfilePathFinal = '';
+						
+
+						$tempfilePathFinal  = '';
 						// $tempfilePath       = ABSPATH . 'wp-content/uploads/';
-						$upload_dir   = wp_upload_dir();
-						$tempfilePath = $upload_dir['basedir'] . '/';
+						$upload_dir = wp_upload_dir();
+						$tempfilePath   = $upload_dir['basedir'] . '/';
 
-						$tempfilePath = $tempfilePath . 'ced-amazon/pro_ids_';
-
+						$tempfilePath       = $tempfilePath . 'ced-amazon/pro_ids_';
+						
 						$tempfilePathFinal .= 'pro_ids_' . $template_details_info['template_name'] . '.txt';
 						$this->writeXMLStringToFile( $template_content, $tempfilePathFinal );
 
+					
+
 						if ( '' != $template_content ) {
 
+							
 							set_time_limit( -1 );
 							wp_raise_memory_limit( -1 );
 
@@ -1548,29 +1630,17 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return;
 			}
 
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
 			if ( $ced_amazon_create_feed_throttle ) {
-
+			   
 				echo esc_attr_e( 'Create feed API call limit exceeded. Please try after 5 mins.', 'amazon-for-woocommerce' );
 				die;
 			}
 
 			// Order shipment via SP-API
-			$post_order = isset( $_POST['order'] ) ? sanitize_text_field( $_POST['order'] ) : '';
-			$hpos       = isset( $_POST['hpos'] ) ? sanitize_text_field( $_POST['hpos'] ) : '';
-
-			$order = '';
-
-			if ( '1' == $hpos || $hpos ) {
-				$order       = wc_get_order( $post_order );
-				$mplocation  = $order->get_meta( 'ced_amazon_order_countory_code' );
-				$grtopt_data = $order->get_meta( 'ced_amazon_order_seller_id' );
-
-			} else {
-				$mplocation  = get_post_meta( $post_order, 'ced_amazon_order_countory_code', true );
-				$grtopt_data = get_post_meta( $post_order, 'ced_amazon_order_seller_id', true );
-			}
-
+			$post_order  = isset( $_POST['order'] ) ? sanitize_text_field( $_POST['order'] ) : '';
+			$mplocation  = get_post_meta( $post_order, 'ced_amazon_order_countory_code', true );
+			$grtopt_data = get_post_meta( $post_order, 'ced_amazon_order_seller_id', true );
 			if ( empty( $mplocation ) || empty( $grtopt_data ) ) {
 				echo esc_attr_e( 'Mp_location or Seller_id is missing for this order!', 'amazon-for-woocommerce' );
 				die;
@@ -1582,41 +1652,26 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$region         = isset( $shop_data['marketplace_region'] ) ? $shop_data['marketplace_region'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
-
-			if ( empty( $seller_id ) || empty( $marketplace_id ) ) {
+			if ( empty( $refresh_token ) || empty( $seller_id ) || empty( $marketplace_id ) ) {
 				echo esc_attr_e( 'Invalid or missing seller data', 'amazon-for-woocommerce' );
 				die;
 			}
 
-			$order_id = isset( $_POST['order'] ) ? sanitize_text_field( $_POST['order'] ) : '';
-			// $amazon_order_id    = get_post_meta( $order_id, 'amazon_order_id', true );
-
-			$amazon_order_id = isset( $_POST['order_id'] ) ? sanitize_text_field( $_POST['order_id'] ) : '';
-
+			$order_id           = isset( $_POST['order'] ) ? sanitize_text_field( $_POST['order'] ) : '';
+			$amazon_order_id    = get_post_meta( $order_id, 'amazon_order_id', true );
 			$amazon_carrier     = isset( $_POST['carrier'] ) ? sanitize_text_field( $_POST['carrier'] ) : '';
 			$amazon_methodCode  = isset( $_POST['methodCode'] ) ? sanitize_text_field( $_POST['methodCode'] ) : '';
 			$amazon_ship_todate = isset( $_POST['ship_todate'] ) ? sanitize_text_field( $_POST['ship_todate'] ) : '';
 			$amazon_tracking    = isset( $_POST['tracking'] ) ? sanitize_text_field( $_POST['tracking'] ) : '';
 
-			if ( '1' == $hpos || $hpos ) {
+			update_post_meta( $order_id, 'ced_amzon_shipped_data', $_POST );
 
-				$order->update_meta_data( 'ced_amzon_shipped_data', $_POST );
-				$order_items   = $order->get_meta( 'order_items' );
-				$order_details = $order->get_meta( 'order_item_detail' );
-
-				$order->save();
-
-			} else {
-
-				update_post_meta( $order_id, 'ced_amzon_shipped_data', $_POST );
-				$order_items   = get_post_meta( $order_id, 'order_items', true );
-				$order_details = get_post_meta( $order_id, 'order_item_detail', true );
-
-			}
+			$order_items   = get_post_meta( $order_id, 'order_items', true );
+			$order_details = get_post_meta( $order_id, 'order_item_detail', true );
 
 			$offset_end = $this->getStandardOffsetUTC(); // get offset
 			if ( empty( $offset_end ) || '' == trim( $offset_end ) ) {
@@ -1626,7 +1681,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			}
 
 			$amazon_ship_todate = strtotime( $amazon_ship_todate );
-			$Ship_todate        = gmdate( 'Y-m-d', $amazon_ship_todate ) . 'T' . gmdate( 'H:i:s', $amazon_ship_todate ) . $offset;
+
+			$Ship_todate = gmdate( 'Y-m-d', $amazon_ship_todate ) . 'T' . gmdate( 'H:i:s', $amazon_ship_todate ) . $offset;
 
 			$ordershipfulfildata['CarrierCode']           = $amazon_carrier;
 			$ordershipfulfildata['ShippingMethod']        = $amazon_methodCode;
@@ -1644,13 +1700,21 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$itemarray[]                     = $amznitem;
 				unset( $order_details[ $key ] );
 			}
-
 			$ordershiparray['Item'] = $itemarray;
-			$ordershipmainarray     = $this->ced_amz_prepare_feed_header( 'OrderFulfillment' );
 
-			$ordershipmainarray['Message']['MessageID']        = 1;
-			$ordershipmainarray['Message']['OperationType']    = 'Update';
-			$ordershipmainarray['Message']['OrderFulfillment'] = $ordershiparray;
+			$ordershipmainarray                = array();
+			$ordershipmainarray['@attributes'] = array(
+				'xmlns:xsi'                     => 'http://www.w3.org/2001/XMLSchema-instance',
+				'xsi:noNamespaceSchemaLocation' => 'amzn-envelope.xsd',
+			);
+
+			$ordershipmainarray['Header']['DocumentVersion']    = '1.01';
+			$ordershipmainarray['Header']['MerchantIdentifier'] = 'M_SELLER_XXXXXX';
+			$ordershipmainarray['MessageType']                  = 'OrderFulfillment';
+			$ordershipmainarray['PurgeAndReplace']              = 'false';
+			$ordershipmainarray['Message']['MessageID']         = 1;
+			$ordershipmainarray['Message']['OperationType']     = 'Update';
+			$ordershipmainarray['Message']['OrderFulfillment']  = $ordershiparray;
 
 			$directorypath = plugin_dir_path( __FILE__ );
 			if ( ! class_exists( 'Array2XML' ) ) {
@@ -1675,19 +1739,21 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 			// Order shipment via SP-API
-			$file_path  = get_site_url() . '/wp-content/uploads/ced-amazon/';
-			$file_path .= $xmlFileName;
+			$file_path     = get_site_url() . '/wp-content/uploads/ced-amazon/';
+			$file_path    .= $xmlFileName;
+			
 
-			$feed_topic = 'create-feed';
+			$feed_topic = 'webapi/amazon/create_feed';
 			$feed_data  = array(
-				'feed_action'    => 'POST_ORDER_FULFILLMENT_DATA',
-				'feed_content'   => $xmlString,
-				'contract_id'    => $contract_id,
-				'mode'           => self::$mode,
-				'remote_shop_id' => $remote_shop_id,
+					'feed_action'    => 'POST_ORDER_FULFILLMENT_DATA',
+					'seller_id'      => $seller_id,
+					'marketplace_id' => $marketplace_id,
+					'token'          => $refresh_token,
+					'feed_content'   => $xmlString,
+					'contract_id'    => $contract_id,
 			);
 
-			$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
+			$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 			$code = wp_remote_retrieve_response_code( $feed_reponse );
 			if ( 429 == $code ) {
@@ -1698,10 +1764,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				echo esc_attr_e( 'Something went wrong with shipment feed submission. Please try again later!', 'amazon-for-woocommerce' );
 				die;
 			}
-
 			$ordershipmentreponse = json_decode( $feed_reponse['body'], true );
 			$ordershipmentreponse = isset( $ordershipmentreponse['data'] ) ? $ordershipmentreponse['data'] : array();
-
 			if ( isset( $ordershipmentreponse['success'] ) && 'false' == $ordershipmentreponse['success'] ) {
 				$message = isset( $ordershipmentreponse['body'] ) ? $ordershipmentreponse['body'] : $ordershipmentreponse['message'];
 				echo esc_attr( $message );
@@ -1715,27 +1779,11 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$feedrequest['id']       = $feedId;
 				$feedrequest['response'] = false;
 
-				if ( '1' == $hpos || $hpos ) {
-
-					$order->update_meta_data( '_umb_order_feed_status', true );
-					$order->update_meta_data( '_umb_order_feed_details', $feedrequest );
-
-					$order->save();
-
-				} else {
-					update_post_meta( $order_id, '_umb_order_feed_status', true );
-					update_post_meta( $order_id, '_umb_order_feed_details', $feedrequest );
-				}
+				update_post_meta( $order_id, '_umb_order_feed_status', true );
+				update_post_meta( $order_id, '_umb_order_feed_details', $feedrequest );
 
 				$this->insertFeedInfoToDatabase( $feedId, 'POST_ORDER_FULFILLMENT_DATA', $mplocation );  // save product feed
-
-				if ( '1' == $hpos || $hpos ) {
-					$order->update_meta_data( '_amazon_umb_order_status', 'Shipped' );
-					$order->save();
-				} else {
-					update_post_meta( $order_id, '_amazon_umb_order_status', 'Shipped' );
-				}
-
+				update_post_meta( $order_id, '_amazon_umb_order_status', 'Shipped' );
 				echo esc_attr_e( 'Shipment Request Submitted Successfully', 'amazon-for-woocommerce' );
 				die;
 
@@ -1754,24 +1802,36 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function ced_amazon_order_product_inventory_update_on_marketplace( $product_ids = array(), $mplocation = '', $seller_mp_key = '' ) {
 
-			// Log file name
-			$logger  = wc_get_logger();
-			$context = array( 'source' => 'ced_amazon_order_inventory_sync' );
-			$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
 
-			$ced_amazon_create_feed_throttle = get_transient( 'ced_amazon_create_feed_throttle' );
+			// Log file name
+			$log_date = gmdate( 'Y-m-d' );
+			$log_time = strtotime( gmdate( 'H:i:s' ) );
+
+			$log_name = 'order_inventory_api_' . $log_date . '.txt';
+
+			$ced_amazon_create_feed_throttle = get_transient('ced_amazon_create_feed_throttle') ;
 			if ( $ced_amazon_create_feed_throttle ) {
-				$logger->info( 'Create feed API call limit exceeded. Please try after 5 mins.', $context );
+			  
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= 'Create feed API call limit exceeded. Please try after 5 mins.';
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
+
 			}
 
 			if ( empty( $product_ids ) ) {
-				$logger->info( "No product IDs were found to update inventory during order sync! \n" );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "No product IDs were found to update inventory during order sync! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
 			if ( empty( $mplocation ) || empty( $seller_mp_key ) ) {
-				$logger->info( "Mplocation or seller ID is missing! \n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Mplocation or seller ID is missing! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
@@ -1783,23 +1843,32 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			}
 
 			if ( empty( $shop_data ) ) {
-				$logger->info( "Seller API are missing \n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Seller API are missing \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 			$seller_id      = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $seller_id ) ) {
-				$logger->info( "Refresh token, marketplace ID, and seller ID are missing. \n", $context );
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $seller_id ) ) {
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Refresh token, marketplace ID, and seller ID are missing. \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
 			if ( is_array( $product_ids ) && ! empty( $product_ids ) ) {
 				$products = array_unique( $product_ids );
 			} else {
-				$logger->info( "No product IDs were found to update inventory during order sync! \n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "No product IDs were found to update inventory during order sync! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 
@@ -1810,8 +1879,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			// create inventory xml file when order sync in woo
 			$xmlFileName       = 'order-sync-inventory-' . $mplocation . '.xml';
 			$inventory_content = $this->makeInventoryXMLFileAfterOrderSync( $products, $isWriteXML, $mplocation, $xmlFileName, $seller_mp_key );
-
-			$logger->info( wc_print_r( $inventory_content, true ), $context );
 
 			$directorypath = CED_AMAZON_DIRPATH . 'marketplaces/amazon';
 			$xsdfile       = "$directorypath/upload/xsds/amzn-envelope.xsd";
@@ -1825,25 +1892,28 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 					// Inventory update feed API call using SP-API endpoint
-
-					$feed_topic = 'create-feed';
+					
+					$feed_topic = 'webapi/amazon/create_feed';
 					$feed_data  = array(
-						'feed_action'    => 'POST_INVENTORY_AVAILABILITY_DATA',
-						'feed_content'   => $inventory_content,
-						'contract_id'    => $contract_id,
-						'mode'           => self::$mode,
-						'remote_shop_id' => $remote_shop_id,
+							'feed_action'    => 'POST_INVENTORY_AVAILABILITY_DATA',
+							'seller_id'      => $seller_id,
+
+							'marketplace_id' => $marketplace_id,
+							'token'          => $refresh_token,
+							'feed_content'   => $inventory_content,
+							'contract_id'    => $contract_id,
 					);
 
-					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST' );
-
+					$feed_reponse = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
+					
 					$code = wp_remote_retrieve_response_code( $feed_reponse );
 					if ( 429 == $code ) {
 						set_transient( 'ced_amazon_create_feed_throttle', 'on', 300 );
 					}
 
 					if ( is_wp_error( $feed_reponse ) ) {
-						$logger->info( wc_print_r( $feed_reponse, true ), $context );
+						// Save error in log
+						ced_amazon_log_data( $feed_reponse, $log_name, 'feed' );
 						return;
 					}
 
@@ -1851,7 +1921,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$inventoryuploadreponse = isset( $inventoryuploadreponse['data'] ) ? $inventoryuploadreponse['data'] : array();
 
 					if ( isset( $inventoryuploadreponse['success'] ) && 'false' == $inventoryuploadreponse['success'] ) {
-						$logger->info( wc_print_r( $feed_reponse, true ), $context );
+						// Save error in log
+						ced_amazon_log_data( $feed_reponse, $log_name, 'feed' );
 						return;
 					}
 
@@ -1860,19 +1931,30 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						$feed_type = 'POST_INVENTORY_AVAILABILITY_DATA';
 						$this->insertFeedInfoToDatabase( $feedId, $feed_type, $mplocation );
 
-						$logger->info( "Inventory feed has been processed and submitted during order sync. \n", $context );
+						// Save error in log
+						$log_message  = ced_woo_timestamp() . "\n";
+						$log_message .= "Inventory feed has been processed and submitted during order sync. \n\n\n";
+						ced_amazon_log_data( $log_message, $log_name, 'feed' );
 						return;
 
 					} else {
-						$logger->info( "Something went wrong with inventory feed ID! \n", $context );
+						// Save error in log
+						$log_message  = ced_woo_timestamp() . "\n";
+						$log_message .= "Something went wrong with inventory feed ID! \n\n\n";
+						ced_amazon_log_data( $log_message, $log_name, 'feed' );
 						return;
 					}
 				} catch ( Exception $e ) {
-					$logger->info( wc_print_r( $e->getMessage(), true ), $context );
+
+					// Save error in log
+					ced_amazon_log_data( $e->getMessage(), $log_name, 'feed' );
 					return;
 				}
 			} else {
-				$logger->info( "Inventory data validation failed during order sync! \n", $context );
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Inventory data validation failed during order sync! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'feed' );
 				return;
 			}
 		}
@@ -1890,8 +1972,18 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return false;
 			}
 
-			$amazonxmlsubarray = $this->ced_amz_prepare_feed_header( 'Product' );
-			$i                 = 1;
+			$directorypath                    = plugin_dir_path( __FILE__ );
+			$amazonxmlsubarray                = array();
+			$amazonxmlsubarray['@attributes'] = array(
+				'xmlns:xsi'                     => 'http://www.w3.org/2001/XMLSchema-instance',
+				'xsi:noNamespaceSchemaLocation' => 'amzn-envelope.xsd',
+			);
+
+			$amazonxmlsubarray['Header']['DocumentVersion']    = '1.01';
+			$amazonxmlsubarray['Header']['MerchantIdentifier'] = 'M_SELLER_XXXXXX';
+			$amazonxmlsubarray['MessageType']                  = 'Product';
+			$amazonxmlsubarray['PurgeAndReplace']              = 'false';
+			$i = 1;
 
 			foreach ( $proIds as $product_id ) {
 				$product = wc_get_product( $product_id );
@@ -1978,33 +2070,31 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function create_inventory_xml_data_file( $proIds, $isWriteXML = true, $shop_location = '', $xmlFileName = '', $seller_mp_key = '' ) {
 
-			$logger  = wc_get_logger();
-			$context = array( 'source' => 'ced_amazon_inventory_update' );
-			$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
-
-			$errorsArray = array();
-
 			if ( empty( $xmlFileName ) ) {
-				$errorsArray['File'] = 'XML file name is not availbale';
 				return false;
 			}
 
 			// Get global settings data
 			$seller_global_settings = array();
 			$global_settings        = get_option( 'ced_amazon_global_settings' );
-			$ced_amazon_rsrve_stck  = 0;
 
 			$seller_location = $seller_mp_key;
 			if ( isset( $global_settings[ $seller_location ] ) && ! empty( $global_settings[ $seller_location ] ) ) {
 				$seller_global_settings = $global_settings[ $seller_location ];
-				$ced_amazon_rsrve_stck  = isset( $seller_global_settings['ced_amazon_rsrve_stck'] ) ? $seller_global_settings['ced_amazon_rsrve_stck'] : '';
-
 			}
 
-			$amazonxmlsubarray = $this->ced_amz_prepare_feed_header( 'Inventory' );
-			$i                 = 1;
+			$directorypath                    = plugin_dir_path( __FILE__ );
+			$amazonxmlsubarray                = array();
+			$amazonxmlsubarray['@attributes'] = array(
+				'xmlns:xsi'                     => 'http://www.w3.org/2001/XMLSchema-instance',
+				'xsi:noNamespaceSchemaLocation' => 'amzn-envelope.xsd',
+			);
 
-			$SKUs_array = array();
+			$amazonxmlsubarray['Header']['DocumentVersion']    = '1.01';
+			$amazonxmlsubarray['Header']['MerchantIdentifier'] = 'M_SELLER_XXXXXX';
+			$amazonxmlsubarray['MessageType']                  = 'Inventory';
+			$amazonxmlsubarray['PurgeAndReplace']              = 'false';
+			$i = 1;
 
 			foreach ( $proIds as $product_id ) {
 				$product = wc_get_product( $product_id );
@@ -2013,7 +2103,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				}
 				$productType = $product->get_type();
 				if ( 'simple' == $productType ) {
-
 					$amazonxmlarray = array();
 					$qty            = $product->get_stock_quantity();
 					$sku            = $product->get_sku();
@@ -2038,21 +2127,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						$qty = ( $productLevelAmazonQty >= 0 ) ? $productLevelAmazonQty : 0;
 					}
 
-					if ( ! empty( $ced_amazon_rsrve_stck ) ) {
-						$qty = $qty - $ced_amazon_rsrve_stck;
-					}
-
 					if ( isset( $qty ) && isset( $sku ) && ! empty( $sku ) ) {
-
-						$quantity           = ( $qty >= 0 ) ? $qty : 0;
-						$SKUs_array[ $sku ] = array(
-							'type'         => 'Simple',
-							'value'        => $quantity,
-							'product_id'   => $product_id,
-							'product_sku'  => $sku,
-							'product_name' => $product->get_name(),
-						);
-
+						$quantity                                = ( $qty >= 0 ) ? $qty : 0;
 						$amazonxmlarray['MessageID']             = $i;
 						$amazonxmlarray['OperationType']         = 'Update';
 						$amazonxmlarray['Inventory']['SKU']      = $sku;
@@ -2121,22 +2197,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 							$qty = ( $productLevelAmazonQty >= 0 ) ? $productLevelAmazonQty : 0;
 						}
 
-						if ( ! empty( $ced_amazon_rsrve_stck ) ) {
-							$qty = $qty - $ced_amazon_rsrve_stck;
-						}
-
 						if ( isset( $qty ) && isset( $sku ) && ! empty( $sku ) ) {
-
-							$quantity           = ( $qty >= 0 ) ? $qty : 0;
-							$SKUs_array[ $sku ] = array(
-								'type'         => 'Variation',
-								'parent_sku'   => $parent_sku,
-								'value'        => $quantity,
-								'product_id'   => $var_value['variation_id'],
-								'product_sku'  => $sku,
-								'product_name' => $product->get_name(),
-							);
-
+							$quantity                                = ( $qty >= 0 ) ? $qty : 0;
 							$amazonxmlarray['MessageID']             = $i;
 							$amazonxmlarray['OperationType']         = 'Update';
 							$amazonxmlarray['Inventory']['SKU']      = $sku;
@@ -2154,12 +2216,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 			$xmlString = $xml->saveXML();
 			$this->writeXMLStringToFile( $xmlString, $xmlFileName );
-			return array(
-				'xmlString'   => $xmlString,
-				'SKUs'        => $SKUs_array,
-				'errorsLists' => $errorsArray,
-			);
-
+			return $xmlString;
 		}
 
 
@@ -2178,16 +2235,24 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			// Get global settings data
 			$seller_global_settings = array();
 			$global_settings        = get_option( 'ced_amazon_global_settings' );
-			$ced_amazon_rsrve_stck  = 0;
 
 			$seller_location = $seller_mp_key;
 			if ( isset( $global_settings[ $seller_location ] ) && ! empty( $global_settings[ $seller_location ] ) ) {
 				$seller_global_settings = $global_settings[ $seller_location ];
-				$ced_amazon_rsrve_stck  = isset( $seller_global_settings['ced_amazon_rsrve_stck'] ) ? $seller_global_settings['ced_amazon_rsrve_stck'] : '';
-
 			}
 
-			$amazonxmlsubarray = $this->ced_amz_prepare_feed_header( 'Inventory' );
+			$directorypath                    = plugin_dir_path( __FILE__ );
+			$amazonxmlsubarray                = array();
+			$amazonxmlsubarray['@attributes'] = array(
+				'xmlns:xsi'                     => 'http://www.w3.org/2001/XMLSchema-instance',
+				'xsi:noNamespaceSchemaLocation' => 'amzn-envelope.xsd',
+			);
+
+			$amazonxmlsubarray['Header']['DocumentVersion']    = '1.01';
+			$amazonxmlsubarray['Header']['MerchantIdentifier'] = 'M_SELLER_XXXXXX';
+			$amazonxmlsubarray['MessageType']                  = 'Inventory';
+			$amazonxmlsubarray['PurgeAndReplace']              = 'false';
+			$i = 1;
 
 			foreach ( $proIds as $product_id ) {
 				$product = wc_get_product( $product_id );
@@ -2219,12 +2284,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$qty = ( $productLevelAmazonQty >= 0 ) ? $productLevelAmazonQty : 0;
 				}
 
-				if ( ! empty( $ced_amazon_rsrve_stck ) ) {
-					$qty = $qty - $ced_amazon_rsrve_stck;
-				}
-
 				if ( isset( $qty ) && isset( $sku ) && ! empty( $sku ) ) {
-
 					$quantity                                = ( $qty >= 0 ) ? $qty : 0;
 					$amazonxmlarray['MessageID']             = $i;
 					$amazonxmlarray['OperationType']         = 'Update';
@@ -2266,10 +2326,19 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$seller_global_settings = $global_settings[ $seller_location ];
 			}
 
-			$amazonxmlsubarray = $this->ced_amz_prepare_feed_header( 'Price' );
+			$directorypath                    = plugin_dir_path( __FILE__ );
+			$amazonxmlsubarray                = array();
+			$amazonxmlsubarray['@attributes'] = array(
+				'xmlns:xsi'                     => 'http://www.w3.org/2001/XMLSchema-instance',
+				'xsi:noNamespaceSchemaLocation' => 'amzn-envelope.xsd',
+			);
 
-			$i          = 1;
-			$SKUs_array = array();
+			$amazonxmlsubarray['Header']['DocumentVersion']    = '1.01';
+			$amazonxmlsubarray['Header']['MerchantIdentifier'] = 'M_SELLER_XXXXXX';
+			$amazonxmlsubarray['MessageType']                  = 'Price';
+			$amazonxmlsubarray['PurgeAndReplace']              = 'false';
+
+			$i = 1;
 			foreach ( $proIds as $product_id ) {
 				if ( 1 ) {
 					$product = wc_get_product( $product_id );
@@ -2284,7 +2353,16 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						$price_amz      = $product->get_price();
 
 						if ( isset( $seller_global_settings['ced_amazon_product_markup_type'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup_type'] ) && isset( $seller_global_settings['ced_amazon_product_markup'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup'] ) ) {
-							$price_amz = ced_calculate_price( $seller_global_settings['ced_amazon_product_markup_type'], $price_amz, $seller_global_settings['ced_amazon_product_markup'] );
+
+							if ( 'Fixed_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz + (float) $seller_global_settings['ced_amazon_product_markup'];
+							} elseif ( 'Fixed_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz - (float) $seller_global_settings['ced_amazon_product_markup'];
+							} elseif ( 'Percentage_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz + ( ( (float) $price_amz * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+							} elseif ( 'Percentage_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz - ( ( (float) $price_amz * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+							}
 						}
 
 						$productLevelAmazonSKU = get_post_meta( $product_id, 'item_sku', true );
@@ -2295,18 +2373,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						$productLevelAmazonPrice = get_post_meta( $product_id, 'standard_price', true );
 						if ( isset( $productLevelAmazonPrice ) && ! empty( $productLevelAmazonPrice ) ) {
 							$price_amz = $productLevelAmazonPrice;
+
 						}
 
 						if ( isset( $price_amz ) && ! empty( $price_amz ) && isset( $sku ) && ! empty( $sku ) ) {
-
-							$SKUs_array[ $sku ] = array(
-								'type'         => 'Simple',
-								'value'        => round( $price_amz, 2 ),
-								'product_id'   => $product_id,
-								'product_sku'  => $sku,
-								'product_name' => $product->get_name(),
-							);
-
 							$amazonxmlarray['MessageID']     = $i;
 							$amazonxmlarray['OperationType'] = 'Update';
 							$amazonxmlarray['Price']['SKU']  = $sku;
@@ -2326,11 +2396,15 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 						if ( isset( $seller_global_settings['ced_amazon_product_markup_type'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup_type'] ) && isset( $seller_global_settings['ced_amazon_product_markup'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup'] ) ) {
 
-							$price_amz = ced_calculate_price(
-								$seller_global_settings['ced_amazon_product_markup_type'],
-								$$price_amz,
-								$seller_global_settings['ced_amazon_product_markup']
-							);
+							if ( 'Fixed_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz + (float) $seller_global_settings['ced_amazon_product_markup'];
+							} elseif ( 'Fixed_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz - (float) $seller_global_settings['ced_amazon_product_markup'];
+							} elseif ( 'Percentage_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz + ( ( (float) $price_amz * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+							} elseif ( 'Percentage_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+								$price_amz = (float) $price_amz - ( ( (float) $price_amz * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+							}
 						}
 
 							$productLevelAmazonSKU = get_post_meta( $product_id, 'item_sku', true );
@@ -2346,7 +2420,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						}
 
 						if ( isset( $price_amz ) && ! empty( $price_amz ) && isset( $sku ) && ! empty( $sku ) ) {
-
 							$amazonxmlarray['MessageID']     = $i;
 							$amazonxmlarray['OperationType'] = 'Update';
 							$amazonxmlarray['Price']['SKU']  = $sku;
@@ -2369,18 +2442,22 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 							}
 
 							if ( isset( $parent_sku ) && $sku == $parent_sku ) {
+
 								$sku = '';
 							}
 							$price_amz = $product->get_price();
 
 							if ( isset( $seller_global_settings['ced_amazon_product_markup_type'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup_type'] ) && isset( $seller_global_settings['ced_amazon_product_markup'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup'] ) ) {
 
-								$price_amz = ced_calculate_price(
-									$seller_global_settings['ced_amazon_product_markup_type'],
-									$$price_amz,
-									$seller_global_settings['ced_amazon_product_markup']
-								);
-
+								if ( 'Fixed_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+									$price_amz = (float) $price_amz + (float) $seller_global_settings['ced_amazon_product_markup'];
+								} elseif ( 'Fixed_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+									$price_amz = (float) $price_amz - (float) $seller_global_settings['ced_amazon_product_markup'];
+								} elseif ( 'Percentage_Increased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+									$price_amz = (float) $price_amz + ( ( (float) $price_amz * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+								} elseif ( 'Percentage_Decreased' == $seller_global_settings['ced_amazon_product_markup_type'] ) {
+									$price_amz = (float) $price_amz - ( ( (float) $price_amz * (float) $seller_global_settings['ced_amazon_product_markup'] ) / 100 );
+								}
 							}
 
 							$productLevelAmazonPrice = get_post_meta( $var_value['variation_id'], 'standard_price', true );
@@ -2390,16 +2467,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 							}
 
 							if ( isset( $price_amz ) && ! empty( $price_amz ) && isset( $sku ) && ! empty( $sku ) ) {
-								$SKUs_array[ $sku ] = array(
-									'type'         => 'Variation',
-									'product_sku'  => $sku,
-									'parent_sku'   => $parent_sku,
-									'value'        => round( $price_amz, 2 ),
-									'product_id'   => $var_value['variation_id'],
-									'product_sku'  => $sku,
-									'product_name' => $product->get_name(),
-								);
-
 								$amazonxmlarray['MessageID']     = $i;
 								$amazonxmlarray['OperationType'] = 'Update';
 								$amazonxmlarray['Price']['SKU']  = $sku;
@@ -2418,11 +2485,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 			$xmlString = $xml->saveXML();
 			$this->writeXMLStringToFile( $xmlString, $xmlFileName );
-			return array(
-				'xmlString' => $xmlString,
-				'SKUs'      => $SKUs_array,
-			);
-
+			return $xmlString;
 		}
 
 
@@ -2438,11 +2501,19 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return false;
 			}
 
-			$amazonxmlsubarray = $this->ced_amz_prepare_feed_header( 'ProductImage' );
+			$directorypath                    = plugin_dir_path( __FILE__ );
+			$amazonxmlsubarray                = array();
+			$amazonxmlsubarray['@attributes'] = array(
+				'xmlns:xsi'                     => 'http://www.w3.org/2001/XMLSchema-instance',
+				'xsi:noNamespaceSchemaLocation' => 'amzn-envelope.xsd',
+			);
 
-			$i          = 1;
-			$SKUs_array = array();
+			$amazonxmlsubarray['Header']['DocumentVersion']    = '1.01';
+			$amazonxmlsubarray['Header']['MerchantIdentifier'] = 'M_SELLER_XXXXXX';
+			$amazonxmlsubarray['MessageType']                  = 'ProductImage';
+			$amazonxmlsubarray['PurgeAndReplace']              = 'false';
 
+			$i = 1;
 			foreach ( $proIds as $product_id ) {
 				if ( 1 ) {
 					$product = wc_get_product( $product_id );
@@ -2466,14 +2537,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					}
 
 					if ( isset( $image ) && ! empty( $image ) && isset( $sku ) && ! empty( $sku ) ) {
-						$SKUs_array[ $sku ] = array(
-							'product_name' => $product->get_name(),
-							'type'         => $productType,
-							'parent_sku'   => '',
-							'product_id'   => $product_id,
-							'product_sku'  => $sku,
-						);
-
 						$amazonxmlarray['MessageID']                     = $i;
 						$amazonxmlarray['OperationType']                 = 'Update';
 						$amazonxmlarray['ProductImage']['SKU']           = $sku;
@@ -2484,8 +2547,11 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 						++$i;
 					}
 
-					$attachment_ids = $product->get_gallery_image_ids();
-
+					if ( '3.0.0' > WC()->version ) {
+						$attachment_ids = $product->get_gallery_attachment_ids();
+					} else {
+						$attachment_ids = $product->get_gallery_image_ids();
+					}
 					if ( isset( $attachment_ids ) && ! empty( $attachment_ids ) && isset( $sku ) && ! empty( $sku ) ) {
 						$j = 1;
 						foreach ( $attachment_ids as $attachment_id ) {
@@ -2511,8 +2577,11 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					if ( 'variable' == $productType ) {
 						$amazonxmlarray = array();
 						$parent_product = $product;
-
-						$attachment_ids = $parent_product->get_gallery_image_ids();
+						if ( '3.0.0' > WC()->version ) {
+							$attachment_ids = $parent_product->get_gallery_attachment_ids();
+						} else {
+							$attachment_ids = $parent_product->get_gallery_image_ids();
+						}
 
 						if ( ! empty( $product->get_sku() ) ) {
 							$parent_sku = $product->get_sku();
@@ -2535,6 +2604,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 							}
 
 							if ( isset( $parent_sku ) && $sku == $parent_sku ) {
+
 								$sku = '';
 							}
 
@@ -2550,18 +2620,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 								$var_image               = ! empty( $attachment_url_modified ) ? $attachment_url_modified : $var_image;
 							}
 
-							$img_value = array();
 							if ( isset( $var_image ) && ! empty( $var_image ) && isset( $sku ) && ! empty( $sku ) ) {
-
-								$SKUs_array[ $sku ] = array(
-									'product_name' => $product->get_name(),
-									'type'         => 'Variation',
-									'product_sku'  => $sku,
-									'parent_sku'   => $parent_sku,
-									'product_id'   => $var_value['variation_id'],
-									'value'        => array( $var_image ),
-								);
-
 								$amazonxmlarray['MessageID']                     = $i;
 								$amazonxmlarray['OperationType']                 = 'Update';
 								$amazonxmlarray['ProductImage']['SKU']           = $sku;
@@ -2581,13 +2640,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 											$attachment_url_modified = $this->amazon_xml_lib->modifyImageUrl( $alternateimage );
 											$alternateimage          = ! empty( $attachment_url_modified ) ? $attachment_url_modified : $alternateimage;
 										}
-
-										if ( isset( $SKUs_array[ $sku ] ) && isset( $SKUs_array[ $sku ]['value'] ) ) {
-											$SKUs_array[ $sku ]['value'][] = $alternateimage;
-										} else {
-											$SKUs_array[ $sku ]['value'] = array( $alternateimage );
-										}
-
 										$amazonxmlarray['MessageID']                     = $i;
 										$amazonxmlarray['OperationType']                 = 'Update';
 										$amazonxmlarray['ProductImage']['SKU']           = $sku;
@@ -2610,11 +2662,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 
 			$xmlString = $xml->saveXML();
 			$this->writeXMLStringToFile( $xmlString, $xmlFileName );
-			return array(
-				'xmlString' => $xmlString,
-				'SKUs'      => $SKUs_array,
-			);
-
+			return $xmlString;
 		}
 
 
@@ -2625,13 +2673,11 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 * @since 1.0.0
 		 */
 		public function ced_amazon_look_up( $proIds = array(), $mplocation = '', $seller_mp_key = '' ) {
-
 			$seller_id = $seller_mp_key;
 
 			// Log file name
-			$logger  = wc_get_logger();
-			$context = array( 'source' => 'ced_amazon_look_up' );
-			$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
+			$log_date = gmdate( 'Y-m-d' );
+			$log_name = 'catalog_api_' . $log_date . '.txt';
 
 			$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', false );
 			$location_for_seller  = $seller_id;
@@ -2639,19 +2685,21 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$shop_data = $saved_amazon_details[ $location_for_seller ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-			if ( empty( $marketplace_id ) || empty( $mplocation ) || empty( $location_for_seller ) ) {
-				$logger->info( "Refresh_token/marketplace_id/mplocation/seller_id are missing while ASIN sync! \n", $context );
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $mplocation ) || empty( $location_for_seller ) ) {
+				// Save error in log
+				$log_message  = ced_woo_timestamp() . "\n";
+				$log_message .= "Refresh_token/marketplace_id/mplocation/seller_id are missing while ASIN sync! \n\n\n";
+				ced_amazon_log_data( $log_message, $log_name, 'catalog' );
 				return;
 			}
 
 			// Get UPC/EAN mapping data from global settings
 			$global_setting_data = get_option( 'ced_amazon_global_settings', false );
 
-			$meta_key_map      = isset( $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta'] : '_sku';
-			$meta_key_map_type = isset( $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta_type'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta_type'] : 'EAN';
+			$meta_key_map = isset( $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta'] : '_sku';
 
 			if ( empty( $meta_key_map ) ) {
 				$meta_key_map = '_sku';
@@ -2660,107 +2708,83 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			$products = $proIds;
 			if ( isset( $products ) && ! empty( $products ) ) {
 
-				$ean_array = array();
 				foreach ( $products as $product_id ) {
 
 					$product   = wc_get_product( $product_id );
 					$parent_id = $product->get_parent_id();
-
+ 
 					// Get UPC/EAN number from woo meta
 					$upc_number = get_post_meta( $product_id, $meta_key_map, true );
-
-					// test starts
-						// $upc_number = '792671197164';
-						// $upc_number = '8033637703701';
-					// test ends
 
 					$upc_number_length = strlen( $upc_number );
 
 					if ( ! empty( $upc_number ) && is_numeric( $upc_number ) && ( 11 == $upc_number_length || 12 == $upc_number_length || 13 == $upc_number_length || 14 == $upc_number_length ) ) {
 						// Request to get product data using UPC/EAN
-						$ean_array[ $product_id ] = $upc_number;
-					}
-				}
 
-				if ( ! empty( $ean_array ) && is_array( $ean_array ) ) {
+						$contract_data = get_option( 'ced_unified_contract_details', array() );
+						$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
-					$catalog_query_params = array(
-						'identifiers'       => implode( ',', array_values( $ean_array ) ),
-						'identifiers_types' => $meta_key_map_type,
-						'included_data'     => implode( ',', array( 'summaries', 'identifiers', 'relationships' ) ),
-					);
+					
+						$catalog_topic = 'webapi/amazon/search_catalog_items';
+						$catalog_data  = array(
+								'marketplace_id' => $marketplace_id,
+								'seller_id'      => $seller_id,
+								'token'          => $refresh_token,
+								'ean'            => $upc_number,
+								'contract_id'    => $contract_id,
+						);
 
-					$catalog_topic = 'items?' . http_build_query( $catalog_query_params );
-					$catalog_data  = array(
-						'contract_id'    => $contract_id,
-						'mode'           => '_sandbox',
-						'remote_shop_id' => $remote_shop_id,
-					);
+						$catalog_response_main = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $catalog_topic, $catalog_data, 'POST');
 
-					$catalog_response_main = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $catalog_topic, $catalog_data, 'GET' );
-					$logger->info( wc_print_r( $catalog_response_main, true ), $context );
+						if ( is_wp_error( $catalog_response_main ) ) {
 
-				}
-
-				if ( is_wp_error( $catalog_response_main ) ) {
-
-					$notice['message'] = 'Something went wrong with the Amazon lookup. Please try again later.';
-					$notice['classes'] = 'notice notice-error is-dismissable';
-					return wp_json_encode( $notice );
-
-				}
-
-				$catalog_response = json_decode( $catalog_response_main['body'], true );
-				$catalog_response = isset( $catalog_response['data'] ) ? $catalog_response['data'] : array();
-
-				if ( isset( $catalog_response['success'] ) && 'false' == $catalog_response['success'] ) {
-
-					$notice['message'] = 'Something went wrong with the Amazon lookup. Please try again later.';
-					$notice['classes'] = 'notice notice-error is-dismissable';
-					return wp_json_encode( $notice );
-				}
-
-				if ( isset( $catalog_response['items'][0] ) && is_array( $catalog_response['items'][0] ) && ! empty( $catalog_response['items'][0] ) ) {
-					foreach ( $catalog_response['items'] as $key => $value ) {
-
-						$child_asin   = $value['asin'];
-						$identifiers  = $value['identifiers'][0]['identifiers'];
-						$unique_id_no = '';
-
-						foreach ( $identifiers as $k => $val ) {
-							if ( $meta_key_map_type == $val['identifierType'] ) {
-								$unique_id_no = $val['identifier'];
-							}
-						}
-
-						if ( empty( $unique_id_no ) ) {
+							ced_amazon_log_data( $catalog_response_main, $log_name, 'catalog' );
+							$notice['message'] = 'Something went wrong with the Amazon lookup. Please try again later.';
+							$notice['classes'] = 'notice notice-error is-dismissable';
+							return wp_json_encode( $notice );
 							continue;
 						}
 
-						$relationships = $value['relationships'][0]['relationships'];
-						$parent_asin   = isset( $relationships[0]['parentAsins'][0] ) ? $relationships[0]['parentAsins'][0] : '';
+						$catalog_response = json_decode( $catalog_response_main['body'], true );
+						$catalog_response = isset( $catalog_response['data'] ) ? $catalog_response['data'] : array();
 
-						$product_id = array_search( $unique_id_no, $ean_array );
-						$product    = wc_get_product( $product_id );
-						$parent_id  = $product->get_parent_id();
-
-						if ( ! empty( $child_asin ) ) {
-							update_post_meta( $product_id, 'ced_amazon_catalog_asin_' . $mplocation, $child_asin );
+						if ( isset( $catalog_response['success'] ) && 'false' == $catalog_response['success'] ) {
+							// Save error in log
+							ced_amazon_log_data( $catalog_response_main, $log_name, 'catalog' );
+							ced_amazon_log_data( $catalog_response_main, $log_name, 'catalog' );
+							$notice['message'] = 'Something went wrong with the Amazon lookup. Please try again later.';
+							$notice['classes'] = 'notice notice-error is-dismissable';
+							return wp_json_encode( $notice );
+							continue;
 						}
 
-						if ( 0 != $parent_id && ! empty( $parent_asin ) ) {
-							update_post_meta( $parent_id, 'ced_amazon_catalog_asin_' . $mplocation, $parent_asin );
+						if ( isset( $catalog_response['payload']['Items'][0] ) && is_array( $catalog_response['payload']['Items'][0] ) && ! empty( $catalog_response['payload']['Items'][0] ) ) {
+
+							$child_asin = $catalog_response['payload']['Items'][0]['Identifiers']['MarketplaceASIN']['ASIN'];
+
+							$parent_asin = isset( $catalog_response['payload']['Items'][0]['Relationships'][0]['Identifiers']['MarketplaceASIN']['ASIN'] ) ? $catalog_response['payload']['Items'][0]['Relationships'][0]['Identifiers']['MarketplaceASIN']['ASIN'] : '';
+
+							if ( ! empty( $child_asin ) ) {
+								update_post_meta( $product_id, 'ced_amazon_catalog_asin_' . $mplocation, $child_asin );
+							}
+
+							if ( 0 != $parent_id && ! empty( $parent_asin ) ) {
+								update_post_meta( $parent_id, 'ced_amazon_catalog_asin_' . $mplocation, $parent_asin );
+							}
+							$notice['message'] = 'Product lookup has been processed.';
+							$notice['classes'] = 'notice notice-success is-dismissable';
+							return wp_json_encode( $notice );
+
+						} else {
+							$notice['message'] = 'Product lookup not found on Amazon.';
+							$notice['classes'] = 'notice notice-success is-dismissable';
+							return wp_json_encode( $notice );
 						}
+					} else {
+						$notice['message'] = 'Invalid UPC/EAN. Please check!';
+						$notice['classes'] = 'notice notice-error is-dismissable';
+						return wp_json_encode( $notice );
 					}
-
-					$notice['message'] = 'Product lookup has been processed.';
-					$notice['classes'] = 'notice notice-success is-dismissable';
-					return wp_json_encode( $notice );
-
-				} else {
-					$notice['message'] = 'Product lookup not found on Amazon.';
-					$notice['classes'] = 'notice notice-success is-dismissable';
-					return wp_json_encode( $notice );
 				}
 			} else {
 				$notice['message'] = 'Please select a product for the Amazon lookup.';
@@ -2847,21 +2871,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return;
 			}
 
-			$feedId   = isset( $_POST['feed_id'] ) ? sanitize_text_field( $_POST['feed_id'] ) : '';
-			$order_id = isset( $_POST['order_id'] ) ? sanitize_text_field( $_POST['order_id'] ) : '';
-			$hpos     = isset( $_POST['hpos'] ) ? sanitize_text_field( $_POST['hpos'] ) : '';
-
-			if ( '1' == $hpos || $hpos ) {
-
-				$order      = wc_get_order( $order_id );
-				$mplocation = $order->get_meta( 'ced_amazon_order_countory_code' );
-				$seller_id  = $order->get_meta( 'ced_amazon_order_seller_id' );
-
-			} else {
-				$mplocation = get_post_meta( $order_id, 'ced_amazon_order_countory_code', true );
-				$seller_id  = get_post_meta( $order_id, 'ced_amazon_order_seller_id', true );
-			}
-
+			$feedId     = isset( $_POST['feed_id'] ) ? sanitize_text_field( $_POST['feed_id'] ) : '';
+			$order_id   = isset( $_POST['order_id'] ) ? sanitize_text_field( $_POST['order_id'] ) : '';
+			$mplocation = get_post_meta( $order_id, 'ced_amazon_order_countory_code', true );
+			$seller_id  = get_post_meta( $order_id, 'ced_amazon_order_seller_id', true );
 			if ( empty( $feedId ) || empty( $mplocation ) || empty( $seller_id ) ) {
 				echo esc_attr_e( 'Feed_id/Mp_location/Seller_id is missing!', 'amazon-for-woocommerce' );
 				die;
@@ -2879,30 +2892,13 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				if ( 'Complete' == $finalresult['Message']['ProcessingReport']['StatusCode'] ) {
 					if ( 0 == $finalresult['Message']['ProcessingReport']['ProcessingSummary']['MessagesWithError'] ) {
 						$feed_req = isset( $_POST['feed_req'] ) ? sanitize_text_field( $_POST['feed_req'] ) : '';
-
-						if ( '1' == $hpos || $hpos ) {
-							$order->update_meta_data( '_amazon_umb_order_status', $feed_req );
-							$order->update_meta_data( '_umb_order_feed_status', false );
-
-							$order->save();
-						} else {
-							update_post_meta( $order_id, '_amazon_umb_order_status', $feed_req );
-							update_post_meta( $order_id, '_umb_order_feed_status', false );
-						}
-
+						update_post_meta( $order_id, '_amazon_umb_order_status', $feed_req );
+						update_post_meta( $order_id, '_umb_order_feed_status', false );
 						$feeddetails             = get_post_meta( $order_id, '_umb_order_feed_details', true );
 						$feeddetails['response'] = true;
-
-						if ( '1' == $hpos || $hpos ) {
-							$order->update_meta_data( '_umb_order_feed_details', $feeddetails );
-							$order->save();
-						} else {
-							update_post_meta( $order_id, '_umb_order_feed_details', $feeddetails );
-						}
-
+						update_post_meta( $order_id, '_umb_order_feed_details', $feeddetails );
 						echo esc_attr( $feed_req ) . ' Feed is process successfully';
 						die;
-
 					} else {
 						if ( isset( $finalresult['Message']['ProcessingReport']['Result'] ) ) {
 							$errormessages = isset( $finalresult['Message']['ProcessingReport']['Result'][0] ) ? $finalresult['Message']['ProcessingReport']['Result'] : $finalresult['Message']['ProcessingReport'];
@@ -2910,13 +2906,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 							foreach ( $errormessages as $errormessage ) {
 								if ( isset( $errormessage['ResultDescription'] ) ) {
 									echo esc_attr( $errormessage['ResultDescription'] );
-
-									if ( '1' == $hpos || $hpos ) {
-										$order->update_meta_data( '_umb_order_feed_status', false );
-										$order->save();
-									} else {
-										update_post_meta( $order_id, '_umb_order_feed_status', false );
-									}
+									update_post_meta( $order_id, '_umb_order_feed_status', false );
 								}
 							}
 						}
@@ -2937,8 +2927,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function writeXMLStringToFile( $xmlString, $fileName ) {
 			// $XMLfilePath = ABSPATH . 'wp-content/uploads/';
-			$upload_dir  = wp_upload_dir();
-			$XMLfilePath = $upload_dir['basedir'] . '/';
+			$upload_dir = wp_upload_dir();
+			$XMLfilePath   = $upload_dir['basedir'] . '/';
 
 			if ( ! is_dir( $XMLfilePath ) ) {
 				if ( ! mkdir( $XMLfilePath, 0755 ) ) {
@@ -2970,8 +2960,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function validateXML( $xsdfile, $xmlFileName, $showerror = true, $returnerror = false ) {
 			// $XMLfilePath  = ABSPATH . 'wp-content/uploads/ced-amazon/';
-			$upload_dir  = wp_upload_dir();
-			$XMLfilePath = $upload_dir['basedir'] . '/ced-amazon/';
+			$upload_dir = wp_upload_dir();
+			$XMLfilePath   = $upload_dir['basedir'] . '/ced-amazon/';
 
 			$XMLfilePath .= $xmlFileName;
 			$return       = true;
@@ -2989,8 +2979,8 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$log_detail .= 'No Errors :: Valid XML' . "\n******************************************************************\n\n\n\n\n";
 
 					// $logFilePath = ABSPATH . 'wp-content/uploads/ced-amazon/logs/amazon-product-xml.log';
-					$upload_dir  = wp_upload_dir();
-					$logFilePath = $upload_dir['basedir'] . '/ced-amazon/logs/amazon-product-xml.log';
+					$upload_dir = wp_upload_dir();
+					$logFilePath   = $upload_dir['basedir'] . '/ced-amazon/logs/amazon-product-xml.log';
 
 					$fp = fopen( $logFilePath, 'a' );
 					if ( ! $fp ) {
@@ -3018,10 +3008,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					$log_detail .= $errorList . "\n******************************************************************\n\n\n\n\n";
 
 					// $logFilePath = ABSPATH . 'wp-content/uploads/ced-amazon/logs/amazon-product-xml.log';
-					$upload_dir  = wp_upload_dir();
-					$logFilePath = $upload_dir['basedir'] . '/ced-amazon/logs/amazon-product-xml.log';
+					$upload_dir = wp_upload_dir();
+					$logFilePath   = $upload_dir['basedir'] . '/ced-amazon/logs/amazon-product-xml.log';
 
-					$fp = fopen( $logFilePath, 'a' );
+					$fp          = fopen( $logFilePath, 'a' );
 					if ( ! $fp ) {
 						return;
 					}
@@ -3039,10 +3029,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$log_detail .= $errors . "\n******************************************************************\n\n\n\n\n";
 
 				// $logFilePath = ABSPATH . 'wp-content/uploads/ced-amazon/logs/amazon-product-xml.log';
-				$upload_dir  = wp_upload_dir();
-				$logFilePath = $upload_dir['basedir'] . '/ced-amazon/logs/amazon-product-xml.log';
-
-				$fp = fopen( $logFilePath, 'a' );
+				$upload_dir = wp_upload_dir();
+				$logFilePath   = $upload_dir['basedir'] . '/ced-amazon/logs/amazon-product-xml.log';
+				
+				$fp          = fopen( $logFilePath, 'a' );
 				if ( ! $fp ) {
 					return;
 				}
@@ -3064,7 +3054,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 */
 		public function getFeedItemsStatusSpApi( $feedId = '', $feed_type = '', $location_id = '', $marketplace = '', $seller_id = '' ) {
 
-			$ced_amazon_get_feed_throttle = get_transient( 'ced_amazon_get_feed_throttle' );
+			$ced_amazon_get_feed_throttle = get_transient('ced_amazon_get_feed_throttle') ;
 			if ( $ced_amazon_get_feed_throttle ) {
 				$response['body'] = 'Get feed API call limit exceeded. Please try after 5 mins.';
 				return $response;
@@ -3084,10 +3074,9 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$shop_data = $saved_amazon_details[ $grtopt_data ];
 			}
 
+			$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 			$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
-			$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
-
-			if ( empty( $marketplace_id ) || empty( $feedId ) || empty( $feed_type ) ) {
+			if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $feedId ) || empty( $feed_type ) ) {
 				$response['body'] = 'Invalid seller info or feed type';
 				return $response;
 			}
@@ -3096,19 +3085,17 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 			$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
 			// Get feed response by feed id:
-			$feed_data = array(
-				// 'feed_id'        => $feedId,
-				'contract_id'    => $contract_id,
-				'mode'           => self::$mode,
-				'remote_shop_id' => $remote_shop_id,
+		
+			$feed_topic = 'webapi/amazon/get_feed_using_id';
+			$feed_data  =  array(
+					'feed_id'        => $feedId,
+					'marketplace_id' => $marketplace_id,
+					'seller_id'      => $seller_id,
+					'feed_action'    => $feed_type,
+					'token'          => $refresh_token,
+					'contract_id'    => $contract_id,
 			);
-
-			$feed_topic         = 'feed-sync?feed_id=' . $feedId;
-			$feed_response_data = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'GET' );
-
-			// echo '<pre>';
-			// print_r($feed_response_data);
-			// die;
+			$feed_response_data = $this->amzonCurlRequestInstance->ced_amazon_serverless_process( $feed_topic, $feed_data, 'POST');
 
 			$code = wp_remote_retrieve_response_code( $feed_response_data );
 			if ( 429 == $code ) {
@@ -3119,16 +3106,10 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				$response['body'] = 'Something went wrong. Please try again later!';
 				return $response;
 			}
+			$response = json_decode( $feed_response_data['body'], true );
+			$response = isset( $response['data'] ) ? $response['data'] : array();
 
-			$feed_response_body = json_decode( $feed_response_data['body'], true );
-			// $response = isset( $feed_response_body['response'] ) ? $feed_response_body['response'] : array();
-
-			// echo '<pre>';
-			// print_r( $feed_response_body );
-			// die;
-			return $feed_response_body;
-
-			// return $response;
+			return $response;
 		}
 
 
@@ -3138,7 +3119,7 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 		 * @name insertFeedInfoToDatabase
 		 * @since 1.0.0
 		 */
-		public function insertFeedInfoToDatabase( $feedId = '', $feed_for = '', $mplocation = '', $SKUs = array(), $opt_type = '{}' ) {
+		public function insertFeedInfoToDatabase( $feedId = '', $feed_for = '', $mplocation = '' ) {
 			global $wpdb;
 			$prefix    = $wpdb->prefix;
 			$tableName = $prefix . 'ced_amazon_feeds';
@@ -3155,8 +3136,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 					'feed_location'  => $mplocation,
 					'feed_date_time' => $date_time,
 					'response'       => $response,
-					'sku'            => json_encode( $SKUs ),
-					'opt_type'       => $opt_type,
 
 				),
 				array( '%s' )
@@ -3189,27 +3168,6 @@ if ( ! class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) :
 				return false;
 			}
 		}
-
-
-		public function ced_amz_prepare_feed_header( $type ) {
-
-			$amazonxmlsubarray                = array();
-			$amazonxmlsubarray['@attributes'] = array(
-				'xmlns:xsi'                     => 'http://www.w3.org/2001/XMLSchema-instance',
-				'xsi:noNamespaceSchemaLocation' => 'amzn-envelope.xsd',
-			);
-
-			$amazonxmlsubarray['Header']['DocumentVersion']    = '1.01';
-			$amazonxmlsubarray['Header']['MerchantIdentifier'] = 'M_SELLER_XXXXXX';
-			$amazonxmlsubarray['MessageType']                  = $type;
-			$amazonxmlsubarray['PurgeAndReplace']              = 'false';
-
-			return $amazonxmlsubarray;
-
-		}
-
-
-
 	}
 
 endif;

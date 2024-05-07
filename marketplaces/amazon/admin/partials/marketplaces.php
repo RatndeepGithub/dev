@@ -59,7 +59,6 @@
 								array(
 									'section'         => 'setup-' . $navigation['menu_link'],
 									'add-new-account' => 'yes',
-									'mode'            => $navigation['mode'],
 								)
 							)
 						);

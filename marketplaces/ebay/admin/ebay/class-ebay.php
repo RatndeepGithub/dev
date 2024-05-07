@@ -1,7 +1,5 @@
 <?php
 
-namespace Ced\Ebay;
-
 /**
  * Main class for handling reqests.
  *
@@ -10,6 +8,7 @@ namespace Ced\Ebay;
  * @package    eBay Integration for Woocommerce
  * @subpackage eBay Integration for Woocommerce/marketplaces/ebay
  */
+// use \Ced_Ebay_WooCommerce_Core;
 
 if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 
@@ -32,12 +31,8 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 		 * @var      $_instance   The Instance of CED_ebay_ebay_Manager class.
 		 */
 		private static $_instance;
-
-		private $ebayProductsInstance;
-
-		private $ebay_user;
-
-		private $ebay_site;
+		private static $authorization_obj;
+		private static $client_obj;
 		/**
 		 * CED_ebay_ebay_Manager Instance.
 		 *
@@ -50,10 +45,13 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 		public static function get_instance() {
 			if ( is_null( self::$_instance ) ) {
 				self::$_instance = new self();
-
 			}
 			return self::$_instance;
 		}
+
+		public $marketplaceID   = 'ebay';
+		public $marketplaceName = 'ebay';
+
 		/**
 		 * Constructor.
 		 *
@@ -359,7 +357,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 			if ( file_exists( $fileProducts ) ) {
 				require_once $fileProducts;
 			}
-			$this->ebayProductsInstance = \Ced\Ebay\Class_Ced_EBay_Products::get_instance();
+			$this->ebayProductsInstance = Class_Ced_EBay_Products::get_instance();
 		}
 
 		public function prepareProductHtmlForUpload( $userId, $site_id, $proIDs = array() ) {
@@ -398,15 +396,40 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 			$response = $this->ebayProductsInstance->ced_ebay_prepareDataForUpdating( $userId, $site_id, $proIDs );
 			return $response;
 		}
-		public function prepareProductHtmlForUpdateStock( $rsid, $itemIDs = array(), $notAjax = false ) {
-			foreach ( $itemIDs as $prodID => $itemID ) {
+		public function prepareProductHtmlForUpdateStock( $userId, $site_id, $proIDs = array(), $notAjax = false ) {
+			if ( ! is_array( $proIDs ) ) {
+				$proIDs = array( $proIDs );
+			}
+			$shop_data = ced_ebay_get_shop_data( $userId, $site_id );
+			if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+				$siteID          = $site_id;
+					$token       = $shop_data['access_token'];
+					$getLocation = $shop_data['location'];
+			} else {
+				return 'Unable to verify eBay user';
+			}
+
+			$itemIDs = array();
+			foreach ( $proIDs as $prodID ) {
+				$itemID  = get_post_meta( $prodID, '_ced_ebay_listing_id_' . $userId . '>' . $siteID, true );
+				$itemID  = isset( $itemID ) ? $itemID : false;
 				$product = wc_get_product( $prodID );
 				if ( '' != $itemID ) {
 					$ebay_variation_sku = array();
 					if ( $product->is_type( 'variable' ) ) {
 						require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
-						$ebayUploadInstance = EbayUpload::get_instance( $rsid );
-						$ebay_item_details = $ebayUploadInstance->get_item_details( $itemID );
+						$ebayUploadInstance = EbayUpload::get_instance( $siteID, $token );
+						$ebay_item_data_xml = '
+			<?xml version="1.0" encoding="utf-8"?>
+			<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+			  <RequesterCredentials>
+				<eBayAuthToken>' . $token . '</eBayAuthToken>
+			  </RequesterCredentials>
+			  <DetailLevel>ReturnAll</DetailLevel>
+			  <ItemID>' . $itemID . '</ItemID>
+			</GetItemRequest>';
+
+						$ebay_item_details = $ebayUploadInstance->get_item_details( $ebay_item_data_xml );
 						if ( ! isset( $ebay_item_details['Item']['Variations']['Variation'][0] ) ) {
 							$tempVariationList = array();
 							$tempVariationList = $ebay_item_details['Item']['Variations']['Variation'];
@@ -427,7 +450,9 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 						foreach ( $childIds as $key => $value ) {
 							$itemIDs[ $value ] = $itemID;
 						}
-					}	
+					} else {
+						$itemIDs[ $prodID ] = $itemID;
+					}
 				}
 			}
 			if ( ! empty( $itemIDs ) ) {
@@ -435,11 +460,11 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 					$itemIDs  = array_chunk( $itemIDs, 4, true );
 					$response = array();
 					foreach ( $itemIDs as $prodId => $itemId ) {
-						$response[] = $this->ebayProductsInstance->ced_ebay_prepareDataForUpdatingStock( $rsid, $itemId, $notAjax, $ebay_variation_sku );
+						$response[] = $this->ebayProductsInstance->ced_ebay_prepareDataForUpdatingStock( $userId, $site_id, $itemId, $notAjax, $ebay_variation_sku );
 
 					}
 				} else {
-					$response = $this->ebayProductsInstance->ced_ebay_prepareDataForUpdatingStock( $rsid, $itemIDs, $notAjax, $ebay_variation_sku );
+					$response = $this->ebayProductsInstance->ced_ebay_prepareDataForUpdatingStock( $userId, $site_id, $itemIDs, $notAjax, $ebay_variation_sku );
 				}
 			}
 			return $response;
@@ -527,7 +552,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
   </RequesterCredentials>
   <DetailLevel>ReturnAll</DetailLevel>      
 </GetTaxTableRequest>';
-					$ced_request = new \Ced\Ebay\Cedrequest( $site_id, $verb );
+					$ced_request = new Ced_Ebay_WooCommerce_Core\Cedrequest( $site_id, $verb );
 					$response    = $ced_request->sendHttpRequest( $request_xml );
 					if ( ! empty( $response ) && 'Success' == $response['Ack'] ) {
 						update_option( 'ced_ebay_get_tax_table_' . $user_id, $response );
@@ -558,7 +583,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
   <ShowOutOfStockControlPreference>true</ShowOutOfStockControlPreference>
   <ShowSellerProfilePreferences>true</ShowSellerProfilePreferences>
 </GetUserPreferencesRequest>';
-					$ced_request = new \Ced\Ebay\Cedrequest( $site_id, $verb );
+					$ced_request = new Ced_Ebay_WooCommerce_Core\Cedrequest( $site_id, $verb );
 					$response    = $ced_request->sendHttpRequest( $request_xml );
 					if ( ! empty( $response ) && 'Success' == $response['Ack'] ) {
 						update_option( 'ced_ebay_seller_preferences_' . $user_id, $response );
@@ -589,7 +614,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 						<eBayAuthToken>' . $token . '</eBayAuthToken>
 					  </RequesterCredentials>
 					</GetTokenStatusRequest>';
-					$ced_request = new \Ced\Ebay\Cedrequest( $site_id, $verb );
+					$ced_request = new Ced_Ebay_WooCommerce_Core\Cedrequest( $site_id, $verb );
 					$response    = $ced_request->sendHttpRequest( $requestXml );
 					return $response;
 				}
@@ -626,7 +651,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
     <PageNumber>' . $page_number . '</PageNumber>
   </Pagination>
 </GetSellerListRequest>';
-					$ced_request = new \Ced\Ebay\Cedrequest( $site_id, $verb );
+					$ced_request = new Ced_Ebay_WooCommerce_Core\Cedrequest( $site_id, $verb );
 					$response    = $ced_request->sendHttpRequest( $request_xml );
 					if ( ! empty( $response ) && 'Success' == $response['Ack'] ) {
 						return $response;
@@ -667,7 +692,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 		<PageNumber>' . $page_number . '</PageNumber>
 	  </Pagination>
 	</GetSellerListRequest>';
-						$ced_request = new \Ced\Ebay\Cedrequest( $site_id, $verb );
+						$ced_request = new Ced_Ebay_WooCommerce_Core\Cedrequest( $site_id, $verb );
 						$response    = $ced_request->sendHttpRequest( $request_xml );
 						if ( isset( $response['ItemArray']['Item'] ) && count( $response['ItemArray']['Item'] ) > 0 && 'Failure' != $response['Ack'] ) {
 							++$page_number;
@@ -718,7 +743,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
     <PageNumber>' . $page_number . '</PageNumber>
   </Pagination>
 </GetSellerTransactionsRequest>';
-					$ced_request = new \Ced\Ebay\Cedrequest( $site_id, $verb );
+					$ced_request = new Ced_Ebay_WooCommerce_Core\Cedrequest( $site_id, $verb );
 					$response    = $ced_request->sendHttpRequest( $request_xml );
 					if ( ! empty( $response ) && 'Success' == $response['Ack'] ) {
 						return $response;
@@ -770,7 +795,7 @@ if ( ! class_exists( 'Class_Ced_EBay_Manager' ) ) {
 
 </GetSellerEventsRequest>';
 
-					$ced_request = new \Ced\Ebay\Cedrequest( $site_id, $verb );
+					$ced_request = new Ced_Ebay_WooCommerce_Core\Cedrequest( $site_id, $verb );
 					$response    = $ced_request->sendHttpRequest( $request_xml );
 					if ( ! empty( $response ) && 'Success' == $response['Ack'] ) {
 

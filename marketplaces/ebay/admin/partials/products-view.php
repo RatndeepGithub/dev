@@ -1,8 +1,7 @@
 <?php
 
-
-namespace Ced\Ebay;
-
+// phpinfo();
+// die;
 // If this file is called directly, abort.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -18,7 +17,7 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
 	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 }
 
-class EBayListProducts extends \WP_List_Table {
+class EBayListProducts extends WP_List_Table {
 
 
 	public function __construct() {
@@ -102,9 +101,9 @@ class EBayListProducts extends \WP_List_Table {
 			require_once $filterFile;
 		}
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 
-		$instanceOf_FilterClass = new \FilterClass();
+		$instanceOf_FilterClass = new FilterClass();
 
 		$args = $this->GetFilteredData( $per_page, $page_number );
 
@@ -128,7 +127,7 @@ class EBayListProducts extends \WP_List_Table {
 			);
 		}
 		if ( isset( $args['prodID'] ) ) {
-			$prod           = new \stdClass();
+			$prod           = new stdClass();
 			$prod->ID       = $args['prodID'];
 			$product_data[] = $prod->ID;
 		} elseif ( isset( $args['profileID'] ) ) {
@@ -158,7 +157,7 @@ class EBayListProducts extends \WP_List_Table {
 
 				if ( ! empty( $product_terms ) ) {
 					if ( ! empty( $args['meta_query'] ) ) {
-						$loop = new \WP_Query(
+						$loop = new WP_Query(
 							array(
 								'post_type'      => 'product',
 								'post_status'    => 'publish',
@@ -176,7 +175,7 @@ class EBayListProducts extends \WP_List_Table {
 							)
 						);
 					} else {
-						$loop = new \WP_Query(
+						$loop = new WP_Query(
 							array(
 								'post_type'      => 'product',
 								'post_status'    => 'publish',
@@ -214,7 +213,7 @@ class EBayListProducts extends \WP_List_Table {
 					);
 				}
 			}
-				$loop     = new \WP_Query( $args );
+				$loop     = new WP_Query( $args );
 			$product_data = wp_list_pluck( $loop->posts, 'ID' );
 		}
 
@@ -225,7 +224,7 @@ class EBayListProducts extends \WP_List_Table {
 			foreach ( $product_data as $key => $value ) {
 				$get_product_data = wc_get_product( $value );
 				// check if $get_product_data is a valid product or not
-				if ( ! $get_product_data instanceof \WC_Product ) {
+				if ( ! $get_product_data instanceof WC_Product ) {
 					continue;
 				}
 				$get_product_data = $get_product_data->get_data();
@@ -331,7 +330,7 @@ class EBayListProducts extends \WP_List_Table {
 	public function column_profile( $item ) {
 		echo '<div class="admin-custom-action-button-outer"><div class="admin-custom-action-show-button-outer">';
 		$user_id                      = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id                      = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id                      = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$get_profile_id_of_prod_level = get_post_meta( $item['id'], 'ced_ebay_profile_assigned' . isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '', true );
 		$filtered_profile             = isset( $_GET['profileID'] ) ? sanitize_text_field( $_GET['profileID'] ) : '';
 		if ( ! empty( $get_profile_id_of_prod_level ) ) {
@@ -465,7 +464,7 @@ class EBayListProducts extends \WP_List_Table {
 	public function column_status( $item ) {
 		$actions    = array();
 		$user_id    = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id    = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id    = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$listing_id = get_post_meta( $item['id'], '_ced_ebay_listing_id_' . $user_id . '>' . $site_id, true );
 		if ( ! empty( get_post_meta( $item['id'], 'ced_ebay_alt_prod_description_' . $item['id'] . '_' . $user_id, true ) ) || ! empty( get_post_meta( $item['id'], 'ced_ebay_alt_prod_title_' . $item['id'] . '_' . $user_id, true ) ) ) {
 			echo '<button class="px-3 py-1 mr-3 text-white font-semibold bg-blue-500 rounded">Modified</button><br>';
@@ -537,7 +536,7 @@ class EBayListProducts extends \WP_List_Table {
 	public function get_count( $per_page, $page_number ) {
 		$args    = $this->GetFilteredData( $per_page, $page_number );
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		if ( ! empty( $args['profileID'] ) ) {
 			$profile_filter_count = get_option( 'ced_ebay_profile_filter_count_' . $user_id, true );
 			return $profile_filter_count;
@@ -559,13 +558,13 @@ class EBayListProducts extends \WP_List_Table {
 				);
 			}
 
-			$loop         = new \WP_Query( $args );
+			$loop         = new WP_Query( $args );
 			$product_data = $loop->posts;
 			$product_data = $loop->found_posts;
 			return $product_data;
 
 		}
-		$loop         = new \WP_Query( $args );
+		$loop         = new WP_Query( $args );
 		$product_data = $loop->posts;
 		$product_data = $loop->found_posts;
 
@@ -574,19 +573,168 @@ class EBayListProducts extends \WP_List_Table {
 
 	public function GetFilteredData( $per_page, $page_number ) {
 		$args    = array();
-		
-		
+		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
+		if ( ( isset( $_GET['status_sorting'] )
+		|| isset( $_GET['pro_cat_sorting'] )
+		|| isset( $_GET['pro_type_sorting'] )
+		|| isset( $_GET['searchTerm'] )
+		|| isset( $_GET['prodID'] )
+		|| isset( $_GET['profileID'] ) ) ) {
+			if ( isset( $_REQUEST['pro_cat_sorting'] ) && ! empty( $_REQUEST['pro_cat_sorting'] ) && '-1' !== $_REQUEST['pro_cat_sorting'] ) {
+				$pro_cat_sorting = isset( $_GET['pro_cat_sorting'] ) ? sanitize_text_field( $_GET['pro_cat_sorting'] ) : '';
+				if ( '' != $pro_cat_sorting ) {
+					$selected_cat          = array( $pro_cat_sorting );
+					$tax_query             = array();
+					$tax_queries           = array();
+					$tax_query['taxonomy'] = 'product_cat';
+					$tax_query['field']    = 'id';
+					$tax_query['terms']    = $selected_cat;
+					$args['tax_query'][]   = $tax_query;
+				}
+			}
 
-		$product_filters = new \Ced\Ebay\Product_Filters();
-		$args = $product_filters->getFilteredData($per_page, $page_number);
+			if ( isset( $_REQUEST['pro_type_sorting'] ) && ! empty( $_REQUEST['pro_type_sorting'] ) ) {
+				$pro_type_sorting = isset( $_GET['pro_type_sorting'] ) ? sanitize_text_field( $_GET['pro_type_sorting'] ) : '';
+				if ( '' != $pro_type_sorting ) {
+					$selected_type         = array( $pro_type_sorting );
+					$tax_query             = array();
+					$tax_queries           = array();
+					$tax_query['taxonomy'] = 'product_type';
+					$tax_query['field']    = 'id';
+					$tax_query['terms']    = $selected_type;
+					$args['tax_query'][]   = $tax_query;
+				}
+			}
 
-		
-		if ( ! empty( $_REQUEST['searchTerm'] ) ) {
-			$search_by = isset( $_GET['searchTerm'] ) ? sanitize_text_field( wp_unslash( $_GET['searchTerm'] ) ) : '';
-			if ( ! empty( $search_by ) ) {
-				$args['searchTerm'] = $search_by;
+			if ( isset( $_REQUEST['status_sorting'] ) && ! empty( $_REQUEST['status_sorting'] ) ) {
+				$status_sorting      = isset( $_GET['status_sorting'] ) ? sanitize_text_field( $_GET['status_sorting'] ) : '';
+				$filtered_profile_id = isset( $_GET['profileID'] ) ? sanitize_text_field( $_GET['profileID'] ) : '';
+				if ( '' != $status_sorting ) {
+					$meta_query = array();
+					if ( 'Uploaded' == $status_sorting ) {
+
+						$meta_query[] = array(
+							'key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $site_id,
+							'compare' => 'EXISTS',
+						);
+					} elseif ( 'NotUploaded' == $status_sorting ) {
+						$meta_query[] = array(
+							'key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $site_id,
+							'compare' => 'NOT EXISTS',
+						);
+					}
+					$args['meta_query'] = $meta_query;
+				}
+			}
+
+			if ( isset( $_REQUEST['pro_stock_sorting'] ) && ! empty( $_REQUEST['pro_stock_sorting'] ) ) {
+				$sort_by_stock = isset( $_GET['pro_stock_sorting'] ) ? sanitize_text_field( $_GET['pro_stock_sorting'] ) : '';
+				if ( '' != $sort_by_stock ) {
+					$meta_query = array();
+					if ( 'instock' == $sort_by_stock ) {
+						if ( 'Uploaded' == $_REQUEST['status_sorting'] ) {
+							$args['meta_query'] = array(
+								'relation' => 'AND',
+								array(
+									'key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $site_id,
+									'compare' => 'EXISTS',
+								),
+								array(
+									'key'     => '_stock_status',
+									'value'   => 'instock',
+									'compare' => '=',
+								),
+
+							);
+
+						} elseif ( 'NotUploaded' == $_REQUEST['status_sorting'] ) {
+							$args['meta_query'] = array(
+								'relation' => 'AND',
+								array(
+									'key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $site_id,
+									'compare' => 'NOT EXISTS',
+								),
+								array(
+									'key'     => '_stock_status',
+									'value'   => 'instock',
+									'compare' => '=',
+								),
+
+							);
+
+						} else {
+							$args['meta_query'][] = array(
+								'key'   => '_stock_status',
+								'value' => 'instock',
+							);
+						}
+					} elseif ( 'outofstock' == $sort_by_stock ) {
+						if ( 'Uploaded' == $_REQUEST['status_sorting'] ) {
+							$args['meta_query'] = array(
+								'relation' => 'AND',
+								array(
+									'key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $site_id,
+									'compare' => 'EXISTS',
+								),
+								array(
+									'key'     => '_stock_status',
+									'value'   => 'outofstock',
+									'compare' => '=',
+								),
+
+							);
+
+						} elseif ( 'NotUploaded' == $_REQUEST['status_sorting'] ) {
+							$args['meta_query'] = array(
+								'relation' => 'AND',
+								array(
+									'key'     => '_ced_ebay_listing_id_' . $user_id . '>' . $site_id,
+									'compare' => 'NOT EXISTS',
+								),
+
+								array(
+									'key'     => '_stock_status',
+									'value'   => 'outofstock',
+									'compare' => '=',
+								),
+
+							);
+
+						} else {
+							$args['meta_query'][] = array(
+								'key'   => '_stock_status',
+								'value' => 'outofstock',
+							);
+						}
+					}
+				}
+			}
+			if ( ! empty( $_REQUEST['searchTerm'] ) ) {
+				$search_by = isset( $_GET['searchTerm'] ) ? sanitize_text_field( wp_unslash( $_GET['searchTerm'] ) ) : '';
+				if ( ! empty( $search_by ) ) {
+					$args['searchTerm'] = $search_by;
+				}
+			}
+
+			if ( ! empty( $_REQUEST['prodID'] ) ) {
+				$prodID = isset( $_GET['prodID'] ) ? sanitize_text_field( wp_unslash( $_GET['prodID'] ) ) : '';
+				if ( ! empty( $prodID ) ) {
+					$args['prodID'] = $prodID;
+				}
+			}
+			if ( ! empty( $_REQUEST['profileID'] ) ) {
+				$profileID = isset( $_GET['profileID'] ) ? sanitize_text_field( wp_unslash( $_GET['profileID'] ) ) : '';
+				if ( ! empty( $profileID ) ) {
+					$args['profileID'] = $profileID;
+				}
+			}
 		}
-	}		
+
+		$args['post_type']          = 'product';
+			$args['posts_per_page'] = $per_page;
+			$args['paged']          = $page_number;
+
 			return $args;
 	}
 	/**
@@ -678,7 +826,7 @@ class EBayListProducts extends \WP_List_Table {
 	 */
 	public function renderHTML() {
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		?>
 		
 
@@ -696,7 +844,7 @@ class EBayListProducts extends \WP_List_Table {
 					);
 
 					$product_types = get_terms( 'product_type' );
-					$temp_array_type    = array();
+					$temp_array    = array();
 					foreach ( $product_types as $key => $value ) {
 						if ( 'simple' == $value->name || 'variable' == $value->name ) {
 							$temp_array_type[ $value->term_id ] = ucfirst( $value->name );

@@ -4,13 +4,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
 
-$configFile = CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
-if(file_exists( $configFile )) {
-	require_once $configFile;
-}
-$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 $user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : false;
-$rsid = isset( $_GET['rsid'] ) ? sanitize_text_field( $_GET['rsid'] ) : false;
 
 
 
@@ -23,7 +18,7 @@ if ( isset( $_GET['section'] ) ) {
 
 <div class="ced-menu-container">
 	<ul class="subsubsub">
-		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ) ); ?>"
+		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>"
 				class="
 								<?php
 								if ( 'overview' == $section ) {
@@ -31,7 +26,7 @@ if ( isset( $_GET['section'] ) ) {
 								}
 								?>
 					">Overview</a> |</li>
-					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=settings&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ) ); ?>"
+					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=settings&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>"
 				class="
 								<?php
 								if ( 'settings' == $section || 'view-description-templates' == $section || 'description-template' == $section ) {
@@ -39,7 +34,7 @@ if ( isset( $_GET['section'] ) ) {
 								}
 								?>
 					"><?php esc_attr_e( 'Settings', 'ebay-integration-for-woocommerce' ); ?></a>|</li>
-					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-templates&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ) ); ?>"
+					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-templates&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>"
 				class="
 								<?php
 								if ( 'view-templates' == $section || 'product-template' == $section ) {
@@ -49,7 +44,7 @@ if ( isset( $_GET['section'] ) ) {
 					"><?php esc_attr_e( 'Templates', 'ebay-integration-for-woocommerce' ); ?></a> |</li>
 		
 	
-		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=products-view&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ) ); ?>"
+		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=products-view&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>"
 				class="
 								<?php
 								if ( 'products-view' == $section ) {
@@ -57,7 +52,7 @@ if ( isset( $_GET['section'] ) ) {
 								}
 								?>
 					"><?php esc_attr_e( 'Products', 'ebay-integration-for-woocommerce' ); ?></a> |</li>
-					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-ebay-orders&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ) ); ?>"
+					<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-ebay-orders&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>"
 				class="
 								<?php
 								if ( 'view-ebay-orders' == $section ) {
@@ -65,7 +60,7 @@ if ( isset( $_GET['section'] ) ) {
 								}
 								?>
 		"><?php esc_attr_e( 'Orders', 'ebay-integration-for-woocommerce' ); ?></a> |</li>
-		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=feeds-view&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ) ); ?>"
+		<li><a href="<?php echo esc_attr( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=feeds-view&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>"
 				class="
 								<?php
 								if ( 'feeds-view' == $section || 'feed-view' == $section ) {
@@ -97,8 +92,9 @@ if ( isset( $_GET['section'] ) ) {
 
 
 
-							
-							$remote_shop_id = $connection_status['remote_shop_id'];
+							if ( 'connected' !== $connection_status['status'] ) {
+								continue;
+							}
 
 							$selected = '';
 							if ( $user_id == $ebay_user_id && $ebay_site == $site_id ) {
@@ -117,8 +113,7 @@ if ( isset( $_GET['section'] ) ) {
 										'channel' => 'ebay',
 										'section' => $current_active_section,
 										'user_id' => $ebay_user_id,
-										'sid' => $ebay_site,
-										'rsid' => $remote_shop_id
+										'site_id' => $ebay_site,
 									),
 									admin_url() . 'admin.php'
 								);
@@ -134,9 +129,9 @@ if ( isset( $_GET['section'] ) ) {
 								if ( false === $current_step ) {
 									$urlKey = 'section=setup-ebay&add-new-account=yes';
 								} elseif ( 0 == $current_step ) {
-									$urlKey = 'section=onboarding-global-options&user_id=' . $ebay_user_id . '&sid=' . $ebay_site;
+									$urlKey = 'section=onboarding-global-options&user_id=' . $ebay_user_id . '&site_id=' . $ebay_site;
 								} elseif ( 1 == $current_step ) {
-									$urlKey = 'section=onboarding-general-settings&user_id=' . $ebay_user_id . '&sid=' . $ebay_site;
+									$urlKey = 'section=onboarding-general-settings&user_id=' . $ebay_user_id . '&site_id=' . $ebay_site;
 								}
 								$visit_url = get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&' . $urlKey;
 

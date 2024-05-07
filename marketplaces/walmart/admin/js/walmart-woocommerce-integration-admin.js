@@ -113,6 +113,38 @@
 
 	$( document ).ready(
 		function() {
+			$( '.ced_walmart_category' ).click(
+				function() {
+					$( this ).find( 'input[type="radio"]' ).prop( 'checked', true );
+					let catId = $( this ).find( 'input[type="radio"]' ).val();
+					$( "#ced_walmart_breadcrumb" ).text( catId );
+					$( "#ced_walmart_breadcrumb" ).show();
+
+					$.ajax(
+						{
+							url : ajax_url,
+							data : {
+								ajax_nonce   : ajax_nonce,
+								catId    : catId,
+								action : 'ced_walmart_append_category_attr',
+							},
+							type : 'POST',
+							success : function( response ){
+
+								$( '.ced-settings-body' ).html( "" );
+								$( '.ced-settings-body' ).html( response );
+								jQuery( "select" ).select2();
+
+							}
+						}
+					);
+				}
+			);
+		}
+	);
+
+	$( document ).ready(
+		function() {
 			$( '.image-variable-item img', this ).on(
 				'mouseenter',
 				function(){
@@ -651,155 +683,6 @@
 				},
 				function() {
 					$( '.menu' ).slideUp( "slow" );
-				}
-			);
-		}
-	);
-
-
-	$( document ).on(
-		'click' ,
-		'#ced_walmart_create_repricer_strategy' ,
-		function() {
-			
-			$('#repricerStrategyModal').css('display', 'block');
-		}
-	);
-	
-	$( document ).on(
-		'click' ,
-		'.repricer-strategy-modal-close' ,
-		function(e) {
-			e.preventDefault();
-			$('#repricerStrategyModal').css('display', 'none');
-		}
-	);
-	
-	$( document ).on(
-		'click' ,
-		'#ced_walmart_repricer_strategy_submit' ,
-		function() {
-			var repricerStrategyName   = $('#ced_walmart_repricer_strategy_name').val();
-			var repricerStrategyStatus = $('#ced_walmart_repricer_strategy_status').val();
-			var repricerStrategyType   = $('#ced_walmart_repricer_strategy_type').val();
-			var adjustmentType         = $('#ced_walmart_repricer_adjustment_type').val();
-			var adjustmentValue        = $('#ced_walmart_repricer_adjustment_value').val();
-			$.ajax(
-				{
-					url : ajax_url,
-					data : {
-						ajax_nonce               : ajax_nonce,
-						action                   : 'ced_walmart_create_new_repricer_strategy',
-						repricer_strategy_name   : repricerStrategyName,
-						repricer_strategy_status : repricerStrategyStatus,
-						repricer_strategy_type   : repricerStrategyType,
-						adjustment_type          : adjustmentType,
-						adjustment_value         : adjustmentValue,
-						store_id                 : store_id,
-					},
-					type : 'POST',
-					success: function(response)
-					{
-
-						alert(response);
-						$('#repricerStrategyModal').css('display', 'none');
-						window.setTimeout( function(){window.location.reload()}, 1000 );
-						ced_walmart_hide_loader();
-						parsed_response = jQuery.parseJSON( response );
-						message         = parsed_response.message;
-						status          = parsed_response.status;
-						ced_walmart_display_notice( message , status );
-						
-						
-					}
-
-				}
-			);
-		}
-	);
-	$( document ).on(
-		'click' ,
-		'#ced_walmart_get_repricer_strategy' ,
-		function() {
-			$.ajax(
-				{
-					url : ajax_url,
-					data : {
-						ajax_nonce : ajax_nonce,
-						action     : 'ced_walmart_get_repricer_strategies',
-						store_id   : store_id,
-					},
-					type : 'POST',
-					success: function(response)
-					{
-						alert(response);
-						// ced_walmart_hide_loader()
-						// parsed_response = jQuery.parseJSON( response );
-						// message         = parsed_response.message;
-						// status          = parsed_response.status;
-						// ced_walmart_display_notice( message , status );
-					}
-
-				}
-			);
-		}
-	);
-
-	$( document ).on(
-		'click' ,
-		'.ced_walmart_repricer_strategy_delete' ,
-		function() {
-			var strategyCollectionID = $(this).data('collection-id');
-			$.ajax(
-				{
-					url : ajax_url,
-					data : {
-						ajax_nonce   : ajax_nonce,
-						action       : 'ced_walmart_delete_repricer_strategy',
-						collectionId : strategyCollectionID, 
-						store_id     : store_id,
-					},
-					type : 'POST',
-					success: function(response)
-					{
-						alert(response);
-						// ced_walmart_hide_loader()
-						// parsed_response = jQuery.parseJSON( response );
-						// message         = parsed_response.message;
-						// status          = parsed_response.status;
-						// ced_walmart_display_notice( message , status );
-					}
-
-				}
-			);
-		}
-	);
-
-	$( document ).on(
-		'click' ,
-		'.ced_walmart_assign_repricer' ,
-		function() {
-			var productSku = $(this).data('product-id');
-			$.ajax(
-				{
-					url : ajax_url,
-					data : {
-						ajax_nonce   : ajax_nonce,
-						action       : 'ced_walmart_delete_repricer_strategy',
-						collectionId : strategyCollectionID, 
-						store_id     : store_id,
-					},
-					type : 'POST',
-					success: function(response)
-					{
-						alert(response);
-						// ced_walmart_hide_loader()
-						// parsed_response = jQuery.parseJSON( response );
-						// message         = parsed_response.message;
-						// status          = parsed_response.status;
-						// ced_walmart_display_notice( message , status );
-					}
-
 				}
 			);
 		}
@@ -1490,23 +1373,6 @@
 
 	}
 
-	// $( document ).ready(
-	// 	function() {
-	// 		$( document ).on(
-	// 			'change',
-	// 			'#ced_walmart_wfs',
-	// 			function() {
-	// 				if($( this ).is( ':checked' )){
-	// 					$('.ced-walmart-wfs-settings-div').show();
-	// 				}else{
-	// 					$('.ced-walmart-wfs-settings-div').hide();
-	// 				}
-					
-	// 				// window.setTimeout( function() {window.location.reload();},3000 );
-	// 			}
-	// 		);
-	// 	}
-	// );
 	// var btn = document.getElementById("ced-popup-button");
 	// var span = document.getElementsByClassName("ced-close-button");
 
@@ -1583,319 +1449,6 @@
 		}
 	);
 
-	$( document ).ready(
-		function() {
-			$( document ).on(
-				'click',
-				'.ced_walmart_category_arrow',
-				async function(e){
-					
-					var catName     = $(this).data('id');
-					var catLevel    = $(this).data('level');
-					var nextLevel   = catLevel+ 1;
-					var profileType = $('.ced_walmart_category_level_'+catLevel ).data('profile');
-					var html        = "";
-					
-					$.getJSON(ced_walmart_admin_obj.category_url, function(data){
-
-						if ( 2 == nextLevel ) {
-							var cat = catName.split("/");
-							$.each(data[cat[0]][cat[1]], function(key, category){
-								html += '<li class="ced_walmart_category_level_'+nextLevel+' ced_walmart_last_level_class" data-name="'+catName+'/'+category+'" data-id="'+category+'" id="' +category+ '" data-profile="'+profileType+'"> '+category+'<input type="radio"  name="ced_walmart_last_level_cat" id="ced_walmart_last_level_cat_'+category+'" value="' +category+ '" /></li>';
-							});
-							
-						} else {
-							$.each(data[catName], function(key, category){
-							
-								html += '<li class="ced_walmart_category_level_'+nextLevel+' ced_walmart_category_arrow" data-name="'+catName+'/'+key+'" id="' +key+ '" data-level="'+nextLevel+'" data-id="' +catName+'/'+key+ '" data-profile="'+profileType+'"> '+key+'<span class="dashicons dashicons-arrow-right-alt2 " id="ced_walmart_category_level_'+nextLevel+'" ></span></li>';
-							});
-						}
-
-						
-
-						
-						$('#ced_walmart_cat_header').text(catName);
-						$('#ced_walmart_cat_header').addClass('ced_walmart_prev_category_arrow');
-						$('#ced_walmart_cat_header').prepend('<span class="dashicons dashicons-arrow-left-alt2" id="ced_walmart_prev_category_span" data-id="'+catName+'" data-level="'+nextLevel+'" data-profile="'+profileType+'"></span>');
-						$('#ced_walmart_categories').empty();
-						$('#ced_walmart_categories').append(html);
-						$('#ced_walmart_breadcrumb').text(catName);
-						$('#ced_walmart_breadcrumb').show();
-					});
-					
-				}
-			);
-
-			$( document ).on(
-				'click',
-				'.ced_walmart_prev_category_arrow',
-				async function(e){
-					var catName     = $('#ced_walmart_prev_category_span').data('id');
-					var catLevel    = $('#ced_walmart_prev_category_span').data('level');
-					var profileType = $('#ced_walmart_prev_category_span' ).data('profile');
-					var html        = "";
-					var catArr      = catName.split("/");
-					var prevLevel   = catLevel - 1;
-					const jsonData  = [];
-
-					$.getJSON(ced_walmart_admin_obj.category_url, function(data){
-						if ( 0 == prevLevel ) {
-							$.each(data, function(key, category){
-								
-								html += '<li class="ced_walmart_category_level_'+prevLevel+' ced_walmart_category_arrow" data-name="'+key+'" data-id="' +key+ '" data-level='+prevLevel+' data-profile="'+profileType+'"> '+key+'<span class="dashicons dashicons-arrow-right-alt2 " id="ced_walmart_category_level_'+prevLevel+'"></span></li>';
-							});
-							
-							$('#ced_walmart_cat_header').text('Browse and Select a Category');
-							$('#ced_walmart_cat_header').prepend('<span data-level="'+prevLevel+'"></span>');
-							$('#ced_walmart_categories').empty();
-							$('#ced_walmart_categories').append(html);
-							$('#ced_walmart_breadcrumb').hide();
-	
-						} else {
-							
-							$.each(data[catArr[0]], function(key, category){
-								
-								
-								html += '<li class="ced_walmart_category_level_'+prevLevel+' ced_walmart_category_arrow" data-name="'+key+'" data-id="' +catArr[0]+'/'+key+ '" data-level='+prevLevel+' data-profile="'+profileType+'"> '+key+'<span class="dashicons dashicons-arrow-right-alt2" id="ced_walmart_category_level_'+prevLevel+'"></span></li>';
-							});
-
-							$('#ced_walmart_cat_header').text(catArr[0]);
-							$('#ced_walmart_cat_header').addClass('ced_walmart_prev_category_arrow');
-							$('#ced_walmart_cat_header').prepend('<span class="dashicons dashicons-arrow-left-alt2" id="ced_walmart_prev_category_span" data-id="'+catName+'" data-level="'+prevLevel+'" data-profile="'+profileType+'"></span>');
-							$('#ced_walmart_categories').empty();
-							$('#ced_walmart_categories').append(html);
-							$('#ced_walmart_breadcrumb').text(catArr[0]);
-							$('#ced_walmart_breadcrumb').show();
-						}
-
-					});
-				}
-			);
-
-			$( document ).on(
-				'click',
-				'.ced_walmart_last_level_class',
-				function(e){
-					let category    = $(this).data('id');
-					let profileType = $(this).data('profile');
-					$( this ).find( 'input[type="radio"]' ).prop( 'checked', true );
-					
-					ced_walmart_show_loader();
-					$.ajax(
-						{
-							url : ajax_url,
-							data : {
-								ajax_nonce   : ajax_nonce,
-								catId        : category,
-								profileType  : profileType,
-								action       : 'ced_walmart_append_category_attr',
-							},
-							type : 'POST',
-							success : function( response ){
-								$( '.ced-settings-body' ).html( "" );
-								$( '.ced-settings-body' ).html( response );
-								jQuery( "select" ).select2();
-								$('#ced_walmart_breadcrumb').append('/'+category);
-								$('#ced_walmart_breadcrumb').show();
-								ced_walmart_hide_loader();
-							}
-						}
-					);
-					
-				}
-			);
-		}
-	);
-
-		
-	$( document ).on(
-		'click',
-		'#ced_walmart_inbound_shipment_submit',
-		function(e){
-			e.preventDefault();
-			var shipmentId  = $('#ced_walmart_inbound_shipment_id').val();
-			var inboundId   = $('#ced_walmart_wfs_inbound_id').val();
-			var labelSize   = $('#ced_walmart_inbound_shipment_label_size').val();
-			var labelFormat = $('#ced_walmart_inbound_shipment_label_format').val();
-			var labelType   = $('#ced_walmart_inbound_shipment_label_type').val();
-			var labelCount  = $('#ced_walmart_inbound_shipment_label_count').val();
-			
-			$.ajax(
-				{
-					url : ajax_url,
-					data : {
-
-						ajax_nonce   : ajax_nonce,
-						action       : 'ced_walmart_create_inbound_shipment_label',
-						shipment_id  : shipmentId,
-						label_size   : labelSize,
-						label_format : labelFormat,
-						label_type   : labelType,
-						label_count  : labelCount,
-						inbound_id   : inboundId,
-						// store_id     : store_id,
-					},
-					type : 'POST',
-					success: function(response)
-					{
-						console.log(response);
-						$('#shipmentLabelModal').css( "display", "none" );
-						// window.setTimeout( function() {window.location.reload();},3000 );
-					}
-				}
-			);
-		}
-	);
-
-	$(document).on(
-		'click',
-		'.shipment-label-modal-close',
-		function(e){
-			e.preventDefault();
-			$('#shipmentLabelModal').css( "display", "none" );
-		}
-	);
-
-	$( document ).on(
-		'click',
-		'.ced_walmart_get_inbound_shipping_status',
-		function(e){
-			e.preventDefault();
-			var inboundOrderId = $(this).data('inbound');
-			$.ajax(
-				{
-					url : ajax_url,
-					data : {
-						ajax_nonce : ajax_nonce,
-						action : 'ced_walmart_get_inbound_shipment_status',
-						inbound_order_id : inboundOrderId,
-						store_id : store_id,
-					},
-					type : 'POST',
-					success: function(response)
-					{
-						console.log(response);
-						window.setTimeout( function() {window.location.reload();},3000 );
-
-					}
-				}
-			);
-			
-		}
-	);
-
-	
-	$(document).on(
-		'click',
-		'.walmart-activity-modal-close', 
-		function(e) {
-			e.preventDefault();
-			$('#walmart_activity_modal').css( "display", "none" );
-		}
-	);
-	
-
-	$( document ).on(
-		'click',
-		'#walmart_activity_nav a',
-		function(){
-			jQuery(this).addClass('ced-nav-active').siblings().removeClass('ced-nav-active'); 
-		}
-	);
-
-	$( document ).on(
-		'click',
-		'#walmart_activity_nav a',
-		function(e){
-			e.preventDefault();
-			$(".toggle").hide();
-			var toShow = $(this).attr('href');
-			$(toShow).show();
-		}
-	);
-
-	$( document ).on(
-		'click',
-		'.walmart_order_payload',
-		function(e){
-			e.preventDefault();
-			var payload = $(this).attr('data-attr');
-			$('.activity_modal_label').html('Order Payload');
-			$('.activity_modal_span').html(payload);
-			$('#walmart_activity_modal').css( "display", "block" );
-		}
-	);
-
-	$( document ).on(
-		'click',
-		'.walmart_order_response',
-		function(e){
-			e.preventDefault();
-			var response = $(this).attr('data-attr');
-			$('.activity_modal_label').html('Order Response');
-			$('.activity_modal_span').html(response);
-			$('#walmart_activity_modal').css( "display", "block" );
-		}
-	);
-	$( document ).on(
-		'click',
-		'.walmart_product_payload',
-		function(e){
-			e.preventDefault();
-			var payload = $(this).attr('data-attr');
-			$('.activity_modal_label').html('Product Payload');
-			$('.activity_modal_span').html(payload);
-			$('#walmart_activity_modal').css( "display", "block" );
-		}
-	);
-	$( document ).on(
-		'click',
-		'.walmart_product_response',
-		function(e){
-			e.preventDefault();
-			var response = $(this).attr('data-attr');
-			$('.activity_modal_label').html('Product Response');
-			$('.activity_modal_span').html(response);
-			$('#walmart_activity_modal').css( "display", "block" );
-		}
-	);
-	$( document ).on(
-		'click',
-		'.walmart_inventory_response',
-		function(e){
-			e.preventDefault();
-			var response = $(this).attr('data-attr');
-			$('.activity_modal_label').html('Inventory Response');
-			$('.activity_modal_span').html(response);
-			$('#walmart_activity_modal').css( "display", "block" );
-		}
-	);
-	$( document ).on(
-		'click',
-		'.walmart_inventory_payload',
-		function(e){
-			e.preventDefault();
-			var payload = $(this).attr('data-attr');
-			$('.activity_modal_label').html('Inventory Payload');
-			$('.activity_modal_span').html(payload);
-			$('#walmart_activity_modal').css( "display", "block" );
-		}
-	);
-
-	$( document ).on(
-		'click',
-		'.ced_walmart_create_shipping_label',
-		function(e){
-			e.preventDefault();
-			var inboundOrderId = $(this).data('inbound');
-			var shipmentId     = $(this).data('shipment');
-			$('#ced_walmart_inbound_shipment_id').val(shipmentId);
-			$('#ced_walmart_wfs_inbound_id').val(inboundOrderId);
-			$( "#shipmentLabelModal" ).css( "display", "block" );
-		}
-	);
-	
-	
 })( jQuery );
 
 
@@ -1911,5 +1464,5 @@ function CedOpenShippingmethod(evt, methodName) {
 		tablinks[i].className = tablinks[i].className.replace( " active", "" );
 	}
 	document.getElementById( methodName ).style.display = "block";
-	evt.currentTarget.className                        += "active";
+	evt.currentTarget.className                        += " active";
 }

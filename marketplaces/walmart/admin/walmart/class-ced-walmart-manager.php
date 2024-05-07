@@ -55,10 +55,10 @@ class Ced_Walmart_Manager {
 	 * @since    1.0.0
 	 */
 	public function load_dependency() {
-		$ced_walmart_process_request_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-process-request.php';
-		include_file( $ced_walmart_process_request_file );
-		$this->ced_walmart_process_instance = Ced_Walmart_Remote_Request::get_instance();
-		$ced_walmart_product_file           = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-product.php';
+		$ced_walmart_curl_file = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-curl-request.php';
+		include_file( $ced_walmart_curl_file );
+		$this->ced_walmart_curl_instance = Ced_Walmart_Curl_Request::get_instance();
+		$ced_walmart_product_file        = CED_WALMART_DIRPATH . 'admin/walmart/lib/class-ced-walmart-product.php';
 		include_file( $ced_walmart_product_file );
 		$this->ced_walmart_product_manager = Ced_Walmart_Product::get_instance();
 	}
@@ -70,17 +70,17 @@ class Ced_Walmart_Manager {
 	 */
 	public function ced_walmart_refresh_token( $store_id = '' ) {
 		if ( ! get_transient( 'ced_walmart_token_transient_' . $store_id ) ) {
-			$config_details                               = ced_walmart_return_partner_detail_option();
-			$config_details                               = isset( $config_details[ $store_id ]['config_details'] ) ? $config_details[ $store_id ]['config_details'] : array();
-			$client_id                                    = isset( $config_details['client_id'] ) ? $config_details['client_id'] : '';
-			$client_secret                                = isset( $config_details['client_secret'] ) ? $config_details['client_secret'] : '';
-			$action                                       = 'token';
-			$parameters                                   = 'grant_type=client_credentials';
-			$this->ced_walmart_process_instance->store_id = $store_id;
-			$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, $parameters, array(), 'GET');
-			$token                                        = get_option( 'ced_walmart_tokens', array() );
-			$token[ $store_id ]                           = isset( $response['result']['access_token'] ) ? $response['result']['access_token'] : '';
-			$expries_in                                   = isset( $response['result']['expires_in'] ) ? $response['result']['expires_in'] : '';
+			$config_details                            = ced_walmart_return_partner_detail_option();
+			$config_details                            = isset( $config_details[ $store_id ]['config_details'] ) ? $config_details[ $store_id ]['config_details'] : array();
+			$client_id                                 = isset( $config_details['client_id'] ) ? $config_details['client_id'] : '';
+			$client_secret                             = isset( $config_details['client_secret'] ) ? $config_details['client_secret'] : '';
+			$action                                    = 'token';
+			$parameters                                = 'grant_type=client_credentials';
+			$this->ced_walmart_curl_instance->store_id = $store_id;
+			$response                                  = $this->ced_walmart_curl_instance->ced_walmart_get_request( $action, $parameters );
+			$token                                     = get_option( 'ced_walmart_tokens', array() );
+			$token[ $store_id ]                        = isset( $response['access_token'] ) ? $response['access_token'] : '';
+			$expries_in                                = isset( $response['expires_in'] ) ? $response['expires_in'] : '';
 			if ( ! empty( $token ) ) {
 				update_option( 'ced_walmart_tokens', $token );
 				set_transient( 'ced_walmart_token_transient_' . $store_id, $token, $expries_in );

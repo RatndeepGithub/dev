@@ -38,17 +38,14 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 			if ( empty( $listing_id ) || empty( $shop_name ) ) {
 				return;
 			}
-			$response = etsy_request()->ced_etsy_remote_req(
-				'listings/byIds',
-				array(),
-				array(
-					'listing_ids' => $listing_id,
-					'shop_id'     => get_etsy_shop_id( $shop_name ),
-				),
-				'GET'
-			);
-			if ( isset( $response['results'][0]['listing_id'] ) ) {
-				$this->ced_etsy_get_listing_infos( $response['results'][0], $shop_name );
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$response = etsy_request()->get( "application/listings/{$listing_id}", $shop_name );
+			if ( isset( $response['listing_id'] ) ) {
+				$this->ced_etsy_get_listing_infos( $response, $shop_name );
 			} else {
 				$error        = array();
 				$error['msg'] = " Product doesn't contain information";
@@ -69,31 +66,19 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 			if ( empty( $listing_id ) ) {
 				return;
 			}
-
 			$etsy_product_exists = etsy_get_product_id_by_shopname_and_listing_id( $shop_name, $listing_id );
 			$by_sku_exists       = get_product_id_by_params( '_ced_etsy_listing_id_' . $shop_name, $listing_id );
 			if ( ! empty( $etsy_product_exists ) || $by_sku_exists ) {
 				return;
 			}
-
-			$inventories   = etsy_request()->ced_etsy_remote_req(
-				'listings/inventory',
-				array(),
-				array(
-					'listing_id' => $listing_id,
-					'shop_id'    => get_etsy_shop_id( $shop_name ),
-				),
-				'GET'
-			);
-			$images        = etsy_request()->ced_etsy_remote_req(
-				'listings/images',
-				array(),
-				array(
-					'listing_id' => $listing_id,
-					'shop_id'    => get_etsy_shop_id( $shop_name ),
-				),
-				'GET'
-			);
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$action        = "application/listings/{$listing_id}/";
+			$inventories   = etsy_request()->get( $action . 'inventory', $shop_name );
+			$images        = etsy_request()->get( $action . 'images', $shop_name );
 			$image_details = isset( $images['results'] ) ? $images['results'] : array();
 			$e_inventories = isset( $inventories['products'] ) ? $inventories['products'] : array();
 
@@ -144,18 +129,11 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 			if ( ! empty( $ced_etsy_target_lang ) ) {
 				$e_l_id       = $product['listing_id'];
 				$shop_id      = get_etsy_shop_id( $shop_name );
-				$translations = etsy_request()->ced_etsy_remote_req(
-					'listings/translation',
-					array(),
-					array(
-						'shop_id'    => get_etsy_shop_id( $shop_name ),
-						'listing_id' => $listing_id,
-					),
-					'GET'
-				);
-				$t_title      = isset( $translations['title'] ) ? $translations['title'] : '';
-				$t_desc       = isset( $translations['description'] ) ? $translations['description'] : '';
-				$t_tags       = isset( $translations['tags'] ) ? $translations['tags'] : array();
+				$translations = etsy_request()->get( "application/shops/{$shop_id}/listings/{$e_l_id}/translations/{$ced_etsy_target_lang}", $shop_name );
+
+				$t_title = isset( $translations['title'] ) ? $translations['title'] : '';
+				$t_desc  = isset( $translations['description'] ) ? $translations['description'] : '';
+				$t_tags  = isset( $translations['tags'] ) ? $translations['tags'] : array();
 			}
 
 			$product_id = wp_insert_post(
@@ -170,6 +148,31 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 			if ( $product_id ) {
 				$imported_pros = get_option( 'ced_etsy_imported_products_' . $shop_name, 0 );
 				update_option( 'ced_etsy_imported_products_' . $shop_name, $imported_pros++ );
+			}
+
+			if ( isset( $product['file_data'] ) && ! empty( $product['file_data'] ) ) {
+				$downloads = array();
+				update_post_meta( $product_id, '_downloadable', 'yes' );
+				$shop_id        = get_etsy_shop_id( $shop_name );
+				$response_files = etsy_request()->get( "application/shops/{$shop_id}/listings/{$product['listing_id']}/files", $shop_name );
+				$digital_files  = isset( $response_files['results'] ) ? $response_files['results'] : array();
+				foreach ( $digital_files as $digital_files_key => $digital_files_val ) {
+					if ( class_exists( 'WC_Product' ) ) {
+						 $existing_product = wc_get_product( $product_id );
+						if ( $existing_product ) {
+							$file_url  = 'https://www.etsy.com/your/files/preview/' . $digital_files_val['listing_file_id'];
+							$file_name = isset( $digital_files_val['filename'] ) ? $digital_files_val['filename'] : 'Etsy File';
+							$download  = array(
+								'name' => $file_name,
+								'file' => $file_url,
+
+							);
+							$downloads[] = $download;
+						}
+					}
+				}
+				$existing_product->set_downloads( $downloads );
+				$existing_product->save();
 			}
 
 			$this->insert_product_tags( $product_id, $product, $t_tags );
@@ -221,12 +224,8 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 		 */
 
 		private function create_variable_product( $product = '', $product_details = '', $image_details = '', $shop_name = '' ) {
+			$etsy_variation_products = $product_details;
 
-			if ( has_filter( 'ced_etsy_modify_create_variable_product' ) ) {
-				return apply_filters( 'ced_etsy_modify_create_variable_product', $product, $product_details, $image_details, $shop_name );
-			}
-
-			$etsy_variation_products    = $product_details;
 			$saved_global_settings_data = get_option( 'ced_etsy_global_settings', '' );
 			$ced_etsy_target_lang       = isset( $saved_global_settings_data[ $shop_name ]['ced_etsy_target_lang'] ) ? $saved_global_settings_data[ $shop_name ]['ced_etsy_target_lang'] : '';
 			$import_product_status      = isset( $saved_global_settings_data[ $shop_name ]['import_product_status'] ) ? $saved_global_settings_data[ $shop_name ]['import_product_status'] : 'publish';
@@ -238,18 +237,11 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 			if ( ! empty( $ced_etsy_target_lang ) ) {
 				$e_l_id       = $product['listing_id'];
 				$shop_id      = get_etsy_shop_id( $shop_name );
-				$translations = etsy_request()->ced_etsy_remote_req(
-					'listings/translation',
-					array(),
-					array(
-						'shop_id'    => get_etsy_shop_id( $shop_name ),
-						'listing_id' => $listing_id,
-					),
-					'GET'
-				);
-				$t_title      = isset( $translations['title'] ) ? $translations['title'] : '';
-				$t_desc       = isset( $translations['description'] ) ? $translations['description'] : '';
-				$t_tags       = isset( $translations['tags'] ) ? $translations['tags'] : array();
+				$translations = etsy_request()->get( "application/shops/{$shop_id}/listings/{$e_l_id}/translations/{$ced_etsy_target_lang}", $shop_name );
+
+				$t_title = isset( $translations['title'] ) ? $translations['title'] : '';
+				$t_desc  = isset( $translations['description'] ) ? $translations['description'] : '';
+				$t_tags  = isset( $translations['tags'] ) ? $translations['tags'] : array();
 			}
 
 			$product_id = wp_insert_post(
@@ -461,11 +453,6 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 		 */
 
 		private function insert_product_variations( $post_id, $variations, $available_attributes ) {
-
-			if ( has_filter( 'ced_etsy_modify_insert_product_variation' ) ) {
-				return apply_filters( 'ced_etsy_modify_insert_product_variation', $post_id, $variations, $available_attributes );
-			}
-
 			$parent_qty = 0;
 			foreach ( $variations as $index => $variation ) {
 				$variation_post = array(
@@ -543,11 +530,6 @@ if ( ! class_exists( 'Ced_Product_Import' ) ) {
 		 */
 
 		private function create_product_images( $product_id, $images = array() ) {
-
-			if ( has_filter( 'ced_etsy_modify_create_product_images' ) ) {
-				return apply_filters( 'ced_etsy_modify_create_product_images', $product_id, $images );
-			}
-
 			foreach ( $images as $key1 => $value1 ) {
 				$image_url  = $value1['url_fullxfull'];
 				$image_name = explode( '/', $image_url );

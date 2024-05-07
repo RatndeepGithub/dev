@@ -18,14 +18,11 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
 
 class Ced_Amazon_List_Feeds extends WP_List_Table {
 
-	public $mode;
 
 	/**
 	 * Class constructor
 	 */
 	public function __construct() {
-
-		$this->mode = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
 		parent::__construct(
 			array(
 				'singular' => __( 'Amazon feed', 'amazon-for-woocommerce' ), // singular name of the listed records
@@ -48,15 +45,7 @@ class Ced_Amazon_List_Feeds extends WP_List_Table {
 		 * @return 'count'
 		 * @since  1.0.0
 		 */
-
-		$current_per_page = isset( $_GET['per_page'] ) ? sanitize_text_field( $_GET['per_page'] ) : 20;
-
-		/**
-		 * Filter to modify number of feeds per page
-		 *
-		 * @since 1.1.3
-		 */
-		$per_page = apply_filters( 'ced_amazon_feeds_list_per_page', $current_per_page );
+		$per_page = apply_filters( 'ced_amazon_feeds_list_per_page', 10 );
 		$columns  = $this->get_columns();
 		$hidden   = array();
 		$sortable = $this->get_sortable_columns();
@@ -202,11 +191,8 @@ class Ced_Amazon_List_Feeds extends WP_List_Table {
 
 		$user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
 		$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
-
-		$ced_base_uri = ced_amazon_base_uri( $this->mode );
-
 		echo '<b>' . esc_attr( $item['feed_id'] ) . '</b>';
-		$actions['view'] = '<a class="feed-view" target="_blank" href="' . esc_url( get_admin_url() . $ced_base_uri . '&section=feed-view&woo-feed-id=' . esc_attr( $item['id'] ) . '&feed-id=' . esc_attr( $item['feed_id'] ) . '&feed-type=' . esc_attr( $item['feed_action'] ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) ) . '" > ' . esc_html__( 'View', 'amazon-for-woocommerce' ) . '</a>';
+		$actions['view'] = '<a class="feed-view" target="_blank" href="' . esc_url( get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=feed-view&woo-feed-id=' . esc_attr( $item['id'] ) . '&feed-id=' . esc_attr( $item['feed_id'] ) . '&feed-type=' . esc_attr( $item['feed_action'] ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) ) . '" > ' . esc_html__( 'View', 'amazon-for-woocommerce' ) . '</a>';
 
 		return $this->row_actions( $actions, true );
 	}
@@ -239,23 +225,7 @@ class Ced_Amazon_List_Feeds extends WP_List_Table {
 	 */
 	public function column_feedFor( $item ) {
 
-		$feed_opt_array = array(
-			'POST_INVENTORY_AVAILABILITY_DATA' => 'Inventory Update',
-			'POST_FLAT_FILE_LISTINGS_DATA'     => 'Product Upload',
-			'POST_PRODUCT_PRICING_DATA'        => 'Price Update',
-			'POST_PRODUCT_IMAGE_DATA'          => 'Image Update',
-			'POST_ORDER_FULFILLMENT_DATA'      => 'Order Fulfillment',
-			'POST_PRODUCT_DATA'                => 'Relist Product',
-			'Delete_Product'                   => 'Delete Product',
-		);
-
-		$type      = isset( $item['opt_type'] ) ? $item['opt_type'] : '-';
-		$feed_name = isset( $item['feed_action'] ) && isset( $feed_opt_array[ $item['feed_action'] ] ) ? $feed_opt_array[ $item['feed_action'] ] : '-';
-
-		echo '<b>' . esc_html__( $feed_name, 'amazon-for-woocommerce' ) . '</b>';
-		echo '<br>';
-		echo '(' . esc_html__( $type, 'amazon-for-woocommerce' ) . ')';
-
+			echo '<b>' . esc_html__( $item['feed_action'], 'amazon-for-woocommerce' ) . '</b>';
 	}
 
 	/**
@@ -417,7 +387,7 @@ class Ced_Amazon_List_Feeds extends WP_List_Table {
 
 		if ( ! session_id() ) {
 			session_start();
-		}
+		} 
 
 		wp_nonce_field( 'ced_amazon_feed_view_page_nonce', 'ced_amazon_feed_view_nonce' );
 
@@ -439,29 +409,31 @@ class Ced_Amazon_List_Feeds extends WP_List_Table {
 					$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}ced_amazon_feeds WHERE `id` IN (%s)", $id ) );
 				}
 
-				$ced_base_uri = ced_amazon_base_uri( $this->mode );
-				header( 'Location: ' . get_admin_url() . $ced_base_uri . '&section=feeds-view&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) );
+				header( 'Location: ' . get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=feeds-view&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) );
 				exit();
 
 			} else {
 
 				$seller_id = str_replace( '|', '%7C', $seller_id );
-				wp_safe_redirect( admin_url() . $ced_base_uri . '&section=feeds-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
+				wp_safe_redirect( admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=feeds-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
 				exit();
 
 			}
+
+
 		} elseif ( isset( $_GET['panel'] ) && 'edit' == $_GET['panel'] ) {
 
 			$file = CED_AMAZON_DIRPATH . 'admin/partials/profile-edit-view.php';
 			if ( file_exists( $file ) ) {
 				require_once $file;
 			}
+
 		} else {
 
 			$seller_id = str_replace( '|', '%7C', $seller_id );
-			wp_safe_redirect( admin_url() . $ced_base_uri . '&section=feeds-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
+			wp_safe_redirect( admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=feeds-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
 			exit();
-
+			
 		}
 	}
 }

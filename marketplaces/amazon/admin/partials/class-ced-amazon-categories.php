@@ -10,27 +10,34 @@ class Ced_Amazon_Get_Categoires {
 
 
 	public function ced_amazon_get_categories( $shop_id ) {
+		$access_token_response = ced_amazon_get_access_token( $shop_id );
+		$decoded_response      = json_decode( $access_token_response, true );
 
-		$amzonCurlRequest = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
-		if ( file_exists( $amzonCurlRequest ) ) {
-			require_once $amzonCurlRequest;
-			$amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-
+		if ( ! $decoded_response['status'] ) {
+			return $access_token_response;     // json_encoded_response
 		}
 
-		$contract_data = get_option( 'ced_unified_contract_details', array() );
-		$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
+		$bearerToken = $decoded_response['data'];
+		$apiUrl      = 'https://amazon-sales-channel-api-backend.cifapps.com/webapi/rest/v1/category-all/?shop_id=' . $shop_id;
 
-		$cat_topic = 'category-all';
-		$cat_data  = array(
-			'contract_id' => $contract_id,
-			'mode'        => 'production',
+		$ch = curl_init();
+
+		curl_setopt( $ch, CURLOPT_URL, $apiUrl );
+		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+		curl_setopt(
+			$ch,
+			CURLOPT_HTTPHEADER,
+			array(
+				'Authorization: Bearer ' . $bearerToken,
+			)
 		);
-
-		$response = $amzonCurlRequestInstance->ced_amazon_serverless_process( $cat_topic, $cat_data, 'GET' );
-
-		if ( isset( $response['body'] ) ) {
-			$response = json_decode( $response['body'], true );
+		$response = curl_exec( $ch );
+		if ( curl_errno( $ch ) ) {
+			print_r( 'cURL Error: ' . curl_error( $ch ) );
+		}
+		curl_close( $ch );
+		if ( $response ) {
+			$response = json_decode( $response, true );
 			$response = isset( $response['response'] ) ? $response['response'] : array();
 
 			if ( $response ) {
@@ -43,7 +50,6 @@ class Ced_Amazon_Get_Categoires {
 			// No response from the API
 			echo 'No response from the API';
 		}
-
 	}
 
 

@@ -4,98 +4,42 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 	class Ced_Pricing_Plans {
 
 		public function __construct() {
-			// $subscription_data = get_option('ced_mcfw_subscription_details_sandbox');
-			// echo '<pre>';
-			// print_r($subscription_data);
-			// die('fdd');
+
 			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 
 			add_action( 'wp_ajax_ced_woo_pricing_plan_selection', array( $this, 'ced_woo_pricing_plan_selection' ) );
-			add_action( 'wp_ajax_ced_woo_validate_coupon', array( $this, 'ced_woo_validate_coupon' ) );
 			add_action( 'wp_ajax_ced_woo_check_marketplaces', array( $this, 'ced_woo_check_marketplaces' ) );
 			add_action( 'wp_ajax_ced_woo_pricing_plan_cancellation', array( $this, 'ced_woo_pricing_plan_cancellation' ) );
+
 			add_action( 'admin_init', array( $this, 'ced_mcfw_save_subscription_details' ) );
-		}
-
-
-		public function ced_woo_validate_coupon() {
-			$check_ajax = check_ajax_referer( 'ced-mcfw-pricing-ajax-seurity-string', 'ajax_nonce' );
-			if ( $check_ajax ) {
-				$params                  = array();
-				$pricing_subscribed_data = get_option( 'ced_unified_contract_details', array() );
-				if ( ! empty( $pricing_subscribed_data['multichannel']['plan_status'] ) ) {
-					$pricing_status = $pricing_subscribed_data['multichannel']['plan_status'];
-				} else {
-					$pricing_status = '';
-				}
-				$selected_market             = get_option( 'ced_selected_marketplaces', array( 'Etsy', 'Walmart', 'Ebay', 'Amazon' ) );
-				$params['plan_type']         = ! empty( $_POST['plan_type'] ) ? sanitize_text_field( wp_unslash( $_POST['plan_type'] ) ) : 'advanced';
-				$params['plan_cost']         = ! empty( $_POST['plan_cost'] ) ? sanitize_text_field( wp_unslash( $_POST['plan_cost'] ) ) : '';
-				$params['coupon_code']       = ! empty( $_POST['coupon_code'] ) ? sanitize_text_field( wp_unslash( $_POST['coupon_code'] ) ) : '';
-				$params['marketplace_count'] = ! empty( $_POST['count'] ) ? sanitize_text_field( wp_unslash( $_POST['count'] ) ) : count( $selected_market );
-				if ( 'canceled' !== $pricing_status ) {
-					$params['contract_id'] = ! empty( $_POST['contract_id'] ) ? sanitize_text_field( wp_unslash( $_POST['contract_id'] ) ) : '';
-				}
-				$params['plan_period']          = ! empty( $_POST['plan_period'] ) ? sanitize_text_field( wp_unslash( $_POST['plan_period'] ) ) : '';
-				$params['selected_marketplace'] = base64_encode( implode( ',', array_values( $selected_market ) ) );
-				$params['channel']              = 'multichannel';
-				$params['mode']                 = ! empty( $_POST['mode'] ) ? sanitize_text_field( wp_unslash( $_POST['mode'] ) ) : '';
-				$params['check_validity']       = true;
-				$params['redirect_url']         = home_url();
-				$build_query                    = http_build_query( $params );
-				$url                            = 'https://api.cedcommerce.com/pricing/checkout?' . $build_query;
-				$connection                     = curl_init();
-
-				curl_setopt( $connection, CURLOPT_URL, $url );
-				curl_setopt( $connection, CURLOPT_SSL_VERIFYPEER, 0 );
-				curl_setopt( $connection, CURLOPT_POST, 0 );
-				curl_setopt( $connection, CURLOPT_SSL_VERIFYHOST, 0 );
-				curl_setopt( $connection, CURLOPT_RETURNTRANSFER, 1 );
-				$response = curl_exec( $connection );
-				$response = json_decode( $response, 1 );
-				curl_close( $connection );
-				echo json_encode( $response );
-				wp_die();
-			}
 		}
 
 		public function get_plan_options() {
 
-			$data = array(
-				'action' => 'pricing_plans',
-			);
 			$curl = curl_init();
 
-			$url = 'https://api.cedcommerce.com/pricing/subscription';
-			$url = $url . '?' . http_build_query( $data );
+			curl_setopt_array($curl, array(
+				CURLOPT_URL => 'https://api.cedcommerce.com/woobilling/live/ced_pricing_plan_options.json',
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_ENCODING => '',
+				CURLOPT_MAXREDIRS => 10,
+				CURLOPT_TIMEOUT => 0,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+				CURLOPT_CUSTOMREQUEST => 'GET',
+			));
 
-			curl_setopt_array(
-				$curl,
-				array(
-					CURLOPT_URL            => $url,
-					CURLOPT_RETURNTRANSFER => true,
-					CURLOPT_ENCODING       => '',
-					CURLOPT_MAXREDIRS      => 10,
-					CURLOPT_TIMEOUT        => 0,
-					CURLOPT_FOLLOWLOCATION => true,
-					CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
-					CURLOPT_CUSTOMREQUEST  => 'GET',
-				)
-			);
+			$response = curl_exec($curl);
 
-			$response = curl_exec( $curl );
-
-			curl_close( $curl );
+			curl_close($curl);
 			return $response;
 		}
 
 		public function ced_mcfw_save_subscription_details() {
 			if ( isset( $_GET['page'] ) && 'sales_channel' == $_GET['page'] && isset( $_GET['success'] ) && 'yes' == $_GET['success'] ) {
-				$mode = $_GET['mode'] ?? '';
-				update_option( 'ced_mcfw_subscription_details' . $mode, $_GET );
-
-				wp_redirect( admin_url( 'admin.php?page=sales_channel&channel=pricing&mode=' . $mode ) );
+				update_option( 'ced_mcfw_subscription_details', $_GET );
+				wp_redirect( admin_url( 'admin.php?page=sales_channel&channel=pricing' ) );
 				exit;
 			}
 		}
@@ -112,7 +56,6 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 				array(
 					'ajax_url'   => admin_url( 'admin-ajax.php' ),
 					'ajax_nonce' => $ajax_nonce,
-					'mode'       => $_GET['mode'] ?? 'is_dev',
 				)
 			);
 		}
@@ -126,12 +69,11 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 			if ( $check_ajax ) {
 				$params                 = array();
 				$params['contract_id']  = ! empty( $_POST['contract_id'] ) ? sanitize_text_field( wp_unslash( $_POST['contract_id'] ) ) : '';
-				$params['channel']      = 'multichannel';
+				$params['channel']      = 'unified-bundle';
 				$params['is_cancel']    = 'yes';
 				$params['redirect_url'] = home_url();
-				$params['mode']         = ! empty( $_POST['mode'] ) ? sanitize_text_field( wp_unslash( $_POST['mode'] ) ) : '';
 				$build_query            = http_build_query( $params );
-				$url                    = 'https://api.cedcommerce.com/pricing/checkout?' . $build_query;
+				$url                    = 'https://api.cedcommerce.com/woobilling/live/ced-process-payment.php?' . $build_query;
 				$connection             = curl_init();
 				curl_setopt( $connection, CURLOPT_URL, $url );
 				curl_setopt( $connection, CURLOPT_SSL_VERIFYPEER, 0 );
@@ -145,25 +87,24 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 				// die('kk');
 				$data = get_option( 'ced_unified_contract_details', array() );
 				if ( ! empty( $response_data ) && '200' == $response_data['status'] ) {
-					delete_option( 'ced_unified_contract_details' );
+					$data['unified-bundle']['plan_status'] = 'canceled';
 
 				} elseif ( 400 == $response_data['status'] && 'Contract is already canceled.' == $response_data['message'] ) {
-					delete_option( 'ced_unified_contract_details' );
+					$data['unified-bundle']['plan_status'] = 'canceled';
 				}
-				// update_option( 'ced_unified_contract_details', $data );
+				update_option( 'ced_unified_contract_details', $data );
 				print_r( $response );
 				wp_die();
 			}
 		}
-
 
 		public function ced_woo_pricing_plan_selection() {
 			$check_ajax = check_ajax_referer( 'ced-mcfw-pricing-ajax-seurity-string', 'ajax_nonce' );
 			if ( $check_ajax ) {
 				$params                  = array();
 				$pricing_subscribed_data = get_option( 'ced_unified_contract_details', array() );
-				if ( ! empty( $pricing_subscribed_data['multichannel']['plan_status'] ) ) {
-					$pricing_status = $pricing_subscribed_data['multichannel']['plan_status'];
+				if ( ! empty( $pricing_subscribed_data['unified-bundle']['plan_status'] ) ) {
+					$pricing_status = $pricing_subscribed_data['unified-bundle']['plan_status'];
 				} else {
 					$pricing_status = '';
 				}
@@ -174,24 +115,21 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 				if ( 'canceled' !== $pricing_status ) {
 					$params['contract_id'] = ! empty( $_POST['contract_id'] ) ? sanitize_text_field( wp_unslash( $_POST['contract_id'] ) ) : '';
 				}
-				$selected_market                = ! empty( $_POST['selected_marketplace'] ) ? $_POST['selected_marketplace'] : '';
 				$params['plan_period']          = ! empty( $_POST['plan_period'] ) ? sanitize_text_field( wp_unslash( $_POST['plan_period'] ) ) : '';
 				$params['selected_marketplace'] = base64_encode( implode( ',', array_values( $selected_market ) ) );
-				$params['channel']              = 'multichannel';
-				$params['mode']                 = ! empty( $_POST['mode'] ) ? sanitize_text_field( wp_unslash( $_POST['mode'] ) ) : '';
+				$params['channel']              = 'unified-bundle';
 				$params['redirect_url']         = home_url();
-				$params['coupon_code']          = ! empty( $_POST['coupon_code'] ) ? sanitize_text_field( wp_unslash( $_POST['coupon_code'] ) ) : '';
 				$build_query                    = http_build_query( $params );
-
-				$url        = 'https://api.cedcommerce.com/pricing/checkout?' . $build_query;
-				$connection = curl_init();
+				$url                            = 'https://api.cedcommerce.com/woobilling/live/ced-process-payment.php?' . $build_query;
+				$connection                     = curl_init();
 				curl_setopt( $connection, CURLOPT_URL, $url );
 				curl_setopt( $connection, CURLOPT_SSL_VERIFYPEER, 0 );
 				curl_setopt( $connection, CURLOPT_POST, 0 );
 				curl_setopt( $connection, CURLOPT_SSL_VERIFYHOST, 0 );
 				curl_setopt( $connection, CURLOPT_RETURNTRANSFER, 1 );
 				$response = curl_exec( $connection );
-
+				print_r( $response );
+				die;
 				$response = json_decode( $response, 1 );
 
 				curl_close( $connection );
@@ -211,141 +149,59 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 			$plan_type        = isset( $_POST['plan_type'] ) ? sanitize_text_field( $_POST['plan_type'] ) : false;
 			$marketplace_name = isset( $_POST['marketplace_name'] ) ? sanitize_text_field( $_POST['marketplace_name'] ) : false;
 			$selected_market  = get_option( 'ced_selected_marketplaces', array( 'Etsy', 'Walmart', 'Ebay', 'Amazon' ) );
-			// if ( in_array( $marketplace_name, $selected_market ) ) {
-			// $key = array_search( $marketplace_name, $selected_market );
-			// if ( ( $key ) !== false ) {
-			// unset( $selected_market[ $key ] );
-			// }
-			// update_option( 'ced_selected_marketplaces', $selected_market );
-			// } else {
-			// $selected_market[ $marketplace_name ] = $marketplace_name;
-			// update_option( 'ced_selected_marketplaces', $selected_market );
-			// }
+			if ( in_array( $marketplace_name, $selected_market ) ) {
+				$key = array_search( $marketplace_name, $selected_market );
+				if ( ( $key ) !== false ) {
+					unset( $selected_market[ $key ] );
+				}
+				update_option( 'ced_selected_marketplaces', $selected_market );
+			} else {
+				$selected_market[ $marketplace_name ] = $marketplace_name;
+				update_option( 'ced_selected_marketplaces', $selected_market );
+			}
 
-			$product_data = 'multichannel';
+			$product_data = 'unified-bundle';
 			$plan_data    = $this->get_plan_options();
-
-			$prod_data   = array();
-			$contract_id = '';
+			$prod_data    = array();
+			$contract_id  = '';
 			if ( ! empty( $plan_data ) ) {
 				$plan_data = json_decode( $plan_data, true );
 
-				$prod_data = $plan_data['data'][ $product_data ][ $plan_type ];
+				$prod_data = $plan_data[ $product_data ][ $plan_type ];
 
 			}
 			$price_total_basic   = $prod_data['basic']['pricing'][ $checkcount ]['plan_price'];
 			$price_total_advance = $prod_data['advanced']['pricing'][ $checkcount ]['plan_price'];
-			$final_basic_price   = $prod_data['basic']['pricing'][ $checkcount ]['price_total'];
-			$final_advance_price = $prod_data['advanced']['pricing'][ $checkcount ]['price_total'];
 			echo json_encode(
 				array(
-					'basic_price'         => $price_total_basic,
-					'advance_price'       => $price_total_advance,
-					'final_basic_price'   => $final_basic_price,
-					'final_advance_price' => $final_advance_price,
+					'basic_price'   => $price_total_basic,
+					'advance_price' => $price_total_advance,
 				)
 			);
 			wp_die();
 		}
 
+		public function ced_pricing_plan_display() {
 
-		public function new_ced_existing_plan_display( $subscription_data ) {
+			// $amzonBilling = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-billing-apis.php';
 
-			$data               = isset( $subscription_data['data'] ) ? $subscription_data['data'] : '';
-			$transactions       = isset( $data['transactions'][0] ) ? end( $data['transactions'] ) : '';
-			$billing_intent_id  = isset( $transactions['billing_intent_id'] ) ? $transactions['billing_intent_id'] : '';
-			$billing_intents    = isset( $data['billing_intents'][0] ) ? $data['billing_intents'] : array();
-			$plan_status        = isset( $subscription_data['status'] ) ? $subscription_data['status'] : '';
-			$next_payment_date  = isset( $data['next_payment_date'] ) ? $data['next_payment_date'] : '';
-			$filter_arr         = array_filter(
-				$billing_intents,
-				function( $arr ) use ( $billing_intent_id ) {
-					return ( $arr['id'] == $billing_intent_id );
-				}
-			);
-			$latest_transaction = array_values( $filter_arr );
+			// if ( file_exists( $amzonBilling ) ) {
+			// require_once $amzonBilling;
+			// $amzonBilling = new Billing_Apis();
+			// }
 
-			$payload        = isset( $latest_transaction[0]['payload'] ) ? $latest_transaction[0]['payload'] : '';
-			$plan_name      = isset( $payload['name'] ) ? $payload['name'] : '';
-			$plan_price     = isset( $payload['price'] ) ? $payload['price'] : '';
-			$billing_period = isset( $payload['billing_period'] ) ? $payload['billing_period'] : '';
-			$return_url     = isset( $payload['return_url'] ) ? $payload['return_url'] : '';
-			$url_components = parse_url( $return_url );
-			parse_str( $url_components['query'], $params );
-			$selected_marketplaces = isset( $params['selected_markeplaces'] ) ? base64_decode( $params['selected_markeplaces'] ) : '';
-			$status_class          = 'ced-mcbc-active';
-			$update                = 'Re-Subscribe';
-			if ( 'active' == $plan_status ) {
-				$update = 'Update';
-			}
-			if ( 'paused' == $plan_status ) {
-				$status_class = 'paused';
-			} elseif ( 'canceled' == $plan_status ) {
-				$status_class = 'canceled';
-			}
-			?>
+			// $contract_data = get_option( 'ced_unified_contract_details', array() );
+			// $contract_id   = isset($contract_data['amazon']) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
-			<div class="ced-pricing-plan-wrapper">
-					<div class="ced-pricing-plan-wrap">
-						<div class="ced-pricing-plan-container">
-							<div class="ced-pricing-plan-common-wrapper">
-								<h2>Pricing Plan Details</h2>
-							</div>
-							<div class="ced-pricing-plan-details-container">
-								<div class="ced-pricing-plan-details-wrap">
-									<table>
-										<tbody>
-											<tr>
-												<td>Plan Status</td>
-												<td>:</td>
-												<td><span class="<?php echo $status_class; ?>"><?php echo ucfirst( $plan_status ); ?></span></td>
-											</tr>
-											<tr>
-												<td>Plan Name</td>
-												<td>:</td>
-												<td><?php echo $plan_name . '/' . $billing_period; ?></td>
-											</tr>
-											<tr>
-												<td>Plan Price</td>
-												<td>:</td>
-												<td><?php echo $plan_price; ?></td>
-											</tr>
-											<tr>
-												<td>Next Payment Date</td>
-												<td>:</td>
-												<td><?php echo $next_payment_date; ?></td>
-											</tr>
-											<tr>
-												<td>Active Marketplace</td>
-												<td>:</td>
-												<td><?php echo $selected_marketplaces; ?></td>
-											</tr>
-										</tbody>
-									</table>
-								</div>
-								<div class="ced-pricing-plan-action-container">
-									<div class="ced-pricing-action-buttons">
-										<button class="ced-update ced-update-current-plan"><?php echo $update; ?></button>
-										<?php if ( 'active' == $plan_status ) : ?>
-										<button class="ced-cancel ced-cancel-current-plan">Cancel</button>
-										<?php endif; ?>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			<?php
-		}
-		public function new_ced_pricing_plan_display( $display ) {
-			$mode                 = ! empty( $_GET['mode'] ) ? sanitize_text_field( wp_unslash( $_GET['mode'] ) ) : '';
-			$subscription_details = get_option( 'ced_mcfw_subscription_details' . $mode, array() );
-
-			$contract_id = isset( $subscription_details['contract_id'] ) ? $subscription_details['contract_id'] : 0;
-			$currentPlan = '';
+			$subscription_details = get_option( 'ced_mcfw_subscription_details', array() );
+			$contract_id          = isset( $subscription_details['contract_id'] ) ? $subscription_details['contract_id'] : 0;
+			$currentPlan          = '';
 
 			// var_dump($contract_id);
-			// $currentPlan = $this->getCurrentPlanById();
+
+			if ( $contract_id ) {
+				$currentPlan = $this->getCurrentPlanById( $contract_id );
+			}
 			// echo '<pre>';
 			// print_r($currentPlan);
 			// die();
@@ -353,27 +209,152 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 			$is_update    = ! empty( $_GET['is_update'] ) ? sanitize_text_field( wp_unslash( $_GET['is_update'] ) ) : 'no';
 			$product_plan = ! empty( $_GET['product_plan'] ) ? sanitize_text_field( wp_unslash( $_GET['product_plan'] ) ) : '';
 
-			// $selected_market = get_option( 'ced_selected_marketplaces', array( 'Etsy', 'Walmart', 'Ebay', 'Amazon' ) );
-			$selected_market = array( 'Etsy', 'Walmart', 'Ebay', 'Amazon' );
-			$prod_data       = $this->ced_get_pricing_plan();
+			$plan_type       = isset( $_GET['plan_type'] ) ? sanitize_text_field( $_GET['plan_type'] ) : 'monthly';
+			$selected_market = get_option( 'ced_selected_marketplaces', array( 'Etsy', 'Walmart', 'Ebay', 'Amazon' ) );
 
-			?>
-		<div class="ced-pricing-page-container <?php echo $display; ?>" id="ced-main-pricing">
-		<div class="ced-page-plan-content">
-			<div class="ced-pricing-plan-common-header">
-			<?php
-				$trial_description = $this->get_trial_description();
-			?>
-				<div class="ced-pricing-plan-header-content">
-					<h2>Choose your right plan!</h2>
-					<p><?php echo $trial_description; ?></p>
-				</div>
-			</div>
-			<div class="plan-selector-wrapper">
-				<div class="ced-pricing-container-common">
-					<div class="ced-sricth-common-wrap">
-						<div class="ced-switch-wrapper">
-							<input id="monthly" type="radio" name="switch" value="monthly" 
+			// echo '<pre>';
+			// print_r($selected_market);
+			// echo '</pre>';
+			$prod_data = $this->ced_get_pricing_plan();
+
+			// get all plans
+			if ( ! empty( $prod_data ) ) {
+
+				$subscribed_data = get_option( 'ced_unified_contract_details', '' );
+				$subscribed_data = isset( $subscribed_data['amazon'] ) ? $subscribed_data['amazon'] : array();
+
+				$subscriptionVerified = 0;
+				$plan_name            = '';
+
+				// check the subscription is verified or not
+				$subscriptionStatus = '';
+
+				if ( is_array( $currentPlan ) && ! empty( $currentPlan ) && isset( $currentPlan['data'] ) ) {
+					$plan_data         = $currentPlan['data'];
+					$status_is         = ! empty( $plan_data['status'] ) ? $plan_data['status'] : '';
+					$next_payment_date = ! empty( $plan_data['next_payment_date'] ) ? $plan_data['next_payment_date'] : '';
+					$end_date          = ! empty( $plan_data['end_date'] ) ? $plan_data['end_date'] : '';
+					$next_payment_date = ! empty( $plan_data['next_payment_date'] ) ? $plan_data['next_payment_date'] : '';
+
+					$contract_id = ! empty( $plan_data['id'] ) ? $plan_data['id'] : '';
+
+					$billing_intents = isset( $plan_data['billing_intents'] ) ? $plan_data['billing_intents'] : array();
+
+					if ( ! empty( $billing_intents ) ) {
+
+						usort(
+							$billing_intents,
+							function ( $a, $b ) {
+								return $a['id'] - $b['id'];
+							}
+						);
+
+						$len            = count( $billing_intents ) - 1;
+						$subscribedPlan = $billing_intents[ $len ]['payload'];
+
+					}
+
+					$plan_name      = ! empty( $subscribedPlan['name'] ) ? $subscribedPlan['name'] : '';
+					$price          = ! empty( $subscribedPlan['price'] ) ? $subscribedPlan['price'] : '';
+					$billing_period = ! empty( $subscribedPlan['billing_period'] ) ? $subscribedPlan['billing_period'] : '';
+
+					$plan_name            = explode( '-', $plan_name );
+					$subscribtion_details = array();
+
+					$subscribtion_details['name']              = $plan_name[0];
+					$subscribtion_details['billing_period']    = $billing_period;
+					$subscribtion_details['status']            = $status_is;
+					$subscribtion_details['end_date']          = $end_date;
+					$subscribtion_details['next_payment_date'] = $next_payment_date;
+					$subscribtion_details['price']             = $price;
+
+					// discussion
+					// if ( 'yes' === $is_update ) {
+					// $contract_id = isset( $subscribed_data['contract_id'] ) ? $subscribed_data['contract_id'] : '';
+					// }
+					// discussion
+
+					$cancelled   = '';
+					$status_html = '';
+					if ( 'active' === $status_is ) {
+						$status_html = "<span style='color:green'>Active</span>";
+					} elseif ( 'pending' === $status_is ) {
+						$status_html = "<span style='color:yellow'>Pending</span>";
+					} elseif ( 'canceled' === $status_is ) {
+						$status_html = "<span style='color:red'>Canceled</span>";
+					}
+
+					if ( ! empty( $end_date ) ) {
+						$current_date = strtotime( gmdate( 'Y-m-d h:i:s' ) );
+						$end_date_str = strtotime( $end_date );
+						if ( $current_date >= $end_date_str ) {
+							$next_html = '<p style="margin-top: 20px;">Current plan is already expired on <span style="color:red;"><b>' . $end_date . '</b></span>. Please Renew it to continue the services.</p>';
+						} else {
+							$next_html = '<p style="margin-top: 20px;">Current plan is expiring on <span style="color:red;"><b>' . $end_date . '</b></span>. Please Renew it to continue the services.</p>';
+						}
+					} elseif ( 'canceled' == $status_is ) {
+						$cancelled = 'disabled';
+						$next_html = '<p style="margin-top: 20px;">Current plan is expiring on <span style="color:red;"><b>' . $next_payment_date . '</b></span>. Please Renew it to continue the services.</p>';
+					} elseif ( ! empty( $next_payment_date ) ) {
+						$next_html = '<p style="margin-top: 20px;">Your next subscription payment is scheduled on <span style="color:green;"><b>' . $next_payment_date . '</b></span>.</p>';
+					} else {
+						$next_html = '';
+					}
+
+					$responseBody       = isset( $currentPlan['data'] ) ? $currentPlan['data'] : array();
+					$subscriptionStatus = isset( $responseBody['status'] ) ? $responseBody['status'] : '';
+
+					$end_date   = is_null( $responseBody['end_date'] ) ? '' : $responseBody['end_date'];
+					$timestamp1 = strtotime( $end_date );
+
+					$currentTimestamp = time();
+					$currentDateTime  = gmdate( 'Y-m-d H:i:s', $currentTimestamp );
+
+					$timestamp2 = strtotime( $currentDateTime );
+
+					// $timestamp2 = strtotime("today");
+					// $timestamp1 = strtotime("27 Mar 2020") ;
+
+					if ( 'active' == $subscriptionStatus || ( 'canceled' == $subscriptionStatus && $timestamp1 > $timestamp2 ) ) {
+						$subscriptionVerified = 1;
+					}
+				}
+
+				// new client || update plan case ||  subscription not verified  ==> display all plans
+				if ( 'yes' == $is_update || ! $subscriptionVerified ) {
+
+					// subscription  not verified;
+					if ( 'pending' == $subscriptionStatus ) {
+
+						?>
+
+						<div class="ced-error ced_pending_checkout_container" >
+							<p><?php echo esc_html__( 'You have a pending transaction. Please proceed to ', 'amazon-for-woocommerce' ); ?>
+							<a href="#" class="btn btn-primary text-uppercase woo_ced_plan_selection_button" 
+							data-plan_name="<?php echo esc_attr( $plan_name[0] ); ?>"  
+							data-contract_id="<?php echo esc_attr( $plan_data['id'] ); ?>" ><?php echo esc_html__( 'checkout', 'amazon-for-woocommerce' ); ?></a> </p>
+						</div>
+
+						<?php
+					}
+
+					if ( 'paused' == $subscriptionStatus ) {
+						?>
+
+						<div class="ced-error ced_pending_checkout_container" >
+							<p><?php echo esc_html__( "You don't currently have an active plan. Please choose a plan to proceed.", 'amazon-for-woocommerce' ); ?></p>
+						</div>
+
+						<?php
+					}
+
+					?>
+
+					<div class="ced-pricing-plan-card-holder">
+
+						<div class="switch-wrapper-container">
+							<div class="switch-wrapper">
+								<input id="monthly" type="radio" name="switch" value="monthly" 
 								<?php
 								if ( 'monthly' == $plan_type ) {
 									echo 'checked'; }
@@ -384,146 +365,273 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 									if ( 'yearly' == $plan_type ) {
 										echo 'checked'; }
 									?>
-								/>
+										>
+										<label for="monthly">Monthly</label>
+										<label for="yearly">Yearly</label>
+										<span class="highlighter"></span>
+									</div>
 
-							<label for="monthly">Monthly</label>
-							<label for="yearly">Yearly</label>
-							<span class="highlighter"></span>
-						</div>
-					</div>
-				</div>
-			</div>
-			<div class="ced-pricing-card-common-wrapper">
-				<div class="ced-pricing-card-common">
-					<div class="ced-pricing-select-marketplace">
-					<h3>Select Marketplace</h3>
-					<?php
-					$marketplaces = isset( $prod_data['basic']['marketplaces'] ) ? $prod_data['basic']['marketplaces'] : array();
+								</div>
 
-					echo '<div class=ced-select-marketplace-common>';
-						echo '<ul>';
-					foreach ( $marketplaces as $market => $names ) {
-							$checked = '';
+								<div class="ced-pricing-card-holder">
 
-						if ( in_array( $market, $selected_market ) ) {
-								$checked   = 'checked';
-								$sel_count = count( $selected_market );
-						}if ( empty( $selected_market ) ) {
-									$sel_count = 4;
-									$checked   = 'checked';
-						}
-										echo '<li><input type="checkbox" name="selected-marketplaces" id="amazon" value=' . esc_attr( $market ) . ' ' . esc_attr( $checked ) . ' class="select-marketplace"><label for=' . esc_attr( $market ) . '>' . esc_attr( $market ) . '</label></li>';
-					}
-						echo '</ul>';
-					echo '</div>';
-					?>
-					</div>
-						<?php
-						foreach ( $prod_data as $key => $plan ) {
-							echo '<a href="#" class="btn btn-primary text-uppercase woo_ced_plan_selection_button" data-plan_type="' . $plan_type . '" id="ced-cost-' . esc_attr( $key ) . '" data-count="' . esc_attr( count( $selected_market ) ) . '"  data-plan_cost-' . esc_attr( $key ) . '=' . esc_attr( $plan['price_total'] ) . ' data-final_cost-' . esc_attr( $key ) . '=' . esc_attr( $plan['price_total'] ) . ' data-plan_name="' . esc_attr( $plan['plan_name'] ) . '" 
+									<?php
+									$marketplaces = isset( $prod_data['basic']['marketplaces'] ) ? $prod_data['basic']['marketplaces'] : array();
+									echo "<div id='ced_mcbc_pricing_wrapper'>";
+									foreach ( $marketplaces as $market => $names ) {
+										$checked = '';
+
+										if ( in_array( $market, $selected_market ) ) {
+											$checked   = 'checked';
+											$sel_count = count( $selected_market );
+										}if ( empty( $selected_market ) ) {
+											$sel_count = 4;
+											$checked   = 'checked';
+										}
+										echo '<div class="ced-marketplaces-names"><input type="checkbox" value=' . esc_attr( $market ) . ' ' . esc_attr( $checked ) . ' class="select-marketplace" >';
+										echo '<label>' . esc_attr( $market ) . '</label></div>';
+									}
+									echo '</div>';
+
+									// count($selected_market);
+									?>
+
+									<div class="ced-pricing-card-wrapper">
+
+										<?php
+										foreach ( $prod_data as $key => $plan ) {
+											echo '<div class="ced-pricing-card">
+											<div class="ced-pricing-card-content">
+											<div class="ced-pricing-content">
+											<h3>' . esc_attr( $plan['plan_name'] ) . '</h3>';
+											$price_total_basic = $prod_data[ $key ]['pricing'][ $sel_count ]['plan_price'];
+													// var_dump($price_total_basic);
+											$plan_price = isset( $price_total_basic ) ? $price_total_basic : $plan['plan_price'];
+													// var_dump($plan_price);
+											echo '<h4><span class="ced-price-value" id="ced-price-' . esc_attr( $key ) . '">$' . esc_attr( $plan_price ) . '</span>/month</h4>';
+											if ( 'yearly' === $plan_type ) {
+												echo '<i>* billed annually</i>';
+											}
+
+											echo '</div>
+											<div class="ced-pricing-list-text">
+											<ol>';
+											$desc = explode( ',', $plan['plan_description'] );
+											if ( is_array( $desc ) && ! empty( $desc ) ) {
+												foreach ( $desc as $k => $v ) {
+													echo '<li>' . esc_attr( $v ) . '</li>';
+												}
+											}
+											echo '</ol>
+											</div>
+											<div class="ced-pricing-select">
+											<div class="ced-pricing-select-button">
+											<a href="#" class="btn btn-primary text-uppercase woo_ced_plan_selection_button" data-count="' . esc_attr( count( $selected_market ) ) . '"  data-plan_name="' . esc_attr( $plan['plan_name'] ) . '" data-plan_cost="' . esc_attr( $plan['price_total'] ) . '" 
 											data-contract_id="';
-							if ( isset( $plan_data['status'] ) && 'canceled' !== $plan_data['status'] ) {
-								echo esc_attr( $contract_id ); }
 
-									echo '"><div class="ced-pricing-marketplace-card-container">
-								<div class="ced-pricing-basic-card">
-								<div class="ced-card-basic-card-common">
-								<label>
-									<h3>' . esc_attr( $plan['plan_name'] ) . '</h3>';
-							$price_total_basic = $prod_data[ $key ]['pricing'][ $sel_count ]['plan_price'];
-							$plan_price        = isset( $price_total_basic ) ? $price_total_basic : $plan['plan_price'];
-							$desc              = explode( ',', $plan['plan_description'] );
-							echo '<h2><span class="ced-price-value" id="ced-price-' . esc_attr( $key ) . '">$' . esc_attr( $plan_price ) . '</span>/month</h2>';
-							if ( 'yearly' == $plan_type ) {
-								echo '<h4>Billed Anually at $<span id="ced_billed_annualy-' . esc_attr( $key ) . '">' . $plan['price_total'] . '</span></h4>';
-							}
-							echo '<div class="ced-card-property-common">
-									<ul>';
-							if ( is_array( $desc ) && ! empty( $desc ) ) {
-								foreach ( $desc as $k => $v ) {
-											echo '<li>' . esc_attr( $v ) . '</li>';
-								}
-							}
-								echo '</ul>
+											if ( isset( $plan_data['status'] ) && 'canceled' !== $plan_data['status'] ) {
+												echo esc_attr( $contract_id ); }
+
+												echo '">Select plan</a>
+												</div>
+												</div>
+												</div>
+												</div>';
+										}
+
+										?>
+
+										</div>        
+									</div>    
+
+
 								</div>
-								<div class="ced-pricing-button-common">
-									
+								<?php
+								$trial_description = $this->get_trial_description();
+
+								?>
+								<div id="free_trial_notice" class="ced-center"><span><?php echo esc_html__( $trial_description ); ?></span></div>
+
+								<?php
+				} else {
+
+					// subscription is verified  and display current plan
+					?>
+
+								<div class="ced-pricing-card-holder">
+									<div class="ced-pricing-card-wrapper ced-center">
+										<div class="ced-pricing-card">
+
+											<div class="ced-stripe-container">
+												<div class="ced-stripe">
+													<div class="ced-stripe-active-tag" ><?php echo esc_html__( 'Active', 'amazon-for-woocommerce' ); ?></div>
+												</div>
+											</div>
+
+											<div class="ced-pricing-card-content" style="margin-top: -110px;" >
+												<div class="ced-pricing-content">
+
+													<div class="ced-pricing-content">
+
+														<h3><?php echo esc_attr( $subscribtion_details['name'] ); ?> </h3>
+
+											<?php
+
+											if ( 'month' == $subscribtion_details['billing_period'] ) {
+												?>
+															<h4><span class="ced-price-value">$<?php echo esc_attr( $subscribtion_details['price'] ); ?></span>/month</h4>
+															<?php
+											} elseif ( 'year' == $subscribtion_details['billing_period'] ) {
+												$perMonth = $subscribtion_details['price'] / 12;
+
+												?>
+															<h4><span class="ced-price-value">$<?php echo esc_attr( round( $perMonth, 2 ) ); ?></span>/month</h4>
+															<?php
+											}
+
+											if ( 'year' === $subscribtion_details['billing_period'] ) {
+												echo '<i>* billed annually</i>';
+											}
+											?>
+
+											<?php if ( 'active' == $status_is ) { ?>
+
+															<div style="margin: 10px 0px; text-align: center;" >
+																<label class="ced_amazon_next_billing_date"> Next billing: <b><?php print_r( substr( $responseBody['next_payment_date'], 0, 10 ) ); ?></b> </label>
+															</div>
+
+														<?php } else { ?>
+
+															<div style="margin: 10px 0px; text-align: center;" >
+																<label class="ced_amazon_end_billing_date"> Valid till: <b><?php print_r( substr( $responseBody['end_date'], 0, 10 ) ); ?></b> </label>
+															</div>
+
+															<?php
+
+														}
+
+														foreach ( $prod_data as $key => $plan ) {
+
+															if ( $plan_name[0] == $plan['plan_name'] ) {
+																?>
+
+																<div class="ced-pricing-list-text">
+																	<ol>
+																		<?php
+																		$desc = explode( ',', $plan['plan_description'] );
+																		if ( is_array( $desc ) && ! empty( $desc ) ) {
+																			foreach ( $desc as $k => $v ) {
+																				echo '<li>' . esc_attr( $v ) . '</li>';
+																			}
+																		}
+																		?>
+																	</ol>
+																</div>
+
+																<?php
+																break;
+															}
+														}
+
+														?>
+
+													</div>
+
+												</div>
+
+												<div class="ced-pricing-select">
+													<?php
+													if ( 'active' == $subscriptionStatus ) {
+														?>
+														<div class="ced-pricing-select-button ced-flex">
+															<a class="ced-cancel-plan" href="javascript:void(0)" data-contract_id="<?php echo esc_attr( $contract_id ); ?>">Cancel plan</a>
+															<a class="ced-change-plan">Manage plan</a>
+														</div>
+													<?php } elseif ( 'canceled' == $subscriptionStatus ) { ?>
+														<div class="ced-pricing-select-button">
+															<a class="ced-change-plan">Select plan</a>
+														</div>
+													<?php } ?>
+												</div> 
+											</div>
+										</div>
+									</div>
 								</div>
-							</label>
+
+								<?php
+
+				}
+			} else {
+
+				// unable to get all plans
+				?>
+
+							<div class="jumbotron ced_subscription_warning" >
+								<h1 class="display-4"><?php echo esc_html__( 'Hello, User!', 'amazon-for-woocommerce' ); ?></h1>
+								<p class="lead"><?php echo esc_html__( 'At this moment we are unable to load your current plan details, please Refresh the page or contact support.', 'amazon-for-woocommerce' ); ?></p>
+								<hr class="my-4">
+
+								<p class="lead">
+									<a class="components-button is-primary" href="#" role="button" onclick="history.back()" ><?php echo esc_html__( 'Go Back', 'amazon-for-woocommerce' ); ?></a>
+								</p>
 							</div>
-							</div>
-						</div></a>';
-						}
-						?>
-				</div>
-			</div>
-			
-			</div>
-		</div>
-	</div>
-	<div class="ced-bottom-cart-container">
-				<div class="ced-bottom-content-card">
-					<div class="ced-cart-product-name">
-						<h3><img src="<?php echo CED_MCFW_URL . 'admin\partials\pricing\mcbc.png'; ?>">Multichannel By CedCommerce <span id="ced_show_plan_name"></span></h3>
-					</div>
-					<div class="ced-product-value-wrapper">
-						<div class="ced-product-value-button">
-							<h3><del><span id="ced_previous_price"></span></del><span id="ced_checkout_total">$8.25</span><span id="ced_total_plan_name"></span><a href="#"><button class="components-button is-primary ced_final_checkout" data-planName="basic" data-planCost="" data-count=<?php echo count( $selected_market ); ?>>Buy Now</button></a></h3>
-							
-						</div>
-						<div class="ced-product-coupon-wrapper ced_add_coupon_link_div">
-							<p id="ced_add_coupon">Do you have a coupon ?</p>
-							<span id="ced_coupon_error"></span>
-						</div>
-						<div class="ced_add_coupon_form_div">
-							<p><input type="text" size="20" name="coupon_code" placeholder="Enter Coupon code"> <button class="components-button is-secondary validate_coupon" data-planName="basic" data-planCost="" data-count=<?php echo count( $selected_market ); ?>>Apply Coupon</button></p>
-						</div>
-						<div class="ced_remove_coupon_div">
-							<p><a class="ced_remove_coupon" data-planCost="" data-planType=""><span class="dashicons dashicons-no-alt"></span><span class="coupon_message"></span></a></p>
-						</div>
-						</div>
-					</div>
-				</div>
-			<?php
+
+
+							<?php
+			}
 		}
+
+
 		public function ced_get_pricing_plan() {
 
 			$plan_type    = ! empty( $_GET['plan_type'] ) ? sanitize_text_field( wp_unslash( $_GET['plan_type'] ) ) : 'monthly';
-			$product_data = 'multichannel';
+			$product_data = 'unified-bundle';
 			$plan_data    = $this->get_plan_options();
-			$prod_data    = array();
-			$contract_id  = '';
 
-			$plan_data = json_decode( $plan_data, true );
-			if ( ! empty( $plan_data['data'] ) ) {
-				$prod_data = $plan_data['data'][ $product_data ][ $plan_type ];
+			$prod_data   = array();
+			$contract_id = '';
+
+			if ( ! empty( $plan_data ) ) {
+				$plan_data = json_decode( $plan_data, true );
+
+				$prod_data = $plan_data[ $product_data ][ $plan_type ];
 
 			}
+
 			return $prod_data;
 		}
 
 		public function get_trial_description() {
 			$plan_type    = ! empty( $_GET['plan_type'] ) ? sanitize_text_field( wp_unslash( $_GET['plan_type'] ) ) : 'monthly';
-			$product_data = 'multichannel';
+			$product_data = 'unified-bundle';
 			$plan_data    = $this->get_plan_options();
 			$plan_data    = json_decode( $plan_data, true );
 			$prod_data    = array();
 			$contract_id  = '';
 
-			$description = isset( $plan_data['data'][ $product_data ]['description'] ) ? $plan_data['data'][ $product_data ]['description'] : '';
+			$description = isset( $plan_data[ $product_data ]['description'] ) ? $plan_data[ $product_data ]['description'] : '';
 			return $description;
 		}
 
-		public function getCurrentPlanById() {
+		public function getCurrentPlanById( $id ) {
+			if ( empty( $id ) ) {
+				return(
+					array(
+						'status'  => false,
+						'message' => 'Failed to fetch your current plans details. Please try again later or contact support.',
+					)
+				);
+
+			}
 
 			$data = array(
-				'action'  => 'subscription_exist',
-				'domain'  => home_url(),
-				'channel' => 'multichannel',
+				'action'          => 'get_subscription',
+				'subscription_id' => $id,
+				'channel'         => 'unified-bundle',
 			);
 			$curl = curl_init();
 
-			$url = 'https://api.cedcommerce.com/pricing/subscription';
+			$url = 'https://api.cedcommerce.com/woobilling/live/ced_api_request.php';
 			$url = $url . '?' . http_build_query( $data );
 			curl_setopt_array(
 				$curl,
@@ -535,11 +643,14 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 					CURLOPT_TIMEOUT        => 0,
 					CURLOPT_FOLLOWLOCATION => true,
 					CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+
+					CURLOPT_POSTFIELDS     => $id,
 				)
 			);
 
 			$currentPlanResponse = curl_exec( $curl );
 			curl_close( $curl );
+
 			if ( is_wp_error( $currentPlanResponse ) ) {
 				return(
 					array(
@@ -551,6 +662,7 @@ if ( ! class_exists( 'Ced_Pricing_Plans' ) ) {
 			} else {
 				$response = json_decode( $currentPlanResponse, true );
 				return $response;
+
 			}
 		}
 	}

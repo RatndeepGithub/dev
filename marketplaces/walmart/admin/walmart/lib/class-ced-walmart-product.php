@@ -84,9 +84,8 @@ class Ced_Walmart_Product {
 			if ( is_object( $_product ) ) {
 				$status = get_post_status( $product_id );
 				if ( 'publish' == $status ) {
-					$category = $this->ced_get_item_category( $product_id , 'MP_ITEM' );
+					$category = $this->ced_get_item_category( $product_id );
 					if ( $category ) {
-					
 						$subCategory = ced_walmart_subcategories( $category );
 						$type        = $_product->get_type();
 						if ( 'variable' == $type ) {
@@ -113,7 +112,7 @@ class Ced_Walmart_Product {
 				}
 			}
 		}
-		
+
 		if ( ! empty( $feed_array ) ) {
 			$feed_header    = $this->get_feed_header( $subCategory );
 			$feed_array     = array_merge( $feed_header, $feed_array );
@@ -136,7 +135,7 @@ class Ced_Walmart_Product {
 	 * @since 1.0.0
 	 * @param array $product_id.
 	 */
-	public function ced_get_item_category( $product_id, $profile_type ) {
+	public function ced_get_item_category( $product_id ) {
 		$term_list  = wp_get_post_terms(
 			$product_id,
 			'product_cat',
@@ -145,7 +144,7 @@ class Ced_Walmart_Product {
 			)
 		);
 		$cat_id     = (int) $term_list[0];
-		$mapped_cat = get_option( 'ced_mapped_cat_' . $profile_type );
+		$mapped_cat = get_option( 'ced_mapped_cat' );
 		$mapped_cat = json_decode( $mapped_cat, 1 );
 		foreach ( $mapped_cat['profile'] as $key => $value ) {
 			if ( in_array( $cat_id, $value['woo_cat'] ) ) {
@@ -416,8 +415,8 @@ class Ced_Walmart_Product {
 		if ( ! empty( $sku_Update ) ) {
 			$orderable['Orderable']['SkuUpdate'] = ucfirst( $sku_Update );
 		}
-		
-		$visible_data  = $this->fetch_visible_item_data( $product_id, $category, $short_description, $primary_variant, 'MP_ITEM' );
+
+		$visible_data  = $this->fetch_visible_item_data( $product_id, $category, $short_description, $primary_variant );
 		$product_array = array_merge( $orderable, $visible_data );
 
 		return $product_array;
@@ -430,15 +429,15 @@ class Ced_Walmart_Product {
 	 * @param array $product_id, $walmart_cat , $short_description='', $primary_variant=''.
 	 */
 
-	public function fetch_visible_item_data( $product_id, $walmart_cat, $short_description = '', $primary_variant = '', $profile_type ) {
-		
-		$all_profile_visible = get_option( 'ced_walmart_cat_visible_' . $profile_type . '_' . $walmart_cat );
+	public function fetch_visible_item_data( $product_id, $walmart_cat, $short_description = '', $primary_variant = '' ) {
+
+		$all_profile_visible = get_option( 'ced_walmart_cat_visible_' . $walmart_cat );
 		$all_profile_visible = json_decode( $all_profile_visible, 1 );
 
-		$attribute_type = get_option( 'ced_walmart_cat_type_attribute_' . $profile_type . '_' . $walmart_cat );
+		$attribute_type = get_option( 'ced_walmart_cat_type_attribute_' . $walmart_cat );
 		$attribute_type = json_decode( $attribute_type, 1 );
 
-		$mapped_cat = get_option( 'ced_mapped_cat_' . $profile_type );
+		$mapped_cat = get_option( 'ced_mapped_cat' );
 		$mapped_cat = json_decode( $mapped_cat, 1 );
 
 		$convertData = json_decode( $mapped_cat['profile'][ $walmart_cat ]['profile_data'], 1 );
@@ -823,7 +822,7 @@ class Ced_Walmart_Product {
 			if ( is_object( $_product ) ) {
 				$status = get_post_status( $product_id );
 				if ( 'publish' == $status ) {
-					$category = $this->ced_get_item_category( $product_id , 'MP_ITEM' );
+					$category = $this->ced_get_item_category( $product_id );
 					$type     = $_product->get_type();
 					if ( 'variable' == $type ) {
 						$variations = $_product->get_children();
@@ -921,7 +920,7 @@ class Ced_Walmart_Product {
 			if ( is_object( $_product ) ) {
 				$status = get_post_status( $product_id );
 				if ( 'publish' == $status ) {
-					$category = $this->ced_get_item_category( $product_id , 'MP_ITEM' );
+					$category = $this->ced_get_item_category( $product_id );
 					$type     = $_product->get_type();
 					if ( 'variable' == $type ) {
 						$variations = $_product->get_children();
@@ -971,7 +970,7 @@ class Ced_Walmart_Product {
 	 */
 	public function get_price( $product_id, $store_id = '', $category = '' ) {
 		$this->is_profile_assing( $category );
-		$category = $this->ced_get_item_category( $product_id , 'MP_ITEM' );
+		$category = $this->ced_get_item_category( $product_id );
 		$this->is_profile_assing( $category );
 		$is_uploaded_on_walmart = get_post_meta( $product_id, 'ced_walmart_product_uploaded' . $store_id . wifw_environment(), true );
 		if ( empty( $is_uploaded_on_walmart ) ) {
@@ -1221,7 +1220,7 @@ class Ced_Walmart_Product {
 			'processMode'    => 'REPLACE',
 			'subset'         => 'EXTERNAL',
 			'mart'           => 'WALMART_US',
-			'version'        => '5.0',
+			'version'        => '1.5',
 		);
 		return $feed_header;
 	}
@@ -1396,7 +1395,7 @@ class Ced_Walmart_Product {
 	 * @param string $filepath.
 	 */
 	public function ced_walmart_upload( $filepath = '', $feed_type = 'MP_ITEM', $store_id = '' ) {
-		$action                 = 'feed';
+		$action                 = 'feeds';
 		$query_args['feedType'] = $feed_type;
 		$parameters['file']     = $filepath;
 		$status                 = 400;
@@ -1412,17 +1411,17 @@ class Ced_Walmart_Product {
 			$parameters = $filepath;
 		}
 
-		$this->ced_walmart_process_instance->store_id = $store_id;
-		$response                                     = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, $parameters, $query_args, 'POST' );
-		if ( isset( $response['result']['feedId'] ) ) {
+		$this->ced_walmart_curl_instance->store_id = $store_id;
+		$response                                  = $this->ced_walmart_curl_instance->ced_walmart_post_request( $action, $parameters, $query_args );
+		if ( isset( $response['feedId'] ) ) {
 			$ced_walmart_import_data                         = get_option( 'ced_walmart_import_data' . $store_id . wifw_environment(), array() );
-			$import_id                                       = $response['result']['feedId'];
+			$import_id                                       = $response['feedId'];
 			$ced_walmart_import_data[ $import_id ]['feedId'] = $import_id;
 			$ced_walmart_import_data[ $import_id ]['type']   = $feed_type;
 			$ced_walmart_import_data[ $import_id ]['time']   = gmdate( 'l jS \of F Y h:i:s A' );
 			update_option( 'ced_walmart_import_data' . $store_id . wifw_environment(), $ced_walmart_import_data );
 			if ( $this->items_with_errors ) {
-				$response['error']['items_with_erros'] = true;
+				$response['items_with_erros'] = true;
 			}
 		}
 		return $response;

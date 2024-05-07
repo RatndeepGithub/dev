@@ -32,29 +32,12 @@ class Ced_Template_Etsy_Setup_Wizard {
 	 */
 	protected $steps = array();
 
-
-	/**
-	 * Current setup steps.
-	 *
-	 * @var array
-	 */
-	protected $current_setup = array();
-
 	/**
 	 * Errors.
 	 *
 	 * @var array
 	 */
 	protected $errors = array();
-
-
-	/**
-	 * Current Etsy shop name.
-	 *
-	 * @since    1.0.0
-	 * @var      string    $shop_name    current active Etsy shop name.
-	 */
-	public $shop_name;
 
 	/**
 	 * Constructor.
@@ -104,7 +87,7 @@ class Ced_Template_Etsy_Setup_Wizard {
 		<p><strong>' . esc_html__( 'Great job! Your onboarding process is complete.', 'woocommerce-etsy-integration' ) . '</strong></p>
 		</header>
 		<div class="wc-actions">
-		<a href="' . esc_url( ced_get_navigation_url( 'etsy', array() ) ) . '">
+		<a href="' . esc_url( admin_url( 'admin.php?page=sales_channel&channel=etsy' ) ) . '">
 		<input style="float: right;" type="button" name="ced_e_onboard_done" class="components-button is-primary" value="' . esc_attr__( 'Go to Overview', 'woocommerce-etsy-integration' ) . '">
 		</a>
 		</div>
@@ -129,6 +112,7 @@ class Ced_Template_Etsy_Setup_Wizard {
 		if ( isset( $_POST['connect_etsy_btn'] ) && ! empty( $_POST['connect_etsy_btn'] ) && ! empty( $this->steps[ $this->step ]['handler'] ) ) {
 
 			if ( ! isset( $_POST['woocommerce-etsy-setup-wizard-submit'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['woocommerce-etsy-setup-wizard-submit'] ) ), 'woocommerce-etsy-setup-wizard' ) ) {
+				// print_r($_POST);
 				return;
 			}
 
@@ -150,16 +134,10 @@ class Ced_Template_Etsy_Setup_Wizard {
 	 * @since 1.0.0
 	 */
 	public function ced_etsy_required_attr() {
-		$shop_name       = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
+		$this->current_setup[ get_etsy_shop_name() ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : admin_url( 'admin.php?page=sales_channel&channel=etsy&section=connected&shop_name=' . $shop_name );
+		$shop_name       = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : admin_url( 'admin.php?page=sales_channel&channel=etsy&section=connected&shop_name=' . $shop_name );
 		$this->shop_name = ! empty( $shop_name ) ? $shop_name : get_option( 'ced_etsy_shop_name', '' );
-		$this->current_setup[ get_etsy_shop_name() ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : ced_get_navigation_url(
-			'etsy',
-			array(
-				'section'   => 'connected',
-				'shop_name' => $this->shop_name,
-			)
-		);
-		$attr_options = ced_ety_get_custom_meta_and_attributes_keys();
+		$attr_options    = ced_ety_get_custom_meta_and_attributes_keys();
 
 		echo '<div class="woocommerce-progress-form-wrapper woocommerce-importer">';
 		echo '<header>
@@ -254,15 +232,7 @@ class Ced_Template_Etsy_Setup_Wizard {
 		$req_html .= $table->table_close();
 
 		$req_html .= '<div class="wc-actions">
-		<a href="' . esc_url(
-			ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'setup',
-					'shop_name' => $this->shop_name,
-				)
-			)
-		) . '" class="components-button is-secondary">' . esc_html__( 'Reset all values', 'woocommerce-etsy-integration' ) . '</a>
+		<a href="' . esc_url( admin_url( 'admin.php?page=sales_channel&channel=etsy&section=setup&shop_name=' . $this->shop_name ) ) . '" class="components-button is-secondary">' . esc_html__( 'Reset all values', 'woocommerce-etsy-integration' ) . '</a>
 		<button type="submit" style="float: right;" class="button-primary is-primary components-button button-next" value="Connect" name="connect_etsy_btn">' . esc_html__( 'Save & Continue', 'woocommerce-etsy-integration' ) . '</button>
 		<button style="float: right;" type="button" class="components-button woocommerce-admin-dismiss-notification">
 		<a class="components-button is-tertiary" href="' . esc_url_raw( $this->ced_etsy_get_next_step_link() ) . '">' . esc_html__( 'Skip', 'woocommerce-etsy-integration' ) . '</a>
@@ -285,13 +255,15 @@ class Ced_Template_Etsy_Setup_Wizard {
 			return;
 		}
 		$sanitized_array = ced_filter_input();
+		echo '<pre>';
+		print_r( $sanitized_array );
+		echo '</pre>';
 		$e_shop_name     = isset( $_POST['e_shop_name'] ) ? sanitize_text_field( wp_unslash( $_POST['e_shop_name'] ) ) : '';
 		$this->shop_name = ! empty( $e_shop_name ) ? $e_shop_name : get_option( 'ced_etsy_shop_name', '' );
 		if ( isset( $sanitized_array['ced_etsy_setup_wiz_req_cstm'] ) && isset( $sanitized_array['ced_etsy_setup_wiz_req_attr'] ) ) {
 			update_option( 'ced_etsy_setup_wiz_req_attrs_' . $this->shop_name, $sanitized_array );
 		}
-		wp_safe_redirect( esc_url_raw( $this->ced_etsy_get_next_step_link() ) );
-		exit;
+		wp_redirect( esc_url_raw( $this->ced_etsy_get_next_step_link() ) );
 	}
 
 	/**
@@ -326,8 +298,7 @@ class Ced_Template_Etsy_Setup_Wizard {
 			$glbl_settings[ $this->shop_name ]['ced_etsy_auto_update_inventory'] = $sync_inventory;
 			$glbl_settings[ $this->shop_name ]['ced_etsy_auto_fetch_orders']     = $fetch_order_scl;
 			update_option( 'ced_etsy_global_settings', $glbl_settings );
-			wp_safe_redirect( esc_url_raw( $this->ced_etsy_get_next_step_link() ) );
-			exit;
+			wp_redirect( esc_url_raw( $this->ced_etsy_get_next_step_link() ) );
 		}
 	}
 
@@ -345,13 +316,7 @@ class Ced_Template_Etsy_Setup_Wizard {
 		$inventory_scl  = isset( $saved_schedler[ $shop_name ]['ced_etsy_auto_update_inventory'] ) ? $saved_schedler[ $shop_name ]['ced_etsy_auto_update_inventory'] : '';
 		$order_scl      = isset( $saved_schedler[ $shop_name ]['ced_etsy_auto_fetch_orders'] ) ? $saved_schedler[ $shop_name ]['ced_etsy_auto_fetch_orders'] : '';
 
-		$this->current_setup[ get_etsy_shop_name() ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : ced_get_navigation_url(
-			'etsy',
-			array(
-				'section'   => 'connected',
-				'shop_name' => $shop_name,
-			)
-		);
+		$this->current_setup[ get_etsy_shop_name() ]['current_step'] = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : admin_url( 'admin.php?page=sales_channel&channel=etsy&section=connected&shop_name=' . $shop_name );
 		?>
 		<form class="wc-progress-form-content woocommerce-importer" enctype="multipart/form-data" method="post">
 			<?php wp_nonce_field( 'woocommerce-etsy-setup-wizard', 'woocommerce-etsy-setup-wizard-submit' ); ?>

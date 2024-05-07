@@ -24,8 +24,8 @@ if ( isset( $_POST['ced_amazon_product_bulk_action_nonce'] ) && wp_verify_nonce(
 	if ( isset( $_POST['doaction'] ) ) {
 
 		$marketplace = 'amazon';
-		$seller_id   = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
-		$mode        = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
+
+		$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
 
 		if ( ! empty( $seller_id ) ) {
 			$mplocation_arr = explode( '|', $seller_id );
@@ -94,7 +94,7 @@ if ( isset( $_POST['ced_amazon_product_bulk_action_nonce'] ) && wp_verify_nonce(
 		if ( $allset ) {
 
 			if ( class_exists( 'Ced_Umb_Amazon_Feed_Manager' ) ) {
-				$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance( $mode );
+				$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance();
 				$notice       = $feed_manager->process_feed_request( $product_action, $marketplace, $proIds, $mplocation, $seller_id );
 
 				$notice_array = json_decode( $notice, true );
@@ -108,7 +108,7 @@ if ( isset( $_POST['ced_amazon_product_bulk_action_nonce'] ) && wp_verify_nonce(
 					);
 				} else {
 
-
+					
 					$message   = __( 'An unexpected error occurred. Please try again.', 'amazon-for-woocommerce' );
 					$classes   = 'error is-dismissable';
 					$notices[] = array(
@@ -148,21 +148,12 @@ if ( count( $notices ) ) {
 class AmazonListProducts extends WP_List_Table {
 
 	public $show_reset;
-	public $user_id;
-	public $seller_id;
-	public $mode;
-	public $ced_base_uri;
-	public $mrkp_val = 0;
-	public $mrkup_type;
-	public $max_stock             = 0;
-	public $ced_amazon_rsrve_stck = 0;
 
 	/**
 	 *
 	 * Function to construct
 	 */
 	public function __construct() {
-
 		parent::__construct(
 			array(
 				'singular' => __( 'ced-amazon-product', 'amazon-for-woocommerce' ),
@@ -170,40 +161,6 @@ class AmazonListProducts extends WP_List_Table {
 				'ajax'     => true,
 			)
 		);
-
-		$this->seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
-		$this->user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-
-		$this->seller_id_val = str_replace( '|', '_', $this->seller_id );
-
-		$this->mode                  = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-		$this->ced_base_uri          = ced_amazon_base_uri( $this->mode );
-		$this->mrkup_type            = '';
-		$this->mrkp_val              = '';
-		$this->ced_amazon_rsrve_stck = '';
-
-		$seller_global_settings = array();
-		$global_settings        = get_option( 'ced_amazon_global_settings' );
-
-		if ( isset( $global_settings[ $this->seller_id ] ) && ! empty( $global_settings[ $this->seller_id ] ) ) {
-			$seller_global_settings = $global_settings[ $this->seller_id ];
-		}
-
-		if ( isset( $seller_global_settings['ced_amazon_product_markup_type'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup_type'] ) && isset( $seller_global_settings['ced_amazon_product_markup'] ) && ! empty( $seller_global_settings['ced_amazon_product_markup'] ) ) {
-
-			$this->mrkup_type = $seller_global_settings['ced_amazon_product_markup_type'];
-			$this->mrkp_val   = $seller_global_settings['ced_amazon_product_markup'];
-
-		}
-
-		if ( isset( $seller_global_settings['ced_amazon_listing_stock'] ) && ! empty( $seller_global_settings['ced_amazon_listing_stock'] ) ) {
-			$this->max_stock = $seller_global_settings['ced_amazon_listing_stock'];
-		}
-
-		if ( isset( $seller_global_settings['ced_amazon_rsrve_stck'] ) && ! empty( $seller_global_settings['ced_amazon_rsrve_stck'] ) ) {
-			$this->ced_amazon_rsrve_stck = $seller_global_settings['ced_amazon_rsrve_stck'];
-		}
-
 	}
 
 
@@ -224,15 +181,7 @@ class AmazonListProducts extends WP_List_Table {
 		 * @return 'count'
 		 * @since  1.0.0
 		 */
-
-		$current_per_page = isset( $_GET['per_page'] ) ? sanitize_text_field( $_GET['per_page'] ) : 20;
-
-		/**
-		 * Filter to modify number of products per page
-		 *
-		 * @since 1.1.3
-		 */
-		$per_page  = apply_filters( 'ced_amazon_products_per_page', $current_per_page );
+		$per_page  = apply_filters( 'ced_amazon_products_per_page', 10 );
 		$post_type = 'product';
 		$columns   = $this->get_columns();
 		$hidden    = array();
@@ -429,6 +378,7 @@ class AmazonListProducts extends WP_List_Table {
 					$amazon_profiles = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}ced_amazon_profiles WHERE `id` = %s", $key ), 'ARRAY_A' );
 					$amazon_profiles = isset( $amazon_profiles[0] ) ? $amazon_profiles[0] : array();
 
+
 					$profile = isset( $amazon_profiles['amazon_categories_name'] ) ? $amazon_profiles['amazon_categories_name'] : '';
 
 					if ( empty( $profile ) ) {
@@ -450,7 +400,7 @@ class AmazonListProducts extends WP_List_Table {
 		if ( $mapped ) {
 
 			echo '<a target="_blank" 
-			href="' . esc_url( get_admin_url() ) . $this->ced_base_uri . '&section=add-new-template&template_id=' . esc_attr( $mapped ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) . '">'
+			href="' . esc_url( get_admin_url() ) . 'admin.php?page=sales_channel&channel=amazon&section=add-new-template&template_id=' . esc_attr( $mapped ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) . '">'
 				. esc_attr( $profile ) . '</a>';
 
 		} else {
@@ -465,20 +415,6 @@ class AmazonListProducts extends WP_List_Table {
 	 * Function for stock column
 	 */
 	public function column_stock( $item ) {
-
-		if ( $item['stock'] > $this->max_stock ) {
-			$item['stock'] = $this->max_stock;
-		}
-
-		if ( $this->ced_amazon_rsrve_stck > 0 ) {
-			$item['stock']        = $item['stock'] - $this->ced_amazon_rsrve_stck;
-			$item['stock_status'] = 'instock';
-
-			if ( 0 > $item['stock'] ) {
-				$item['stock']        = 0;
-				$item['stock_status'] = 'instock';
-			}
-		}
 
 		if ( 'instock' == $item['stock_status'] ) {
 			if ( 0 == $item['stock'] || '0' == $item['stock'] ) {
@@ -513,12 +449,9 @@ class AmazonListProducts extends WP_List_Table {
 	 * Function for price column
 	 */
 	public function column_price( $item ) {
-
-		$item['price'] = ced_calculate_price( $this->mrkup_type, $item['price'], $this->mrkp_val );
 		echo '<div class="admin-custom-action-button-outer"><div class="admin-custom-action-show-button-outer">';
 		$currencySymbol = get_woocommerce_currency_symbol();
 		return $currencySymbol . '&nbsp<b class="success_upload_on_amazon">' . $item['price'] . '</b></div></div>';
-
 	}
 
 	/**
@@ -566,7 +499,6 @@ class AmazonListProducts extends WP_List_Table {
 		$mp_location         = isset( $seller_loc_arr['1'] ) ? $seller_loc_arr['0'] : '';
 		$listing_id          = get_post_meta( $item['id'], 'ced_amazon_product_asin_' . $mp_location, true );
 		$amazon_catalog_asin = get_post_meta( $item['id'], 'ced_amazon_catalog_asin_' . $mp_location, true );
-
 		if ( ! empty( get_post_meta( $item['id'], 'ced_amazon_alt_prod_description_' . $item['id'] . '_' . $user_id, true ) ) || ! empty( get_post_meta( $item['id'], 'ced_amazon_alt_prod_title_' . $item['id'] . '_' . $user_id, true ) ) ) {
 			echo '<button class="px-3 py-1 mr-3 text-white font-semibold bg-blue-500 rounded">Modified</button><br>';
 
@@ -590,7 +522,7 @@ class AmazonListProducts extends WP_List_Table {
 
 			$view_url_sandbox  = 'https://sandbox.amazon.com/itm/' . $listing_id;
 			$mode_of_operation = get_option( 'ced_amazon_mode_of_operation', '' );
-			if ( '_sandbox' == $mode_of_operation ) {
+			if ( 'sandbox' == $mode_of_operation ) {
 
 				echo '<div class="admin-custom-action-button-outer">';
 				echo '<div class="admin-custom-action-show-button-outer">';
@@ -624,8 +556,8 @@ class AmazonListProducts extends WP_List_Table {
 
 			echo '<div class="ced-disconnected-button-wrap"><a class="ced-connected-link"><span class="ced-circle" style="background:#000000;"></span>' . esc_html__( 'Not uploaded', 'amazon-for-woocommerce' ) . '</a> </div>';
 			if ( isset( $amazon_catalog_asin ) && ! empty( $amazon_catalog_asin ) ) {
-
-				echo '<br><div class="ced-connected-button-wrap"><a class="ced-connected-link" target="_blank" href="' . esc_url( $catalog_asin_url ) . '" ><span class="ced-circle"></span>' . esc_html__( 'View ASIN', 'amazon-for-woocommerce' ) . '</a> </div>';
+			
+				echo '<br><div class="ced-connected-button-wrap"><a class="ced-connected-link" target="_blank" href="' . esc_url( $catalog_asin_url ) . '" ><span class="ced-circle"></span>' . esc_html__( 'View ASIN', 'amazon-for-woocommerce' ) . '</a> </div>';      
 			}
 			echo '</div></div>';
 		}
@@ -755,7 +687,6 @@ class AmazonListProducts extends WP_List_Table {
 				if ( '' != $sort_by_stock ) {
 					$meta_query = array();
 					if ( 'instock' == $sort_by_stock ) {
-
 						if ( 'Uploaded' == $_REQUEST['status_sorting'] ) {
 							$args['meta_query'] = array(
 								'relation' => 'AND',
@@ -989,7 +920,6 @@ class AmazonListProducts extends WP_List_Table {
 					echo '<div class="ced_amazon_wrap">';
 					echo '<form method="post" action="">';
 					echo '<div class="ced_amazon_top_wrapper">';
-
 					echo '<select name="status_sorting" class="select_boxes_product_page">';
 					echo '<option value="">' . esc_attr( 'Product status', 'amazon-for-woocommerce' ) . '</option>';
 					foreach ( $status_actions as $name => $title ) {
@@ -1039,7 +969,7 @@ class AmazonListProducts extends WP_List_Table {
 						$user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
 						$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
 
-						echo '<span class="ced_reset"><a href="' . esc_url( admin_url( $this->ced_base_uri . '&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ) . '" class="button">X</a></span>';
+						echo '<span class="ced_reset"><a href="' . esc_url( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id ) ) . '" class="button">X</a></span>';
 					}
 						echo '</div>';
 						echo '</form>';
@@ -1088,7 +1018,7 @@ class AmazonListProducts extends WP_List_Table {
 
 			} else {
 
-				$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance( $this->mode );
+				$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance();
 				$response     = $feed_manager->getFeedItemsStatusSpApi( $product_feeds['POST_FLAT_FILE_LISTINGS_DATA'], $feed_type, $location_id, $marketplace, $seller_id );
 
 				if ( isset( $response['status'] ) && 'DONE' == $response['status'] ) {

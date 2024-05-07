@@ -6,7 +6,6 @@
 	var user_id   = ced_ebay_admin_obj.user_id;
 	var siteUrl   = ced_ebay_admin_obj.site_url;
 	var siteId    = ced_ebay_admin_obj.site_id;
-	var rsId    = ced_ebay_admin_obj.rsid;
 
 	$( document ).on(
 		'click',
@@ -164,8 +163,7 @@
 					operation_to_be_performed : operation,
 					id : ebay_products_id,
 					userid:user_id,
-					site_id:siteId,
-					rsid:rsId
+					site_id:siteId
 				},
 				type : 'POST',
 				success: function(response)
@@ -231,7 +229,6 @@
 				'action':'ced_ebay_fulfill_order',
 				ajax_nonce : ajaxNonce,
 				userid : user_id,
-				rsid:rsId,
 				order_id: order_id,
 				tracking_number: trackingNumber,
 				shipping_service: shippingService
@@ -279,7 +276,6 @@
 							ajax_nonce : ajaxNonce,
 							action : 'ced_ebay_category_refresh_button',
 							userid:user_id,
-							rsid:rsId,
 							levels: levels_arr,
 							site_id: siteId
 						},
@@ -422,7 +418,6 @@
 							operation_to_be_performed : operation,
 							profile_ids : profile_ids,
 							user_id:user_id,
-							rsid:rsId,
 							site_id:siteId
 						},
 						type : 'POST',
@@ -510,7 +505,6 @@
 					data: {
 						ajax_nonce: ajaxNonce,
 						user_id: user_id,
-						rsid:rsId,
 						action: 'ced_ebay_check_if_able_to_fetch_item_aspect',
 						ebay_cat_id : eBayCatId,
 						profile_id: profileID
@@ -560,7 +554,6 @@
 					data: {
 						ajax_nonce: ajaxNonce,
 						user_id: user_id,
-						rsid:rsId,
 						action: 'ced_ebay_async_ajax_handler',
 						route: 'ced_ebay_sync_business_policies',
 						site_id: siteId
@@ -623,7 +616,6 @@
 					data: {
 						userid: user_id,
 						site_id: siteId,
-						rsid:rsId,
 						ajax_nonce: ajaxNonce,
 						action: 'ced_ebay_remove_all_profiles'
 					},
@@ -661,7 +653,6 @@
 					data: {
 						userid: user_id,
 						site_id: siteId,
-						rsid:rsId,
 						ajax_nonce: ajaxNonce,
 						action: 'ced_ebay_reset_category_item_specifics'
 					},
@@ -700,7 +691,6 @@
 					data: {
 						userid: user_id,
 						site_id: siteId,
-						rsid:rsId,
 						term_id: termID,
 						profile_id : profileID,
 						ajax_nonce: ajaxNonce,
@@ -732,7 +722,6 @@
 					url: ajaxUrl,
 					data: {
 						userid: user_id,
-						rsid:rsId,
 						ajax_nonce: ajaxNonce,
 						action: 'ced_ebay_delete_bulk_upload_logs_action'
 					},
@@ -781,7 +770,6 @@
 						userid: user_id,
 						ajax_nonce: ajaxNonce,
 						order_id: order_id,
-						rsid:rsId,
 						site_id: siteId,
 						action: 'ced_ebay_fetch_order_using_order_id'
 					},
@@ -835,7 +823,6 @@
 						action: 'ced_ebay_ajax_check_token_status',
 						user_id : user_id,
 						site_id : siteId,
-						rsid:rsId,
 						ajax_nonce: ajaxNonce
 					},
 					success: function(response) {
@@ -914,7 +901,6 @@
 						dataType: 'html',
 						data: {
 							user_id: user_id,
-							rsid:rsId,
 							ajax_nonce: ajaxNonce,
 							title: title,
 							action: 'ced_ebay_add_custom_item_aspects_row'
@@ -1056,7 +1042,6 @@
 								action: 'ced_ebay_init_import_by_loader',
 								user_id : user_id,
 								site_id : siteId,
-								rsid:rsId,
 								ajax_nonce: ajaxNonce,
 								click_event : clickEvent
 							},
@@ -1094,7 +1079,6 @@
 							data: {
 								action: 'ced_ebay_stop_import_loader',
 								user_id : user_id,
-								rsid:rsId,
 								site_id : siteId,
 								ajax_nonce: ajaxNonce,
 							},
@@ -1130,7 +1114,6 @@
 					data: {
 						action: 'ced_ebay_get_profile_for_meta_box',
 						user_id    : user_id,
-						rsid:rsId,
 						site_id    : site_id,
 						profile_id : profile_id,
 						ebay_catid : ebay_catid,
@@ -1171,7 +1154,6 @@
 						action     : 'ced_ebay_reset_profile_for_meta_box',
 						user_id    : user_id,
 						site_id    : site_id,
-						rsid:rsId,
 						product_id : product_id,
 						profile_id : profile_id,
 						ajax_nonce : ajaxNonce,
@@ -1256,7 +1238,6 @@
 				action: 'ced_ebay_process_bulk_action',
 				userid    : user_id,
 				site_id    : site_id,
-				rsid:rsId,
 				id : product_id,
 				operation_to_be_performed : opr,
 				ajax_nonce : ajaxNonce,

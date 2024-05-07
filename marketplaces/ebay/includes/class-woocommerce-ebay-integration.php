@@ -119,23 +119,7 @@ class EBay_Integration_For_Woocommerce {
 		$this->loader = new EBay_Integration_For_Woocommerce_Loader();
 
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-async-ajax-handler.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/class-ced-ebay-events-handler.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/ebay/class-ebay-schedule-managers.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/ebay/class-ebay-scheduled-actions-manager.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/ebay/class-ebay-import-listing.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/ebay/lib/cedGetcategories.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/ebay/lib/ebayAuthorization.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/ebay/lib/ebayUpload.php';
-		require_once plugin_dir_path( __DIR__ ) .'admin/ebay/lib/class-ced-ebay-api-client.php';
-		require_once plugin_dir_path( __DIR__ ) .'admin/ebay/lib/class-wc-product-data.php';
-		require_once plugin_dir_path( __DIR__ ) .'admin/ebay/lib/ebayTemplateCustomMetabox.php';
-		require_once plugin_dir_path( __DIR__ ) .'admin/partials/class-ced-ebay-product-filters.php';
-
-
-
 	}
-
-	
 
 	/**
 	 * Define the locale for this plugin for internationalization.
@@ -160,7 +144,7 @@ class EBay_Integration_For_Woocommerce {
 	 */
 	private function define_admin_hooks() {
 
-		$plugin_admin = new Ced\Ebay\EBay_Integration_For_Woocommerce_Admin( $this->get_plugin_name(), $this->get_version() );
+		$plugin_admin = new EBay_Integration_For_Woocommerce_Admin( $this->get_plugin_name(), $this->get_version() );
 
 		if ( class_exists( 'Ced_Ebay_Async_Ajax_Handler' ) ) {
 			$async_ajax_handler = new Ced_Ebay_Async_Ajax_Handler();
@@ -169,7 +153,14 @@ class EBay_Integration_For_Woocommerce {
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+		/*
+		ADD MENUS AND SUBMENUS */
+		// $this->loader->add_action( 'admin_menu', $plugin_admin, 'ced_ebay_add_menus', 22 );
+		// $this->loader->add_filter( 'ced_add_marketplace_menus_array', $plugin_admin, 'ced_ebay_add_marketplace_menus_to_array', 13 );
 
+		$this->loader->add_action( 'wp_ajax_ced_ebay_fetch_next_level_category', $plugin_admin, 'ced_ebay_fetch_next_level_category' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_map_categories_to_store', $plugin_admin, 'ced_ebay_map_categories_to_store' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_map_bulk_category_selection_to_store', $plugin_admin, 'ced_ebay_map_bulk_category_selection_to_store' );
 
 		$this->loader->add_action( 'wp_ajax_ced_ebay_category_refresh_button', $plugin_admin, 'ced_ebay_category_refresh_button' );
 
@@ -180,15 +171,30 @@ class EBay_Integration_For_Woocommerce {
 		$this->loader->add_action( 'wp_ajax_ced_ebay_get_orders', $plugin_admin, 'ced_ebay_get_orders' );
 		$this->loader->add_action( 'wp_ajax_ced_ebay_add_custom_item_aspects_row', $plugin_admin, 'ced_ebay_add_custom_item_aspects_row' );
 
-	
+		// marketing API related actions
+		$this->loader->add_action( 'wp_ajax_ced_ebay_oauth_authorization', $plugin_admin, 'ced_ebay_oauth_authorization' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_fetch_oauth_access_code', $plugin_admin, 'ced_ebay_fetch_oauth_access_code' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_get_marketing_ad_campaigns', $plugin_admin, 'ced_ebay_get_marketing_ad_campaigns' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_save_marketing_campaign_global_settings', $plugin_admin, 'ced_ebay_save_marketing_campaign_global_settings' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_get_marketplace_promotions', $plugin_admin, 'ced_ebay_get_marketplace_promotions' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_perform_ad_campaign_operations', $plugin_admin, 'ced_ebay_perform_ad_campaign_operations' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_submit_ad_rate_for_product_listing', $plugin_admin, 'ced_ebay_submit_ad_rate_for_product_listing' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_bulk_create_product_ads', $plugin_admin, 'ced_ebay_bulk_create_product_ads' );
+		$this->loader->add_action( 'admin_init', $plugin_admin, 'ced_ebay_onWpAdminInit' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_create_listing_ad_promotion', $plugin_admin, 'ced_ebay_create_listing_ad_promotion' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_delete_campaign_ad', $plugin_admin, 'ced_ebay_delete_campaign_ad' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_create_promoted_listing_campaign', $plugin_admin, 'ced_ebay_create_promoted_listing_campaign' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_pause_promotion_action', $plugin_admin, 'ced_ebay_pause_promotion_action' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_resume_promotion_action', $plugin_admin, 'ced_ebay_resume_promotion_action' );
 		global $wpdb;
 		$shopDetails = get_option( 'ced_ebay_user_access_token' );
 		if ( ! empty( $shopDetails ) ) {
 			foreach ( $shopDetails as $key => $value ) {
 				$this->loader->add_action( 'ced_ebay_inventory_scheduler_job_' . $key, $plugin_admin, 'ced_ebay_inventory_schedule_manager' );
-				$this->loader->add_action( 'ced_ebay_order_scheduler_job', $plugin_admin, 'ced_ebay_order_schedule_manager' );
+				$this->loader->add_action( 'ced_ebay_order_scheduler_job_' . $key, $plugin_admin, 'ced_ebay_order_schedule_manager' );
 				$this->loader->add_action( 'ced_ebay_existing_products_sync_job_' . $key, $plugin_admin, 'ced_ebay_existing_products_sync_manager', 10, 2 );
-				$this->loader->add_action( 'ced_ebay_recurring_bulk_upload', $plugin_admin, 'ced_ebay_recurring_bulk_upload_manager' );
+				$this->loader->add_action( 'ced_ebay_import_products_job_' . $key, $plugin_admin, 'ced_ebay_import_products_manager' );
+				$this->loader->add_action( 'ced_ebay_recurring_bulk_upload_' . $key, $plugin_admin, 'ced_ebay_recurring_bulk_upload_manager' );
 				$this->loader->add_action( 'ced_ebay_sync_ended_listings_scheduler_job_' . $key, $plugin_admin, 'ced_ebay_manually_ended_listings_manager' );
 
 			}
@@ -197,13 +203,21 @@ class EBay_Integration_For_Woocommerce {
 
 		$this->loader->add_filter( 'woocommerce_duplicate_product_exclude_meta', $plugin_admin, 'ced_ebay_duplicate_product_exclude_meta' );
 
+		$this->loader->add_action( 'wp_ajax_ced_ebay_bulk_import_to_store', $plugin_admin, 'ced_ebay_bulk_import_to_store' );
 
+		$this->loader->add_action( 'wp_ajax_ced_ebay_create_listing_ad_promotion', $plugin_admin, 'ced_ebay_create_listing_ad_promotion' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_delete_campaign_ad', $plugin_admin, 'ced_ebay_delete_campaign_ad' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_create_promoted_listing_campaign', $plugin_admin, 'ced_ebay_create_promoted_listing_campaign' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_modify_product_data_for_upload', $plugin_admin, 'ced_ebay_modify_product_data_for_upload' );
+		$this->loader->add_action( 'wp_ajax_ced_ebay_get_modifed_product_details', $plugin_admin, 'ced_ebay_get_modifed_product_details' );
+		// bulk exchange API actions
 		$this->loader->add_action( 'wp_ajax_ced_ebay_process_profile_bulk_action', $plugin_admin, 'ced_ebay_process_profile_bulk_action' );
 
 		// order filter
 		$this->loader->add_filter( 'views_edit-shop_order', $plugin_admin, 'ced_ebay_add_woo_order_views' );
 		$this->loader->add_filter( 'parse_query', $plugin_admin, 'ced_ebay_woo_admin_order_filter_query' );
 
+		$this->loader->add_filter( 'query_vars', $plugin_admin, 'ced_ebay_add_query_vars_filter' );
 
 		$this->loader->add_action( 'wp_ajax_ced_ebay_remove_account_from_integration', $plugin_admin, 'ced_ebay_remove_account_from_integration' );
 		$this->loader->add_action( 'wp_ajax_ced_ebay_remove_all_profiles', $plugin_admin, 'ced_ebay_remove_all_profiles' );
@@ -225,6 +239,7 @@ class EBay_Integration_For_Woocommerce {
 		$this->loader->add_action( 'ced_ebay_fetch_site_categories', $plugin_admin, 'ced_ebay_async_fetch_site_categories' );
 
 		// Import with loader.
+		$this->loader->add_action( 'ced_ebay_import_products_manager_for_loader', $plugin_admin, 'ced_ebay_import_products_manager_for_loader' );
 		$this->loader->add_action( 'wp_ajax_ced_ebay_init_import_by_loader', $plugin_admin, 'ced_ebay_init_import_by_loader' );
 		$this->loader->add_action( 'wp_ajax_ced_ebay_stop_import_loader', $plugin_admin, 'ced_ebay_stop_import_loader' );
 

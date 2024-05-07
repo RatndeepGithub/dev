@@ -7,7 +7,7 @@ $part         = isset( $_GET['part'] ) ? sanitize_text_field( $_GET['part'] ) : 
 $current_page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
 $user_id      = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
 $seller_id    = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
-$mode         = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
+
 
 $sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 $amazon_accounts   = get_option( 'ced_amzon_configuration_validated', array() );
@@ -63,22 +63,27 @@ if ( isset( $_POST['ced_amazon_setting_nonce'] ) && wp_verify_nonce( sanitize_te
 		$sanitized_array['ced_amazon_global_settings']['ced_amazon_existing_products_sync']  = 'ced_amazon_10min';
 
 
-		$settings = get_option( 'ced_amazon_global_settings', array() );
+		$settings                               = get_option( 'ced_amazon_global_settings', array() );
+		// $settings[ $seller_id ]                 = isset( $sanitized_array['ced_amazon_global_settings'] ) ? ( $sanitized_array['ced_amazon_global_settings'] ) : array();
+		// $settings[ $seller_id ]['last_updated'] = $timestamp;
 
-		$old_settings = isset( $settings[ $seller_id ] ) ? $settings[ $seller_id ] : array();
+		// newly added code starts
 
-		$new_settings                 = isset( $sanitized_array['ced_amazon_global_settings'] ) ? ( $sanitized_array['ced_amazon_global_settings'] ) : array();
+		$old_settings     = isset(  $settings[ $seller_id ] ) ?  $settings[ $seller_id ]    :    array();
+		
+		$new_settings     = isset( $sanitized_array['ced_amazon_global_settings'] ) ? ( $sanitized_array['ced_amazon_global_settings'] ) : array();
 		$new_settings['last_updated'] = $timestamp;
-		$new_settings                 = array_merge( $old_settings, $new_settings );
+		$new_settings = array_merge( $old_settings, $new_settings );
 
 		$settings[ $seller_id ] = $new_settings;
 
+		// newly added code ends
 
 		update_option( 'ced_amazon_global_settings', $settings );
 		if ( as_has_scheduled_action( 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args ) ) {
 			as_unschedule_all_actions( 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args );
 		}
-		as_schedule_recurring_action( time(), 540, 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args );
+		as_schedule_recurring_action( time(), 600, 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args );
 		update_option( 'ced_amazon_inventory_scheduler_job_' . $seller_id, $price_schedule );
 
 
@@ -88,11 +93,10 @@ if ( isset( $_POST['ced_amazon_setting_nonce'] ) && wp_verify_nonce( sanitize_te
 		as_schedule_recurring_action( time(), 600, 'ced_amazon_existing_products_sync_job_' . $seller_id, $seller_args );
 		update_option( 'ced_amazon_existing_products_sync_job_' . $seller_id, $price_schedule );
 
+		
 
-
-		$seller_id    = str_replace( '|', '%7C', $seller_id );
-		$ced_base_uri = ced_amazon_base_uri( $mode );
-		wp_safe_redirect( admin_url() . $ced_base_uri . '&section=setup-amazon&part=configuration&user_id=' . $user_id . '&seller_id=' . $seller_id );
+		$seller_id = str_replace( '|', '%7C', $seller_id );
+		wp_safe_redirect( admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=setup-amazon&part=configuration&user_id=' . $user_id . '&seller_id=' . $seller_id );
 
 
 	} elseif ( isset( $_POST['reset_global_settings'] ) ) {
@@ -109,7 +113,7 @@ if ( isset( $_POST['ced_amazon_setting_nonce'] ) && wp_verify_nonce( sanitize_te
 		if ( as_has_scheduled_action( 'ced_amazon_price_scheduler_job_' . $seller_id, $seller_args ) ) {
 			as_unschedule_all_actions( 'ced_amazon_price_scheduler_job_' . $seller_id, $seller_args );
 		}
-
+		
 		if ( as_has_scheduled_action( 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args ) ) {
 			as_unschedule_all_actions( 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args );
 		}
@@ -125,6 +129,8 @@ if ( isset( $_POST['ced_amazon_setting_nonce'] ) && wp_verify_nonce( sanitize_te
 		if ( as_has_scheduled_action( 'ced_amazon_catalog_asin_sync_job_' . $seller_id, $seller_args ) ) {
 			as_unschedule_all_actions( 'ced_amazon_catalog_asin_sync_job_' . $seller_id, $seller_args );
 		}
+
+
 	}
 }
 
@@ -150,16 +156,27 @@ $renderDataOnGlobalSettings = get_option( 'ced_amazon_global_settings', false );
 				<table class="form-table">
 					<tbody>
 						<tr valign="top">
-							<?php
-							ced_amazon_print_table_label( 'Column name', '', false );
-							ced_amazon_print_table_label( 'Map to Options', '', false );
-							ced_amazon_print_table_label( 'Custom Value', '', false );
-							?>
+							<th scope="row" class="titledesc">
+								<label for="woocommerce_currency">
+								<?php echo esc_html__( 'Column name', 'amazon-for-woocommerce' ); ?> 
+								</label>
+							</th>
+							<th scope="row" class="titledesc">
+								<label for="woocommerce_currency">
+								<?php echo esc_html__( 'Map to Options', 'amazon-for-woocommerce' ); ?>
+								</label>
+							</th>
+							<th scope="row" class="titledesc">
+								<label for="woocommerce_currency">
+								</label>
+							</th>
 						</tr>
 						<tr>
-							
-							<?php ced_amazon_print_table_label( 'Stock Levels', 'Stock level, also called inventory level, indicates the quantity of a particular product or product that you own on any platform.', true ); ?>
-							
+							<th scope="row" class="titledesc">
+								<label for="woocommerce_currency">
+									<?php echo esc_html__( 'Stock Levels', 'amazon-for-woocommerce' ); ?> <?php print_r( wc_help_tip( 'Stock level, also called inventory level, indicates the quantity of a particular product or product that you own on any platform.', 'amazon-for-woocommerce' ) ); ?>
+								</label>
+							</th>
 							<td class="forminp forminp-select">
 								<?php
 									$listing_stock = isset( $renderDataOnGlobalSettings[ $seller_id ]['ced_amazon_listing_stock'] ) ? $renderDataOnGlobalSettings[ $seller_id ]['ced_amazon_listing_stock'] : '';
@@ -179,9 +196,11 @@ $renderDataOnGlobalSettings = get_option( 'ced_amazon_global_settings', false );
 							</td>
 						</tr>
 						<tr>
-							
-							<?php ced_amazon_print_table_label( 'Markup', 'Markup is the amount you include in prices to earn profit while selling on Amazon.', true ); ?>
-							
+							<th scope="row" class="titledesc">
+								<label for="woocommerce_currency">
+									<?php echo esc_html__( 'Markup', 'amazon-for-woocommerce' ); ?> <?php print_r( wc_help_tip( 'Markup is the amount you include in prices to earn profit while selling on Amazon.', 'amazon-for-woocommerce' ) ); ?>
+								</label>
+							</th>
 							<td class="forminp forminp-select">
 								<?php
 									$markup_type = isset( $renderDataOnGlobalSettings[ $seller_id ]['ced_amazon_product_markup_type'] ) ? $renderDataOnGlobalSettings[ $seller_id ]['ced_amazon_product_markup_type'] : '';
@@ -200,7 +219,7 @@ $renderDataOnGlobalSettings = get_option( 'ced_amazon_global_settings', false );
 									$markup_price = isset( $renderDataOnGlobalSettings[ $seller_id ]['ced_amazon_product_markup'] ) ? $renderDataOnGlobalSettings[ $seller_id ]['ced_amazon_product_markup'] : '';
 								?>
 
-								<input style="width: 100%; min-width:50px;" placeholder="Enter Value" type="number" value="<?php echo esc_attr( $markup_price ); ?>" id="ced_amazon_product_markup" name="ced_amazon_global_settings[ced_amazon_product_markup]" min="0" step="0.01" >
+								<input style="width: 100%; min-width:50px;" placeholder="Enter Value" type="number" value="<?php echo esc_attr( $markup_price ); ?>" id="ced_amazon_product_markup" name="ced_amazon_global_settings[ced_amazon_product_markup]" min="1" >
 								
 							</td>
 						</tr>
@@ -212,7 +231,7 @@ $renderDataOnGlobalSettings = get_option( 'ced_amazon_global_settings', false );
 					<?php wp_nonce_field( 'ced_amazon_setting_page_nonce', 'ced_amazon_setting_nonce' ); ?>
 					<button type="submit" class="components-button is-secondary general_settings_reset_button" id="rest_global_settings" name="reset_global_settings" ><?php echo esc_html__( 'Reset all values', 'amazon-for-woocommerce' ); ?></button>
 					<button style="float: right;" type="submit" name="global_settings" class="components-button is-primary button-next"><?php echo esc_html__( 'Save and continue', 'amazon-for-woocommerce' ); ?></button>
-					<a style="float: right;" data-attr='3' id="ced_amazon_continue_wizard_button" href="<?php echo esc_url( admin_url( $ced_base_uri . '&section=setup-amazon&part=configuration&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>" class="components-button woocommerce-admin-dismiss-notification"><?php echo esc_html__( 'Skip', 'amazon-for-woocommerce' ); ?></a>
+					<a style="float: right;" data-attr='3' id="ced_amazon_continue_wizard_button" href="<?php echo esc_url( admin_url( 'admin.php?page=sales_channel&channel=amazon&section=setup-amazon&part=configuration&user_id=' . $user_id . '&seller_id=' . $seller_id ) ); ?>" class="components-button woocommerce-admin-dismiss-notification"><?php echo esc_html__( 'Skip', 'amazon-for-woocommerce' ); ?></a>
 				</div>
 
 			</form>

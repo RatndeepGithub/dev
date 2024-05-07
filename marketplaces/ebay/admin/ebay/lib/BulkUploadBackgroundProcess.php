@@ -1,11 +1,9 @@
 <?php
 
-namespace Ced\Ebay;
-use \ActionScheduler_Store;
-
 defined( 'ABSPATH' ) || die( 'Direct access not allowed' );
 
-class BulkUpload_Background_Process extends \WP_Background_Process {
+
+class BulkUpload_Background_Process extends WP_Background_Process {
 
 	public function __construct() {
 		parent::__construct();

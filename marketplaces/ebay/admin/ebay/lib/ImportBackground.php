@@ -1,9 +1,9 @@
 <?php
-namespace Ced\Ebay;
+
 defined( 'ABSPATH' ) || die( 'Direct access not allowed' );
 
 
-class ImportBackground_Process extends \WP_Background_Process {
+class ImportBackground_Process extends WP_Background_Process {
 	const STATUS_CANCELLED = 1;
 	public function __construct() {
 		parent::__construct();
@@ -44,19 +44,17 @@ class ImportBackground_Process extends \WP_Background_Process {
 		$context = array( 'source' => 'ced_ebay_Import_background_process' );
 		$Item_id = $item['item_id'];
 		$user_id = $item['user_id'];
-		$siteID = $item['site_id'];
-		$rsid = $item['rsid'];
 		if ( ! isset( $Item_id[0] ) ) {
 			$Item_id = array(
 				0 => $Item_id,
 			);
 		}
-
-		if(empty($user_id) || '' === $siteID){
-			$logger->info( 'User Id or Site ID is empty', $context );
-			return false;
+		$shop_data = ced_ebay_get_shop_data( $user_id );
+		if ( ! empty( $shop_data ) ) {
+			$siteID      = $shop_data['site_id'];
+			$token       = $shop_data['access_token'];
+			$getLocation = $shop_data['location'];
 		}
-		
 		$logger->info( 'User Id - ' . wc_print_r( $user_id, true ), $context );
 		$logger->info( 'Processing Item ID - ' . wc_print_r( $Item_id, true ), $context );
 		$store_products = get_posts(
@@ -75,59 +73,15 @@ class ImportBackground_Process extends \WP_Background_Process {
 			return false;
 		}
 
-		$ebayUploadInstance = \Ced\Ebay\EbayUpload::get_instance( $rsid );
-		$itemDetails        = $ebayUploadInstance->get_item_details( $Item_id[0] );
-		if ( 'Success' == $itemDetails['Ack'] || 'Warning' == $itemDetails['Ack'] ){
-			if ( ! empty( $itemDetails['Item']['ListingDetails']['EndingReason'] ) || 'Completed' == $itemDetails['Item']['SellingStatus']['ListingStatus'] ){
-				$logger->info( 'Listing ' . wc_print_r( $Item_id, true ).' is ended on eBay', $context );
-				return false;
-			}
-			$import_listing = new \Ced\Ebay\Import_Listing();
-			$ebay_title = isset($itemDetails['Item']['Title']) ? $itemDetails['Item']['Title'] : '';
-			$ebay_description = isset($itemDetails['Item']['Description']) ? $itemDetails['Item']['Description'] : '';
-			$ebay_item_specifics = isset($itemDetails['Item']['ItemSpecifics']) ? $itemDetails['Item']['ItemSpecifics'] : ['NameValueList' => []];
-			
-			$product_id = $import_listing->createProduct($ebay_title, 'publish');
-			
-			if(!empty($product_id) && !is_wp_error($product_id)){
-				$meta_to_update = [
-					'ced_ebay_synced_by_user' => ['user_id' => $user_id, 'site_id' => $siteID],
-					'_ced_ebay_listing_id_'.$user_id.'>'.$siteID => $Item_id[0],
-					'_ced_ebay_importer_listing_id_'.$user_id.'>'.$siteID => $Item_id[0],
-				];
-				$import_listing->importDescription($ebay_description);
-				$import_listing->importProductMeta($meta_to_update);
-				$import_listing->importProductAttributes($ebay_item_specifics);
-				if ( isset( $itemDetails['Item']['Variations'] ) ){
-					$import_listing->setWooProduct($product_id, 'variable');
-					if ( ! isset( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'][0] ) ) {
-						$tempNameValueList = array();
-						$tempNameValueList = $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'];
-						unset( $itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'] );
-						$itemDetails['Item']['Variations']['VariationSpecificsSet']['NameValueList'][] = $tempNameValueList;
-					}
-					$variation_specifics =  isset($itemDetails['Item']['Variations']['VariationSpecificsSet']) ? $itemDetails['Item']['Variations']['VariationSpecificsSet'] : ['NameValueList' => []];
-					$import_listing->importProductAttributes($variation_specifics);
-				} else {
-					$import_listing->setWooProduct($product_id, 'simple');
-					$ebay_price = isset($itemDetails['Item']['StartPrice']) ? $itemDetails['Item']['StartPrice'] : 0;
-					$ebay_sku = isset($itemDetails['Item']['SKU']) ? $itemDetails['Item']['SKU'] : '';
-					$ebay_quantity = isset($itemDetails['Item']['Quantity']) ? $itemDetails['Item']['Quantity'] : 0;
-					$ebay_quantity_sold = isset($itemDetails['Item']['SellingStatus']['QuantitySold']) ? $itemDetails['Item']['SellingStatus']['QuantitySold'] : 0;
-					$available_quantity = $ebay_quantity - $ebay_quantity_sold;
-					$import_listing->importPrice($ebay_price);
-					$import_listing->importSku($ebay_sku);
-					$import_listing->importStock($available_quantity);
-				}
-				$import_listing->importListingImages($itemDetails['Item']);
-			}
-
-		}
+		require_once CED_EBAY_DIRPATH . 'admin/class-woocommerce-ebay-integration-admin.php';
+		$adminFileImportRequest = new EBay_Integration_For_Woocommerce_Admin( 'ebay-integration-for-woocommerce', '1.0.0' );
+		$adminFileImportRequest->ced_ebay_bulk_import_to_store( $Item_id, $user_id, true );
 		return false;
 	}
 
 
 	protected function complete() {
+		wc_get_logger()->info( 'Finalized' );
 		parent::complete();
 	}
 
@@ -142,6 +96,96 @@ class ImportBackground_Process extends \WP_Background_Process {
 		delete_site_option( $key );
 
 		return $this;
+	}
+
+	/**
+	 * Delete entire job queue.
+	 */
+	public function delete_all() {
+		$batches = $this->get_batches();
+
+		foreach ( $batches as $batch ) {
+			$this->delete( $batch->key );
+		}
+
+		delete_site_option( $this->get_status_key() );
+
+		$this->cancelled();
+	}
+
+	/**
+	 * Get batches.
+	 *
+	 * @param int $limit Number of batches to return, defaults to all.
+	 *
+	 * @return array of stdClass
+	 */
+	public function get_batches( $limit = 0 ) {
+		global $wpdb;
+
+		if ( empty( $limit ) || ! is_int( $limit ) ) {
+			$limit = 0;
+		}
+
+		$table        = $wpdb->options;
+		$column       = 'option_name';
+		$key_column   = 'option_id';
+		$value_column = 'option_value';
+
+		if ( is_multisite() ) {
+			$table        = $wpdb->sitemeta;
+			$column       = 'meta_key';
+			$key_column   = 'meta_id';
+			$value_column = 'meta_value';
+		}
+
+		$key = $wpdb->esc_like( $this->identifier . '_batch_' ) . '%';
+
+		$sql = '
+		SELECT *
+		FROM ' . $table . '
+		WHERE ' . $column . ' LIKE %s
+		ORDER BY ' . $key_column . ' ASC
+		';
+
+		$args = array( $key );
+
+		if ( ! empty( $limit ) ) {
+			$sql .= ' LIMIT %d';
+
+			$args[] = $limit;
+		}
+
+		// $items = $wpdb->get_results( $wpdb->prepare( $sql, $args ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+
+		if ( empty( $offset ) ) {
+			$items = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT * FROM %s WHERE %s LIKE %s ORDER BY %s ASC',
+					$table,
+					$column,
+					'%' . $wpdb->esc_like( $args ) . '%',
+					$key_column
+				)
+			);
+		}
+
+		$batches = array();
+
+		if ( ! empty( $items ) ) {
+			$batches = array_map(
+				function ( $item ) use ( $column, $value_column ) {
+					$batch       = new stdClass();
+					$batch->key  = $item->{$column};
+					$batch->data = maybe_unserialize( $item->{$value_column} );
+
+					return $batch;
+				},
+				$items
+			);
+		}
+
+		return $batches;
 	}
 
 	/**

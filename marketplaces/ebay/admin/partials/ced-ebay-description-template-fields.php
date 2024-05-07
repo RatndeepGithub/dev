@@ -109,16 +109,15 @@ class CED_UMB_EBAY_Description_Template_List extends WP_List_Table {
 			$plugin_version = EBAY_INTEGRATION_FOR_WOOCOMMERCE_VERSION;
 		}
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
-		$rsid = isset( $_GET['rsid'] ) ? sanitize_text_field( $_GET['rsid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 
 		$title = '<strong>' . urldecode( $item['template_name'] ) . '</strong>';
 		$page  = isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : false;
 
 		$actions = array(
-			'edit'   => sprintf( '<a href="?page=%s&channel=ebay&section=description-template&action=%s&template=%s&user_id=%s&sid=%s">%s</a>', $page, 'ced_ebay_edit_template', $item['template_id'], $user_id, $site_id, __( 'Edit', 'ebay-integration-for-woocommerce' ) ),
+			'edit'   => sprintf( '<a href="?page=%s&channel=ebay&section=description-template&action=%s&template=%s&user_id=%s&site_id=%s">%s</a>', $page, 'ced_ebay_edit_template', $item['template_id'], $user_id, $site_id, __( 'Edit', 'ebay-integration-for-woocommerce' ) ),
 
-			'delete' => sprintf( '<a href="?page=%s&channel=ebay&section=view-description-templates&action=%s&template=%s&user_id=%s&sid=%s">Delete</a>', $page, 'ced_ebay_delete_template', $item['template_id'], $user_id, $site_id ),
+			'delete' => sprintf( '<a href="?page=%s&channel=ebay&section=view-description-templates&action=%s&template=%s&user_id=%s&site_id=%s">Delete</a>', $page, 'ced_ebay_delete_template', $item['template_id'], $user_id, $site_id ),
 		);
 
 		return $title . $this->row_actions( $actions );
@@ -192,8 +191,7 @@ class CED_UMB_EBAY_Description_Template_List extends WP_List_Table {
 
 	public function renderHTML() {
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( wp_unslash( $_GET['user_id'] ) ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( wp_unslash( $_GET['sid'] ) ) : '';
-		$rsid = isset( $_GET['rsid'] ) ? sanitize_text_field( $_GET['rsid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( wp_unslash( $_GET['site_id'] ) ) : '';
 		?>
 		<style>
 			.tablenav{
@@ -203,10 +201,10 @@ class CED_UMB_EBAY_Description_Template_List extends WP_List_Table {
 			}
 		</style>
 		<div>
-		<a class="ced-ebay-goto-settings" href="<?php echo esc_attr( wp_nonce_url( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=settings&user_id=' . $user_id . '&sid=' . $site_id.'&rsid='.$rsid ), 'ced_ebay_add_new_template_action', 'ced_ebay_add_new_template_nonce' ) ); ?>">
+		<a class="ced-ebay-goto-settings" href="<?php echo esc_attr( wp_nonce_url( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=settings&user_id=' . $user_id . '&site_id=' . $site_id ), 'ced_ebay_add_new_template_action', 'ced_ebay_add_new_template_nonce' ) ); ?>">
 		<span class="button" aria-hidden="true" title="Go to Settings">‹</span>
 		</a>
-		<a class="button-primary target="_blank" href="<?php echo esc_attr( wp_nonce_url( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=description-template&user_id=' . $user_id . '&sid=' . $site_id.'&rsid='.$rsid . '&action=ced_ebay_add_new_template' ), 'ced_ebay_add_new_template_action', 'ced_ebay_add_new_template_nonce' ) ); ?>">
+		<a class="button-primary target="_blank" href="<?php echo esc_attr( wp_nonce_url( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=description-template&user_id=' . $user_id . '&site_id=' . $site_id . '&action=ced_ebay_add_new_template' ), 'ced_ebay_add_new_template_action', 'ced_ebay_add_new_template_nonce' ) ); ?>">
 			Create New Template
 		</a>
 		
@@ -236,8 +234,7 @@ class CED_UMB_EBAY_Description_Template_List extends WP_List_Table {
 	public function process_bulk_action() {
 		/** Render configuration setup html of marketplace */
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
-		$rsid = isset( $_GET['rsid'] ) ? sanitize_text_field( $_GET['rsid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		if ( ! isset( $_POST['ced_ebay_description_template_nonce_field'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ced_ebay_description_template_nonce_field'] ) ), 'ced_ebay_description_template_action' ) ) {
 			$action = isset( $_GET['action'] ) ? sanitize_text_field( $_GET['action'] ) : '';
 			switch ( $action ) {
@@ -254,7 +251,7 @@ class CED_UMB_EBAY_Description_Template_List extends WP_List_Table {
 						require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-direct.php';
 						$fileSystemDirect = new WP_Filesystem_Direct( false );
 						$fileSystemDirect->rmdir( $template_to_delete, true );
-						wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=view-description-templates&user_id=' . $user_id . '&sid=' . $site_id.'&rsid='.$rsid );
+						wp_redirect( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=view-description-templates&user_id=' . $user_id . '&site_id=' . $site_id );
 						exit();
 					} //TODO: Throw error if we can't access template folder.
 					break;

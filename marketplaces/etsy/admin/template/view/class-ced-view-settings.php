@@ -71,22 +71,19 @@ class Ced_View_Settings {
 	 *    string    $shop_name    The Etsy shop name.
 	 */
 	public function __construct( $shop_name = '' ) {
-		$this->tabs      = apply_filters(
-			'ced_etsy_modify_settings_tab',
-			array(
-				'product_import_settings' => array(
-					'name' => __( 'Product Import Settings', 'woocommerce-etsy-integration' ),
-					'desc' => 'This is proudct import setting where you can set setting for importing products',
-				),
-				'order_import_settings'   => array(
-					'name' => __( 'Order Import Settings', 'woocommerce-etsy-integration' ),
-					'desc' => 'This is proudct import setting where you can set setting for importing products',
-				),
-				'scheduler_setting_view'  => array(
-					'name' => __( 'Crons', 'woocommerce-etsy-integration' ),
-					'desc' => 'This is proudct import setting where you can set setting for importing products',
-				),
-			)
+		$this->tabs      = array(
+			'product_import_settings' => array(
+				'name' => __( 'Product Import Settings', 'woocommerce-etsy-integration' ),
+				'desc' => 'This is proudct import setting where you can set setting for importing products',
+			),
+			'order_import_settings'   => array(
+				'name' => __( 'Order Import Settings', 'woocommerce-etsy-integration' ),
+				'desc' => 'This is proudct import setting where you can set setting for importing products',
+			),
+			'scheduler_setting_view'  => array(
+				'name' => __( 'Crons', 'woocommerce-etsy-integration' ),
+				'desc' => 'This is proudct import setting where you can set setting for importing products',
+			),
 		);
 		$this->shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( $_GET['shop_name'] ) : '';
 		if ( empty( $this->shop_name ) ) {
@@ -111,7 +108,6 @@ class Ced_View_Settings {
 			 */
 			$this->ced_etsy_save_settings();
 		}
-
 	}
 
 	/**
@@ -210,15 +206,7 @@ class Ced_View_Settings {
 		update_option( 'ced_etsy_global_settings', $settings );
 		delete_option( 'ced_etsy_setup_wiz_req_attrs_' . $this->shop_name );
 		delete_option( 'ced_etsy_sync_existing_by_identifiers_' . $this->shop_name );
-		wp_safe_redirect(
-			ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'settings',
-					'shop_name' => $this->shop_name,
-				)
-			)
-		);
+		wp_redirect( admin_url( 'admin.php?page=sales_channel&channel=etsy&section=settings&shop_name=' . $this->shop_name ) );
 		exit;
 	}
 
@@ -330,142 +318,139 @@ class Ced_View_Settings {
 	 * @since    2.0.8
 	 */
 	public function ced_etsy_all_settings_fields() {
-		return apply_filters(
-			'ced_etsy_modify_settings_fields',
-			array(
-				'product_import_settings' => array(
-					array(
-						'label'   => __( 'Import translations.', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Select the target language in which you want to import the product\'s title, description, and tags in WooCommerce. Default would be English.', 'woocommerce-etsy-integration' ),
-						'type'    => 'select',
-						'name'    => 'ced_etsy_target_lang',
-						'options' => array(
-							'de' => __( 'German', 'woocommerce-etsy-integration' ),
-							'en' => __( 'English', 'woocommerce-etsy-integration' ),
-							'es' => __( 'Spanish', 'woocommerce-etsy-integration' ),
-							'fr' => __( 'French', 'woocommerce-etsy-integration' ),
-							'it' => __( 'Italian', 'woocommerce-etsy-integration' ),
-							'ja' => __( 'Japanese', 'woocommerce-etsy-integration' ),
-							'nl' => __( 'Dutch', 'woocommerce-etsy-integration' ),
-							'pl' => __( 'Polish', 'woocommerce-etsy-integration' ),
-							'pt' => __( 'Brazilian Portuguese', 'woocommerce-etsy-integration' ),
-						),
-						'default' => 'en',
+		return array(
+			'product_import_settings' => array(
+				array(
+					'label'   => __( 'Import translations.', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Select the target language in which you want to import the product\'s title, description, and tags in WooCommerce. Default would be English.', 'woocommerce-etsy-integration' ),
+					'type'    => 'select',
+					'name'    => 'ced_etsy_target_lang',
+					'options' => array(
+						'de' => __( 'German', 'woocommerce-etsy-integration' ),
+						'en' => __( 'English', 'woocommerce-etsy-integration' ),
+						'es' => __( 'Spanish', 'woocommerce-etsy-integration' ),
+						'fr' => __( 'French', 'woocommerce-etsy-integration' ),
+						'it' => __( 'Italian', 'woocommerce-etsy-integration' ),
+						'ja' => __( 'Japanese', 'woocommerce-etsy-integration' ),
+						'nl' => __( 'Dutch', 'woocommerce-etsy-integration' ),
+						'pl' => __( 'Polish', 'woocommerce-etsy-integration' ),
+						'pt' => __( 'Brazilian Portuguese', 'woocommerce-etsy-integration' ),
 					),
-					array(
-						'label'   => __( 'Import product status', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Choose the product status in which you want to import Etsy products. Default is published.', 'woocommerce-etsy-integration' ),
-						'type'    => 'select',
-						'name'    => 'import_product_status',
-						'options' => get_post_statuses(),
-						'default' => '15',
-					),
-					array(
-						'label'   => __( 'Sync existing Etsy identifiers', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Choose Etsy identifiers to sync the existing products on Woo store. Default is SKU.', 'woocommerce-etsy-integration' ),
-						'type'    => 'select',
-						'name'    => 'ced_sync_exc_etsy_identifier',
-						'options' => array(
-							'sku'        => __( 'SKU', 'woocommerce-etsy-integration' ),
-							'listing_id' => __( 'Etsy Listing ID', 'woocommerce-etsy-integration' ),
-						),
-						'default' => 'sku',
-					),
-					array(
-						'label'   => __( 'Sync existing WooCommerce identifiers', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Choose Etsy identifiers to sync the existing products on Woo store. Default is SKU.', 'woocommerce-etsy-integration' ),
-						'type'    => 'select',
-						'name'    => 'ced_etsy_wc_identifier',
-						'options' => array(
-							'sku'        => __( 'SKU', 'woocommerce-etsy-integration' ),
-							'product_id' => __( 'WooCommerce Product ID', 'woocommerce-etsy-integration' ),
-						),
-						'default' => 'sku',
-					),
+					'default' => 'en',
 				),
-				'order_import_settings'   => array(
-					array(
-						'label'   => __( 'Default order status', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Choose the order status in which you want to import Etsy orders. Default is processing.', 'woocommerce-etsy-integration' ),
-						'type'    => 'select',
-						'name'    => 'default_order_status',
-						'options' => wc_get_order_statuses(),
-					),
-					array(
-						'label'   => __( 'Fetch number of orders', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'No. of orders to fetch from Etsy. Default is 15 orders. Orders with status paid and not shipped are pulled.', 'woocommerce-etsy-integration' ),
-						'type'    => 'select',
-						'name'    => 'order_limit',
-						'options' => array(
-							10 => '10',
-							15 => '15',
-							20 => '20',
-							25 => '25',
-							50 => '50',
-						),
-						'default' => '15',
-					),
-					array(
-						'label'   => __( 'Use Etsy order number', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Use Etsy order number when creating Etsy orders in WooCommerce.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'use_etsy_order_no',
-						'options' => '',
-					),
-					array(
-						'label'   => __( 'Auto update tracking', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Auto update tracking information on Etsy if using Shipment Tracking plugin.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'update_tracking',
-						'options' => '',
-					),
-					array(
-						'label'   => __( 'Create Etsy users as customers', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Enable this if you want to import Etsy users as customers in WooCommerce.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'create_customer',
-						'options' => '',
-					),
-					array(
-						'label'   => __( 'Update stock without creating orders', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Enable this if you want to update the stock levels without creating orders in WooCommerce.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'update_stock_with_no_order',
-						'options' => '',
-					),
+				array(
+					'label'   => __( 'Import product status', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Choose the product status in which you want to import Etsy products. Default is published.', 'woocommerce-etsy-integration' ),
+					'type'    => 'select',
+					'name'    => 'import_product_status',
+					'options' => get_post_statuses(),
+					'default' => '15',
 				),
-				'scheduler_setting_view'  => array(
-					array(
-						'label'   => __( 'Fetch Etsy orders', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Auto fetch Etsy orders and create in WooCommerce.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'ced_etsy_auto_fetch_orders',
-						'options' => '',
+				array(
+					'label'   => __( 'Sync existing Etsy identifiers', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Choose Etsy identifiers to sync the existing products on Woo store. Default is SKU.', 'woocommerce-etsy-integration' ),
+					'type'    => 'select',
+					'name'    => 'ced_sync_exc_etsy_identifier',
+					'options' => array(
+						'sku'        => __( 'SKU', 'woocommerce-etsy-integration' ),
+						'listing_id' => __( 'Etsy Listing ID', 'woocommerce-etsy-integration' ),
 					),
+					'default' => 'sku',
+				),
+				array(
+					'label'   => __( 'Sync existing WooCommerce identifiers', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Choose Etsy identifiers to sync the existing products on Woo store. Default is SKU.', 'woocommerce-etsy-integration' ),
+					'type'    => 'select',
+					'name'    => 'ced_etsy_wc_identifier',
+					'options' => array(
+						'sku'        => __( 'SKU', 'woocommerce-etsy-integration' ),
+						'product_id' => __( 'WooCommerce Product ID', 'woocommerce-etsy-integration' ),
+					),
+					'default' => 'sku',
+				),
+			),
+			'order_import_settings'   => array(
+				array(
+					'label'   => __( 'Default order status', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Choose the order status in which you want to import Etsy orders. Default is processing.', 'woocommerce-etsy-integration' ),
+					'type'    => 'select',
+					'name'    => 'default_order_status',
+					'options' => wc_get_order_statuses(),
+				),
+				array(
+					'label'   => __( 'Fetch number of orders', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'No. of orders to fetch from Etsy. Default is 15 orders. Orders with status paid and not shipped are pulled.', 'woocommerce-etsy-integration' ),
+					'type'    => 'select',
+					'name'    => 'order_limit',
+					'options' => array(
+						10 => '10',
+						15 => '15',
+						20 => '20',
+						25 => '25',
+						50 => '50',
+					),
+					'default' => '15',
+				),
+				array(
+					'label'   => __( 'Use Etsy order number', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Use Etsy order number when creating Etsy orders in WooCommerce.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'use_etsy_order_no',
+					'options' => '',
+				),
+				array(
+					'label'   => __( 'Auto update tracking', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Auto update tracking information on Etsy if using Shipment Tracking plugin.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'update_tracking',
+					'options' => '',
+				),
+				array(
+					'label'   => __( 'Create Etsy users as customers', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Enable this if you want to import Etsy users as customers in WooCommerce.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'create_customer',
+					'options' => '',
+				),
+				array(
+					'label'   => __( 'Update stock without creating orders', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Enable this if you want to update the stock levels without creating orders in WooCommerce.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'update_stock_with_no_order',
+					'options' => '',
+				),
+			),
+			'scheduler_setting_view'  => array(
+				array(
+					'label'   => __( 'Fetch Etsy orders', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Auto fetch Etsy orders and create in WooCommerce.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'ced_etsy_auto_fetch_orders',
+					'options' => '',
+				),
 
-					array(
-						'label'   => __( 'Update inventory to Etsy', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Auto update price and stock from WooCommerce to Etsy.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'ced_etsy_auto_update_inventory',
-						'options' => '',
-					),
-					array(
-						'label'   => __( 'Upload products to Etsy', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Auto upload products from WooCommerce to Etsy.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'ced_etsy_auto_upload_product',
-						'options' => '',
-					),
-					array(
-						'label'   => __( 'Import products from Etsy', 'woocommerce-etsy-integration' ),
-						'tooltip' => __( 'Auto import the active listings from Etsy to WooCommerce.', 'woocommerce-etsy-integration' ),
-						'type'    => 'check',
-						'name'    => 'ced_etsy_auto_import_product',
-						'options' => '',
-					),
+				array(
+					'label'   => __( 'Update inventory to Etsy', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Auto update price and stock from WooCommerce to Etsy.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'ced_etsy_auto_update_inventory',
+					'options' => '',
 				),
-			)
+				array(
+					'label'   => __( 'Upload products to Etsy', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Auto upload products from WooCommerce to Etsy.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'ced_etsy_auto_upload_product',
+					'options' => '',
+				),
+				array(
+					'label'   => __( 'Import products from Etsy', 'woocommerce-etsy-integration' ),
+					'tooltip' => __( 'Auto import the active listings from Etsy to WooCommerce.', 'woocommerce-etsy-integration' ),
+					'type'    => 'check',
+					'name'    => 'ced_etsy_auto_import_product',
+					'options' => '',
+				),
+			),
 		);
 	}
 
@@ -475,12 +460,6 @@ class Ced_View_Settings {
 	 * @since    2.0.8
 	 */
 	public function product_export_setting() {
-
-									$this->shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-
-		if ( has_filter( 'ced_etsy_modify_product_export_settings' ) ) {
-			return apply_filters( 'ced_etsy_modify_product_export_settings', $this->shop_name );
-		}
 		?>
 		<div class="ced-etsy-integ-wrapper">
 			<input class="ced-faq-trigger" id="ced-etsy-pro-exprt-wrapper" type="checkbox" checked /><label class="ced-etsy-settng-title" for="ced-etsy-pro-exprt-wrapper"  checked><?php esc_html_e( 'Product Export Settings', 'woocommerce-etsy-integration' ); ?></label>
@@ -499,6 +478,7 @@ class Ced_View_Settings {
 									 * -------------------------------------
 									 */
 
+									$this->shop_name        = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
 									$product_field_instance = \Cedcommerce\Template\Ced_Template_Product_Fields::get_instance();
 									$settings               = $product_field_instance->get_custom_products_fields();
 									$product_fields         = isset( $settings['required'] ) ? $settings['required'] : array();
@@ -508,15 +488,7 @@ class Ced_View_Settings {
 									$saved_pro_datas        = isset( $ced_etsy_global_data[ $this->shop_name ]['product_data'] ) ? $ced_etsy_global_data[ $this->shop_name ]['product_data'] : array();
 
 									if ( ! empty( $product_fields ) ) {
-										echo '<input type="hidden" value="' . esc_url(
-											/*admin_url( 'admin.php?page=sales_channel&channel=etsy&section=add-shipping-profile&shop_name=' . $this->shop_name )*/                                            ced_get_navigation_url(
-												'etsy',
-												array(
-													'section' => 'add-shipping-profile',
-													'shop_name' => $this->shop_name,
-												)
-											)
-										) . '" id="ced_create_new_shipping_profile" >';
+										echo '<input type="hidden" value="' . esc_url( admin_url( 'admin.php?page=sales_channel&channel=etsy&section=add-shipping-profile&shop_name=' . $this->shop_name ) ) . '" id="ced_create_new_shipping_profile" >';
 										echo "<table class='form-table ced-settings widefat' style='' id='required' class='ced_etsy_setting_body'>";
 										// echo '<tbody>';
 										?>

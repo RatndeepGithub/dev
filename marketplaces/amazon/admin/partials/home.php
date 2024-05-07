@@ -2,7 +2,7 @@
 $active_channel = isset( $_GET['channel'] ) ? sanitize_text_field( $_GET['channel'] ) : 'home';
 $success        = isset( $_GET['success'] ) ? sanitize_text_field( $_GET['success'] ) : '';
 $contract_id    = isset( $_GET['contract_id'] ) ? sanitize_text_field( $_GET['contract_id'] ) : '';
-$mode           = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : '';
+
 
 
 $sales_channel_page = ! empty( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : false;
@@ -43,6 +43,7 @@ if ( ! empty( $success ) && 'yes' == $success && ! empty( $contract_id ) ) {
 
 ?>
 
+
 	<div class='ced-header-wrapper'>
 		<nav class="nav-tab-wrapper woo-nav-tab-wrapper">
 			<?php $url = admin_url( 'admin.php?page=sales_channel' ); ?>
@@ -59,7 +60,7 @@ if ( ! empty( $success ) && 'yes' == $success && ! empty( $contract_id ) ) {
 				foreach ( $activeMarketplaces as $navigation ) {
 					if ( $navigation['is_active'] ) {
 
-						echo '<a href="' . esc_url( ced_get_navigation_url( $navigation['menu_link'], array( 'mode' => $mode ) ) ) . '" class="nav-tab ' . ( $navigation['menu_link'] == $active_channel ? 'nav-tab-active' : '' ) . '">' . esc_html__( $navigation['tab'], 'amazon-for-woocommerce' ) . '</a>';
+						echo '<a href="' . esc_url( ced_get_navigation_url( $navigation['menu_link'] ) ) . '" class="nav-tab ' . ( $navigation['menu_link'] == $active_channel ? 'nav-tab-active' : '' ) . '">' . esc_html__( $navigation['tab'], 'amazon-for-woocommerce' ) . '</a>';
 					}
 				}
 

@@ -110,17 +110,8 @@ class Ced_Etsy_Profile_Table extends WP_List_Table {
 	 */
 	public function column_profile_name( $item ) {
 		$shop_name       = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-		$actions['edit'] = '<a href=' . esc_url(
-			ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'templates',
-					'details'   => 'edit',
-					'profileID' => $item['id'],
-					'shop_name' => $shop_name,
-				)
-			)
-		) . '>Edit</a>';
+		$url             = admin_url( 'admin.php?page=sales_channel&channel=etsy&profileID=' . $item['id'] . '&section=templates&details=edit&shop_name=' . $shop_name );
+		$actions['edit'] = '<a href=' . $url . '>Edit</a>';
 		echo '<strong>' . esc_html( $item['profile_name'] ) . '</strong>';
 		return $this->row_actions( $actions, true );
 	}
@@ -152,15 +143,7 @@ class Ced_Etsy_Profile_Table extends WP_List_Table {
 
 	public function column_edit_profiles( $item ) {
 		$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-		$edit_url  = ced_get_navigation_url(
-			'etsy',
-			array(
-				'section'   => 'profile-edit',
-				'profileID' => $item['id'],
-				'details'   => 'edit',
-				'shop_name' => $shop_name,
-			)
-		);
+		$edit_url  = admin_url( 'admin.php?page=sales_channel&channel=etsy&profileID=' . $item['id'] . '&section=profile-edit&details=edit&shop_name=' . $shop_name );
 		echo "<a class='button-primary' href='" . esc_url( $edit_url ) . "'>Edit</a>";
 	}
 
@@ -185,13 +168,10 @@ class Ced_Etsy_Profile_Table extends WP_List_Table {
 	 * @return array
 	 */
 	public function get_columns() {
-		$columns = apply_filters(
-			'ced_etsy_modify_template_column',
-			array(
-				'cb'             => '<input type="checkbox" />',
-				'profile_name'   => __( 'Template Name', 'woocommerce-etsy-integration' ),
-				'woo_categories' => __( 'Mapped WooCommerce Categories', 'woocommerce-etsy-integration' ),
-			)
+		$columns = array(
+			'cb'             => '<input type="checkbox" />',
+			'profile_name'   => __( 'Template Name', 'woocommerce-etsy-integration' ),
+			'woo_categories' => __( 'Mapped WooCommerce Categories', 'woocommerce-etsy-integration' ),
 		);
 		return $columns;
 	}
@@ -223,14 +203,7 @@ class Ced_Etsy_Profile_Table extends WP_List_Table {
 	 */
 	public function renderHTML() {
 		$shop_name = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-		$url       = ced_get_navigation_url(
-			'etsy',
-			array(
-				'section'   => 'templates',
-				'details'   => 'edit',
-				'shop_name' => $shop_name,
-			)
-		);
+		$url       = admin_url( 'admin.php?page=sales_channel&channel=etsy&section=templates&details=edit&shop_name=' . $shop_name );
 		?>
 		<div class="ced_etsy_wrap ced_etsy_wrap_extn">
 					<div class="wrap">
@@ -272,17 +245,17 @@ class Ced_Etsy_Profile_Table extends WP_List_Table {
 	}
 
 	public function current_action() {
-		$action = '';
+
 		if ( isset( $_GET['details'] ) ) {
 			$action = isset( $_GET['details'] ) ? sanitize_text_field( wp_unslash( $_GET['details'] ) ) : '';
+			return $action;
 		} elseif ( isset( $_POST['action'] ) ) {
 			if ( ! isset( $_POST['etsy_profiles_actions'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['etsy_profiles_actions'] ) ), 'etsy_profiles' ) ) {
 				return;
 			}
 			$action = isset( $_POST['action'] ) ? sanitize_text_field( wp_unslash( $_POST['action'] ) ) : '';
+			return $action;
 		}
-
-		return $action;
 	}
 
 	public function process_bulk_action() {
@@ -320,38 +293,17 @@ class Ced_Etsy_Profile_Table extends WP_List_Table {
 				foreach ( $profileIds as $id ) {
 					$wpdb->delete( $tableName, array( 'id' => $id ) );
 				}
-				$redirectURL = ced_get_navigation_url(
-					'etsy',
-					array(
-						'section'   => 'templates',
-						'shop_name' => $shop_id,
-					)
-				);
-				wp_safe_redirect( $redirectURL );
-				exit;
+				$redirectURL = get_admin_url() . 'admin.php?page=sales_channel&channel=etsy&section=templates&shop_name=' . $shop_id;
+				wp_redirect( $redirectURL );
 			} else {
-				$redirectURL = ced_get_navigation_url(
-					'etsy',
-					array(
-						'section'   => 'templates',
-						'shop_name' => $shop_id,
-					)
-				);
-				wp_safe_redirect( $redirectURL );
-				exit;
+				$redirectURL = get_admin_url() . 'admin.php?page=sales_channel&channel=etsy&section=templates&shop_name=' . $shop_id;
+				wp_redirect( $redirectURL );
 			}
 		} elseif ( isset( $_GET['details'] ) && 'edit' == $_GET['details'] ) {
 			require_once CED_ETSY_DIRPATH . 'admin/template/view/class-ced-view-profile-edit.php';
 		} else {
-			$redirectURL = ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'templates',
-					'shop_name' => $shop_id,
-				)
-			);
-			wp_safe_redirect( $redirectURL );
-			exit;
+			$redirectURL = get_admin_url() . 'admin.php?page=sales_channel&channel=etsy&section=templates&shop_name=' . $shop_id;
+			wp_redirect( $redirectURL );
 		}
 	}
 }

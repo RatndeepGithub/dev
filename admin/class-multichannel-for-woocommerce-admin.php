@@ -114,8 +114,8 @@ class Multichannel_By_Cedcommerce_Admin {
 
 
 	public function ced_mcfw_add_marketplace_menus_to_array( $menus = array() ) {
-		$mode                   = $_GET['mode'] ?? '';
-		$subscription_details   = get_option( 'ced_mcfw_subscription_details' . $mode, array() );
+
+		$subscription_details   = get_option( 'ced_mcfw_subscription_details', array() );
 		$subscibed_marketplaces = isset( $subscription_details['selected_marketplace'] ) ? explode( ',', base64_decode( $subscription_details['selected_marketplace'] ) ) : array();
 		// $subscibed_marketplaces = 0;
 		$supported_marketplaces = array(
@@ -156,13 +156,13 @@ class Multichannel_By_Cedcommerce_Admin {
 										 *
 										 * @since 1.0.0
 										 */
-				'is_active'       => in_array( 'Etsy', $subscibed_marketplaces ) || in_array( $supported_marketplaces['etsy']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_active'       => in_array( 'Etsy', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['etsy']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 				/**
 										 * Checking whether tab needs to be active or not
 										 *
 										 * @since 1.0.0
 										 */
-				'is_installed'    => in_array( 'Etsy', $subscibed_marketplaces ) || in_array( $supported_marketplaces['etsy']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_installed'    => in_array( 'Etsy', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['etsy']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 			),
 			'walmart-integration-for-woocommerce' => array(
 				'name'            => 'Walmart Integration',
@@ -177,13 +177,13 @@ class Multichannel_By_Cedcommerce_Admin {
 										 *
 										 * @since 1.0.0
 										 */
-				'is_active'       => in_array( 'Walmart', $subscibed_marketplaces ) || in_array( $supported_marketplaces['walmart']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_active'       => in_array( 'Walmart', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['walmart']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 				/**
 										 * Checking whether tab needs to be active or not
 										 *
 										 * @since 1.0.0
 										 */
-				'is_installed'    => in_array( 'Walmart', $subscibed_marketplaces ) || in_array( $supported_marketplaces['walmart']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_installed'    => in_array( 'Walmart', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['walmart']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 			),
 			'ebay-integration-for-woocommerce'    => array(
 				'name'            => 'eBay Integration',
@@ -198,13 +198,13 @@ class Multichannel_By_Cedcommerce_Admin {
 										 *
 										 * @since 1.0.0
 										 */
-				'is_active'       => in_array( 'Ebay', $subscibed_marketplaces ) || in_array( $supported_marketplaces['ebay']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_active'       => in_array( 'Ebay', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['ebay']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 				/**
 										 * Checking whether tab needs to be active or not
 										 *
 										 * @since 1.0.0
 										 */
-				'is_installed'    => in_array( 'Ebay', $subscibed_marketplaces ) || in_array( $supported_marketplaces['ebay']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_installed'    => in_array( 'Ebay', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['ebay']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 			),
 			'amazon-for-woocommerce'              => array(
 				'name'            => 'Amazon Integration',
@@ -219,13 +219,13 @@ class Multichannel_By_Cedcommerce_Admin {
 										 *
 										 * @since 1.0.0
 										 */
-				'is_active'       => in_array( 'Amazon', $subscibed_marketplaces ) || in_array( $supported_marketplaces['amazon']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_active'       => in_array( 'Amazon', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['amazon']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 				/**
 										 * Checking whether tab needs to be active or not
 										 *
 										 * @since 1.0.0
 										 */
-				'is_installed'    => in_array( 'Amazon', $subscibed_marketplaces ) || in_array( $supported_marketplaces['amazon']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
+				'is_installed'    => in_array( 'Amazon', $subscibed_marketplaces ) ||  in_array( $supported_marketplaces['amazon']['parent-slug'], apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ),
 			),
 		);
 		return $menus;
@@ -252,26 +252,14 @@ class Multichannel_By_Cedcommerce_Admin {
 				require CED_MCFW_DIRPATH . 'admin/template/home/marketplaces.php';
 			} elseif ( isset( $_GET['channel'] ) && 'pricing' == $_GET['channel'] ) {
 				require CED_MCFW_DIRPATH . 'admin/partials/pricing/class-ced-pricing-page.php';
-				$pricing     = new Ced_Pricing_Plans();
-				$display     = 'ced-display-block';
-				$currentPlan = $pricing->getCurrentPlanById();
-				if ( is_array( $currentPlan['data'] ) ) {
-					$subscription_data = isset( $currentPlan['data'] ) ? $currentPlan['data'] : '';
-
-					if ( ! empty( $subscription_data ) ) {
-						$display = 'ced-display-none';
-						$pricing->new_ced_existing_plan_display( $subscription_data );
-						$pricing->new_ced_pricing_plan_display( $display );
-					}
-				} else {
-					$pricing->new_ced_pricing_plan_display( $display );
-				}
+				$pricing = new Ced_Pricing_Plans();
+				$pricing->ced_pricing_plan_display();
 			} elseif ( isset( $_GET['page'] ) && 'sales_channel' == $_GET['page'] && isset( $_GET['channel'] ) ) {
 				/**
-				 * Action for including a template based on active channel
-				 *
-				 * @since  1.0.0
-				 */
+		 * Action for including a template based on active channel
+		 *
+		 * @since  1.0.0
+		 */
 				do_action( 'ced_sales_channel_include_template', sanitize_text_field( $_GET['channel'] ) );
 			}
 		}

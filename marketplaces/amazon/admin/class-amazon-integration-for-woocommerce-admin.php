@@ -60,27 +60,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 */
 	public $reader;
 
-
-	/**
-	 * The instance of order manage file.
-	 *
-	 * @since    1.0.0
-
-	 * @var      string    $order_manager    The instance of order manager file.
-	 */
 	public $order_manager;
-
-
-	/**
-	 * The instance of curl request file.
-	 *
-	 * @since    1.0.0
-
-	 * @var      string    $amzonCurlRequestInstance    The instance of curl request file.
-	 */
-	private $amzonCurlRequestInstance;
-
-
 	/**
 	 * Initialize the class and set its properties.
 	 *
@@ -100,16 +80,10 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		add_action( 'ced_show_connected_accounts_details', array( $this, 'ced_show_connected_accounts_details' ) );
 
 		add_action( 'wp_ajax_ced_amazon_process_profile_bulk_action', array( $this, 'ced_amazon_process_profile_bulk_action' ) );
-
 		add_filter( 'views_edit-shop_order', array( $this, 'ced_amazon_add_woo_order_views' ) );
 		add_filter( 'parse_query', array( $this, 'ced_amazon_woo_admin_order_filter_query' ) );
 
-		add_filter( 'vviews_woocommerce_page_wc-orders', array( $this, 'ced_amazon_add_woo_order_views' ) );
-
 		add_filter( 'upload_mimes', array( $this, 'allow_xlsm_upload' ), 1, 1 );
-		add_action( 'admin_init', array( $this, 'ced_amz_check_schedules' ) );
-		add_action( 'admin_init', array( $this,'ced_amazon_set_scheduler'));
-		add_action( 'ced_amazon_shipment_schedule', array($this,'ced_amazon_shipment_method'));
 
 		// Amazon order in woo order section start
 		$this->load_admin_classes();
@@ -129,12 +103,11 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		// Amazon order in woo order section end
 
-		add_filter( 'woocommerce_order_number', array( $this, 'ced_amz_modify_woo_order_number' ), 20, 2 );
+		// Media scripts
+		// add_action('wp_enqueue_scripts', array( $this, 'enqueue_scripts_styles_admin' ) );
+		// Media scripts
 
-		if ( file_exists( CED_AMAZON_DIRPATH . 'admin/saas/class-ced-pricing.php' ) ) {
-			include_once CED_AMAZON_DIRPATH . 'admin/saas/class-ced-pricing.php';
-			new Ced_Pricing();
-		}
+		add_filter( 'woocommerce_order_number', array( $this, 'ced_amz_modify_woo_order_number' ), 20, 2 );
 
 		// CRON scheduler functions
 		$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', array() );
@@ -157,81 +130,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		return $mimes;
 	}
 
-
-	public function ced_amazon_set_scheduler()
-	{
-		if(!wp_get_schedule( 'ced_amazon_shipment_schedule' )){
-			wp_schedule_event(time(), 'ced_amazon_6min', 'ced_amazon_shipment_schedule');
-		}
-		
-	}
-
-	public function ced_amz_check_schedules() {
-
-
-		$global_setting_data  = get_option( 'ced_amazon_global_settings', array() );	
-		$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', array() );	
-		
-		if ( !empty( $saved_amazon_details ) && is_array( $saved_amazon_details ) && function_exists( 'as_has_scheduled_action' ) ) {
-
-			foreach ( $saved_amazon_details as $seller_id => $seller_data ) {
-
-				$seller_args        = array( $seller_id );
-				$current_price_sync = isset( $global_setting_data[$seller_id] ) && isset( $global_setting_data[$seller_id]['ced_amazon_price_schedule_info'] ) ? $global_setting_data[$seller_id]['ced_amazon_price_schedule_info'] : '';
-
-				if ( 'on' == $current_price_sync && ! as_has_scheduled_action( 'ced_amazon_price_scheduler_job_' . $seller_id ) ) {
-					as_schedule_recurring_action( time(), 660, 'ced_amazon_price_scheduler_job_' . $seller_id, $seller_args );
-				} elseif ( 'on' !== $current_price_sync && as_has_scheduled_action( 'ced_amazon_price_scheduler_job_' . $seller_id )  ) {
-					as_unschedule_all_actions( 'ced_amazon_price_scheduler_job_' . $seller_id, $seller_args );
-				}
-
-				
-				$current_inventory_sync = isset( $global_setting_data[$seller_id] ) && isset( $global_setting_data[$seller_id]['ced_amazon_inventory_schedule_info'] ) ? $global_setting_data[$seller_id]['ced_amazon_inventory_schedule_info'] : '';
-
-				if ( 'on' == $current_inventory_sync && ! as_has_scheduled_action( 'ced_amazon_inventory_scheduler_job_' . $seller_id ) ) {
-					as_schedule_recurring_action( time(), 540, 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args );
-				} elseif ( 'on' !== $current_inventory_sync && as_has_scheduled_action( 'ced_amazon_inventory_scheduler_job_' . $seller_id )  ) {
-					as_unschedule_all_actions( 'ced_amazon_inventory_scheduler_job_' . $seller_id, $seller_args );  
-				}
-
-				$current_order_sync = isset( $global_setting_data[$seller_id] ) && isset( $global_setting_data[$seller_id]['ced_amazon_order_schedule_info'] ) ? $global_setting_data[$seller_id]['ced_amazon_order_schedule_info'] : '';
-
-				if ( 'on' == $current_order_sync && ! as_has_scheduled_action( 'ced_amazon_order_scheduler_job_' . $seller_id )) {
-					as_schedule_recurring_action( time(), 480, 'ced_amazon_order_scheduler_job_' . $seller_id, $seller_args ); 
-				} elseif ( 'on' !== $current_order_sync && as_has_scheduled_action( 'ced_amazon_order_scheduler_job_' . $seller_id )  ) {
-					as_unschedule_all_actions( 'ced_amazon_order_scheduler_job_' . $seller_id, $seller_args );
-				}
-
-
-				$current_exist_product_sync = isset( $global_setting_data[$seller_id] ) && isset( $global_setting_data[$seller_id]['ced_amazon_existing_products_sync'] ) ? $global_setting_data[$seller_id]['ced_amazon_existing_products_sync'] : '';
-
-				if ( 'on' == $current_exist_product_sync && ! as_has_scheduled_action( 'ced_amazon_existing_products_sync_job_' . $seller_id ) ) {
-					as_schedule_recurring_action( time(), 600, 'ced_amazon_existing_products_sync_job_' . $seller_id, $seller_args );
-				} elseif ( 'on' !== $current_exist_product_sync && as_has_scheduled_action( 'ced_amazon_existing_products_sync_job_' . $seller_id )  ) {
-					as_unschedule_all_actions( 'ced_amazon_existing_products_sync_job_' . $seller_id, $seller_args );
-				}
-
-				
-				$current_asin_sync = isset( $global_setting_data[$seller_id] ) && isset( $global_setting_data[$seller_id]['ced_amazon_catalog_asin_sync'] ) ? $global_setting_data[$seller_id]['ced_amazon_catalog_asin_sync'] : '';
-
-				if ( 'on' == $current_asin_sync && ! as_has_scheduled_action( 'ced_amazon_catalog_asin_sync_job_' . $seller_id ) ) {
-					as_schedule_recurring_action( time(), 720, 'ced_amazon_catalog_asin_sync_job_' . $seller_id, $seller_args );
-				} elseif ( 'on' !== $current_asin_sync && as_has_scheduled_action( 'ced_amazon_catalog_asin_sync_job_' . $seller_id )  ) {
-					as_unschedule_all_actions( 'ced_amazon_catalog_asin_sync_job_' . $seller_id, $seller_args );
-				}
-
-				// $ced_amazon_shipment_tracking_plugin = isset( $global_setting_data[$seller_id] ) && isset( $global_setting_data[$seller_id]['ced_amazon_shipment_tracking_plugin'] ) ? $global_setting_data[$seller_id]['ced_amazon_shipment_tracking_plugin'] : '';
-
-				// if ( !empty( $ced_amazon_shipment_tracking_plugin) && ! as_has_scheduled_action( 'ced_amazon_shipment_tracking_job_' . $seller_id ) ) {   
-				// 	as_schedule_recurring_action( time(), 600, 'ced_amazon_shipment_tracking_job_' . $seller_id, $seller_args );
-				// } elseif (  empty( $ced_amazon_shipment_tracking_plugin) && as_has_scheduled_action( 'ced_amazon_shipment_tracking_job_' . $seller_id )  ){ 
-				// 	as_unschedule_all_actions( 'ced_amazon_shipment_tracking_job_' . $seller_id, $seller_args );
-				// }
-
-			}
-
-		}
-	}
 
 	/**
 	 * Ced Amazon modifiy woocommerce order number.
@@ -268,10 +166,10 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$ced_amazon_order_seller_id = isset( $ced_amazon_order_seller_id[0] ) ? json_decode( json_encode($ced_amazon_order_seller_id[0]), true ) : array();
 				$ced_amazon_order_seller_id = isset( $ced_amazon_order_seller_id['meta_value'] ) ? $ced_amazon_order_seller_id['meta_value'] : '';
 
-
+	
 			} else {
-				$ced_amazon_order_id        = get_post_meta( $order->get_id(), 'amazon_order_id', true );
-				$ced_amazon_order_seller_id = get_post_meta( $order->get_id(), 'ced_amazon_order_seller_id', true );
+				$ced_amazon_order_id         = get_post_meta( $order->get_id(), 'amazon_order_id', true );
+				$ced_amazon_order_seller_id  = get_post_meta( $order->get_id(), 'ced_amazon_order_seller_id', true );
 			}
 
 
@@ -296,7 +194,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				?>
 				<a class="woocommerce-importer-done-view-errors-amazon" href="javascript:void(0)" ><?php echo esc_attr( count( $ced_amazon_sellernext_shop_ids ) ); ?> account
 					connected <span class="dashicons dashicons-arrow-down-alt2"></span></a>  
-					<?php
+				<?php
 			}
 		}
 	}
@@ -309,100 +207,97 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				require_once $file;
 			}
 
-			$mode         = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-            $ced_base_uri = ced_amazon_base_uri($mode);
-
 			$ced_amazon_sellernext_shop_ids = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 
 			if ( ! empty( $ced_amazon_sellernext_shop_ids ) ) {
 				?>
-					<tr class="wc-importer-error-log-amazon" style="display:none;">
-						<td colspan="4">
-							<div>
-								<div class="ced-account-connected-form">
-									<div class="ced-account-head">
-										<div class="ced-account-label">
-											<strong>Account Details</strong>
-										</div>
-										<div class="ced-account-label">
-											<strong>Status</strong>
-										</div> 
-										<div class="ced-account-label">
-
-										</div> 
+				<tr class="wc-importer-error-log-amazon" style="display:none;">
+					<td colspan="4">
+						<div>
+							<div class="ced-account-connected-form">
+								<div class="ced-account-head">
+									<div class="ced-account-label">
+										<strong>Account Details</strong>
 									</div>
+									<div class="ced-account-label">
+										<strong>Status</strong>
+									</div> 
+									<div class="ced-account-label">
+										
+									</div> 
+								</div>
 
-								<?php
+							<?php
 
-								$sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
+							$sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 
-								if ( ! empty( $sellernextShopIds ) && is_array( $sellernextShopIds ) ) {
-									foreach ( $ced_amazon_sellernext_shop_ids as $sellernextId => $sellernextData ) {
-										$current_marketplace_id   = isset( $sellernextData['marketplace_id'] ) ? $sellernextData['marketplace_id'] : '';
-										$current_marketplace_name = isset( $ced_amazon_regions_info[ $current_marketplace_id ] ) && isset( $ced_amazon_regions_info[ $current_marketplace_id ]['country-name'] ) ? $ced_amazon_regions_info[ $current_marketplace_id ]['country-name'] : '';
+							if ( ! empty( $sellernextShopIds ) && is_array( $sellernextShopIds ) ) {
+								foreach ( $ced_amazon_sellernext_shop_ids as $sellernextId => $sellernextData ) {
+									$current_marketplace_id   = isset( $sellernextData['marketplace_id'] ) ? $sellernextData['marketplace_id'] : '';
+									$current_marketplace_name = isset( $ced_amazon_regions_info[ $current_marketplace_id ] ) && isset( $ced_amazon_regions_info[ $current_marketplace_id ]['country-name'] ) ? $ced_amazon_regions_info[ $current_marketplace_id ]['country-name'] : '';
 
-										if ( isset( $sellernextData['ced_amz_current_step'] ) && 3 < $sellernextData['ced_amz_current_step'] ) {
-											$url = get_admin_url() . $ced_base_uri . '&section=overview&user_id=' . $sellernextId . '&seller_id=' . $sellernextData['ced_mp_seller_key'];
+									if ( isset( $sellernextData['ced_amz_current_step'] ) && 3 < $sellernextData['ced_amz_current_step'] ) {
+										$url = get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=overview&user_id=' . $sellernextId . '&seller_id=' . $sellernextData['ced_mp_seller_key'];
 
-											?>
+										?>
 
-												<div class="ced-account-body"> 
-													<div class="ced-acount-body-label">
-														<strong><?php echo esc_attr( $current_marketplace_name ); ?></strong>
-													</div>
-													<div class="ced-connected-button-wrapper">
-														<div class="ced-connected-link-account" href="javascript:void(0)"><span class="ced-circle"></span>Onboarding Completed</div>
-													</div>
-
-													<div class="ced-account-button">																											
-														<button id="ced_amazon_disconnect_account_btn" type="button" class="components-button is-tertiary" sellernext-shop-id = "<?php echo esc_attr( $sellernextId ); ?>" seller-id = "<?php echo esc_attr( $sellernextData['ced_mp_seller_key'] ); ?>" > <?php echo esc_html__( 'Disconnect', 'amazon-for-woocommerce' ); ?></button>
-														<a type="button" class="components-button is-primary" href="<?php echo esc_url( $url ); ?>">Manage</a></div>
-													</div>
-
-												<?php
-										} else {
-											$current_step = isset( $sellernextData['ced_amz_current_step'] ) ? $sellernextData['ced_amz_current_step'] : '';
-											if ( empty( $current_step ) ) {
-												$urlKey = 'section=setup-amazon';
-											} elseif ( 1 == $current_step ) {
-												$urlKey = 'section=setup-amazon&part=wizard-options';
-											} elseif ( 2 == $current_step ) {
-												$urlKey = 'section=setup-amazon&part=wizard-settings';
-											} elseif ( 3 == $current_step ) {
-												$urlKey = 'section=setup-amazon&part=configuration';
-											} else {
-												$part = 'section=overview';
-											}
-
-											$sellerID = isset( $sellernextData['ced_mp_seller_key'] ) ? $sellernextData['ced_mp_seller_key'] : '';
-											$url      = get_admin_url() . $ced_base_uri . '&' . $urlKey . '&user_id=' . $sellernextId . '&seller_id=' . $sellerID;
-
-											?>
-
-													<div class="ced-account-body">
-														<div class="ced-acount-body-label">
-															<strong><?php echo esc_attr( $current_marketplace_name ); ?></strong>
-														</div>
-														<div class="ced-pending-button-wrap">
-															<a class="ced-pending-link" href="<?php echo esc_url( $url ); ?>"><span class="ced-circle"></span>Onboarding Pending</a>
-														</div>
-														<div class="ced-account-button">																											
-															<button id="ced_amazon_disconnect_account_btn" type="button" class="components-button is-tertiary" sellernext-shop-id = "<?php echo esc_attr( $sellernextId ); ?>" seller-id = "<?php echo esc_attr( $sellerID ); ?>" > <?php echo esc_html__( 'Disconnect', 'amazon-for-woocommerce' ); ?></button>
-															<a type="button" class="components-button is-primary" href="<?php echo esc_url( $url ); ?>">Manage</a></div>
-														</div>
-													</div>
+										<div class="ced-account-body"> 
+											<div class="ced-acount-body-label">
+												<strong><?php echo esc_attr( $current_marketplace_name ); ?></strong>
+											</div>
+											<div class="ced-connected-button-wrapper">
+												<div class="ced-connected-link-account" href="javascript:void(0)"><span class="ced-circle"></span>Onboarding Completed</div>
+											</div>
+											
+											<div class="ced-account-button">																											
+												<button id="ced_amazon_disconnect_account_btn" type="button" class="components-button is-tertiary" sellernext-shop-id = "<?php echo esc_attr( $sellernextId ); ?>" seller-id = "<?php echo esc_attr( $sellernextData['ced_mp_seller_key'] ); ?>" > <?php echo esc_html__( 'Disconnect', 'amazon-for-woocommerce' ); ?></button>
+												<a type="button" class="components-button is-primary" href="<?php echo esc_url( $url ); ?>">Manage</a></div>
+										</div>
 
 													<?php
+									} else {
+										$current_step = isset( $sellernextData['ced_amz_current_step'] ) ? $sellernextData['ced_amz_current_step'] : '';
+										if ( empty( $current_step ) ) {
+											$urlKey = 'section=setup-amazon';
+										} elseif ( 1 == $current_step ) {
+											$urlKey = 'section=setup-amazon&part=wizard-options';
+										} elseif ( 2 == $current_step ) {
+											$urlKey = 'section=setup-amazon&part=wizard-settings';
+										} elseif ( 3 == $current_step ) {
+											$urlKey = 'section=setup-amazon&part=configuration';
+										} else {
+											$part = 'section=overview';
 										}
+
+										$sellerID = isset( $sellernextData['ced_mp_seller_key'] ) ? $sellernextData['ced_mp_seller_key'] : '';
+										$url      = get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&' . $urlKey . '&user_id=' . $sellernextId . '&seller_id=' . $sellerID;
+
+										?>
+
+										<div class="ced-account-body">
+											<div class="ced-acount-body-label">
+												<strong><?php echo esc_attr( $current_marketplace_name ); ?></strong>
+											</div>
+											<div class="ced-pending-button-wrap">
+												<a class="ced-pending-link" href="<?php echo esc_url( $url ); ?>"><span class="ced-circle"></span>Onboarding Pending</a>
+											</div>
+											<div class="ced-account-button">																											
+												<button id="ced_amazon_disconnect_account_btn" type="button" class="components-button is-tertiary" sellernext-shop-id = "<?php echo esc_attr( $sellernextId ); ?>" seller-id = "<?php echo esc_attr( $sellerID ); ?>" > <?php echo esc_html__( 'Disconnect', 'amazon-for-woocommerce' ); ?></button>
+												<a type="button" class="components-button is-primary" href="<?php echo esc_url( $url ); ?>">Manage</a></div>
+											</div>
+										</div>
+
+										<?php
 									}
 								}
-								?>
+							}
+							?>
 
-									</div>
-								</div>
-							</td>
-						</tr>
-						<?php
+							</div>
+						</div>
+					</td>
+				</tr>
+				<?php
 			}
 		}
 	}
@@ -455,34 +350,21 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 */
 	public function ced_amazon_cron_price_sync( $seller_id ) {
 
-		// Log file name
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_price_sync' );
-		$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
-
-		$scheduler = get_option( 'ced_amazon_price_scheduler_job_' . $seller_id );
-		if( 'on' !== $scheduler ){
-			$logger->info( "Price scheduler is not turned ON \n", $context );
-			return;
-		}
-
-		$amazon_feed_manager = CED_AMAZON_DIRPATH . 'admin/amazon/lib/class-feed-manager.php';
-		if ( file_exists( $amazon_feed_manager ) ) {
-			require_once $amazon_feed_manager;
-			$this->amazon_feed_manager = new Ced_Umb_Amazon_Feed_Manager();
-		} 
 
 		if ( is_null( $this->amazon_feed_manager ) ) {
-			$logger->info( "Unable to find feed manager file \n", $context );
 			return;
 		}
-		
+
+		// Log file name
+		$log_date = gmdate( 'Y-m-d' );
+		$log_name = 'price_api_' . $log_date . '.txt';
 
 		if ( empty( $seller_id ) ) {
-			$logger->info( "Seller id argument is missing from price CRON scheduler! \n", $context );
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Seller id argument is missing from inventory CRON scheduler! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'feed' );
 			return;
 		}
-
 
 		$ced_price_chunk        = 50;
 		$products_price_to_sync = get_option( 'ced_amazon_price_sync_' . $seller_id, array() );
@@ -511,13 +393,12 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$mplocation_arr = explode( '|', $seller_id );
 				$mplocation     = isset( $mplocation_arr[1] ) ? $mplocation_arr[0] : '';
 			}
-			$this->amazon_feed_manager->ced_amazon_bulk_price_update( $product_ids_chunk, $mplocation, $seller_id, 'Automatic' );
+			$this->amazon_feed_manager->ced_amazon_bulk_price_update( $product_ids_chunk, $mplocation, $seller_id );
 		}
 
 		unset( $products_price_to_sync[0] );
 		$products_price_to_sync = array_values( $products_price_to_sync );
 		update_option( 'ced_amazon_price_sync_' . $seller_id, $products_price_to_sync );
-
 	}
 
 	/**
@@ -529,32 +410,18 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 */
 	public function ced_amazon_cron_inventory_sync( $seller_id ) {
 
+		if ( is_null( $this->amazon_feed_manager ) ) {
+			return;
+		}
 
 		// Log file name
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_inventory_sync' );
-		$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
-
-		$scheduler = get_option( 'ced_amazon_inventory_scheduler_job_' . $seller_id );
-		if( 'on' !== $scheduler ){
-			$logger->info( "Inventory scheduler is not turned ON \n", $context );
-			return;
-		}
-
-		$amazon_feed_manager = CED_AMAZON_DIRPATH . 'admin/amazon/lib/class-feed-manager.php';
-		if ( file_exists( $amazon_feed_manager ) ) {
-			require_once $amazon_feed_manager;
-			$this->amazon_feed_manager = new Ced_Umb_Amazon_Feed_Manager();
-		} 
-
-		if ( is_null( $this->amazon_feed_manager ) ) {
-			$logger->info( "Unable to find feed manager file \n", $context );
-			return;
-		}
-		
+		$log_date = gmdate( 'Y-m-d' );
+		$log_name = 'inventory_api_' . $log_date . '.txt';
 
 		if ( empty( $seller_id ) ) {
-			$logger->info( "Seller id argument is missing from inventory CRON scheduler! \n", $context );
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Seller id argument is missing from inventory CRON scheduler! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'feed' );
 			return;
 		}
 
@@ -603,32 +470,18 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 */
 	public function ced_amazon_cron_order_sync( $seller_id ) {
 
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_order_fetch' );
-		$logger->info( wc_print_r( ced_woo_timestamp(), true ), $context );
-
-
-		$scheduler = get_option( 'ced_amazon_order_scheduler_job_' . $seller_id );
-		if( 'on' !== $scheduler ){
-			$logger->info( "Order scheduler is not turned ON \n", $context );
+		if ( is_null( $this->order_manager ) ) {
 			return;
 		}
 
-		$amazon_feed_manager = CED_AMAZON_DIRPATH . 'admin/amazon/lib/class-feed-manager.php';
-		if ( file_exists( $amazon_feed_manager ) ) {
-			require_once $amazon_feed_manager;
-			$this->amazon_feed_manager = new Ced_Umb_Amazon_Feed_Manager();
-
-		} 
-
-		if ( is_null( $this->amazon_feed_manager ) ) {
-			$logger->info( "Unable to find feed manager file \n", $context );
-			return;
-		}
-		
+		// Log file name
+		$log_date = gmdate( 'Y-m-d' );
+		$log_name = 'order_api_' . $log_date . '.txt';
 
 		if ( empty( $seller_id ) ) {
-			$logger->info( "Seller id argument is missing from order CRON scheduler! \n", $context );
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Seller id argument is missing from order CRON scheduler! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'order' );
 			return;
 		}
 
@@ -637,7 +490,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$mplocation_arr = explode( '|', $seller_id );
 			$mplocation     = isset( $mplocation_arr[1] ) ? $mplocation_arr[0] : '';
 		}
-		$this->order_manager->fetchOrders( $mplocation, $cron = true, $seller_id , array()  );
+		$this->order_manager->fetchOrders( $mplocation, $cron = true, $amazon_order_id = '', $seller_id );
 	}
 
 
@@ -651,33 +504,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	public function ced_amazon_cron_exist_product_sync( $seller_id = '' ) {
 
 		// Log file name
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_exist_product_sync' );
-		$logger->info( wc_print_r(ced_woo_timestamp(), true), $context );
-
-
-		$scheduler = get_option( 'ced_amazon_order_scheduler_job_' . $seller_id );
-		if( 'on' !== $scheduler ){
-			$logger->info( "Order scheduler is not turned ON \n", $context );
-			return;
-		}
-
-		$amazon_feed_manager = CED_AMAZON_DIRPATH . 'admin/amazon/lib/class-feed-manager.php';
-		if ( file_exists( $amazon_feed_manager ) ) {
-			require_once $amazon_feed_manager;
-			$this->amazon_feed_manager = new Ced_Umb_Amazon_Feed_Manager();
-
-		} 
-
-		if ( is_null( $this->amazon_feed_manager ) ) {
-			$logger->info( "Unable to find feed manager file \n", $context );
-			return;
-		}
-
-		if ( empty( $seller_id ) ) {
-			$logger->info( "Seller id argument is missing from Exist products CRON scheduler! \n", $context );
-			return;
-		}
+		$log_date = gmdate( 'Y-m-d' );
+		$log_name = 'report_data_api_' . $log_date . '.txt';
 
 		$amzonCurlRequest = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
 		if ( file_exists( $amzonCurlRequest ) ) {
@@ -685,15 +513,17 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
 
 		} else {
-			$log_message = "Amazon curl request file instance doesn't exist \n";
-			$logger->info( wc_print_r($log_message), $context );
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Amazon curl request file instance doesn't exist \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'report' );
 			return;
 		}
 
 		$mplocation = '';
 		if ( empty( $seller_id ) ) {
-			$log_message = "Seller id argument is missing from report data CRON scheduler, please check! \n";
-			$logger->info( wc_print_r($log_message), $context );
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Seller id argument is missing from report data CRON scheduler, please check! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'report' );
 			return;
 		} else {
 			$mplocation_arr = explode( '|', $seller_id );
@@ -704,9 +534,12 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		// throttle check
 		$ced_amazon_exist_product_sync_throttle = get_transient('ced_amazon_exist_product_sync_throttle') ;
 		if ( $ced_amazon_exist_product_sync_throttle ) {
-			$log_message = "API call limit exceeded. Please try after 5 mins.! \n";
-			$logger->info( wc_print_r($log_message), $context );
+
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "API call limit exceeded. Please try after 5 mins.! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'catalog' );
 			return;
+			
 		}
 
 		// check active marketplace or not
@@ -714,8 +547,9 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		$location_for_seller = $seller_id;
 		if ( ! isset( $saved_amazon_details[ $location_for_seller ] ) || $saved_amazon_details[ $location_for_seller ]['ced_mp_name'] != $mplocation ) {
-			$log_message = "Mplocation is not matching with validated account while report data call! \n";
-			$logger->info( wc_print_r($log_message), $context );
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Mplocation is not matching with validated account while report data call! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'report' );
 			return;
 		}
 
@@ -723,20 +557,23 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$shop_data = $saved_amazon_details[ $location_for_seller ];
 		}
 
+		$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 		$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
 		$merchant_id    = isset( $shop_data['merchant_id'] ) ? $shop_data['merchant_id'] : '';
-        $remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-		if ( empty( $marketplace_id ) ) {
-			$log_message = "Mplocation is not matching with validated account while report data call! \n";
-			$logger->info( wc_print_r($log_message), $context );
+		if ( empty( $refresh_token ) || empty( $marketplace_id ) ) {
+			// Save error in log
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Refresh token/marketplace id are missing while report data call! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'report' );
 			return;
 		}
 
 		$products_to_sync = get_option( 'ced_amazon_exist_product_ids' . $seller_id, array() );
+
 		if ( empty( $products_to_sync ) ) {
 			$args = array(
-				'post_type'        => array( 'product', 'product_variation' ),
+				'post_type'        => array( 'product' ),
 				'post_status'      => 'publish',
 				'posts_per_page'   => -1,
 				'fields'           => 'ids',
@@ -760,7 +597,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$sku         = get_post_meta( $value, '_sku', true );
 			$array_sku[] = $sku;
 		}
-
 		// check sku exists or not
 		if ( isset( $array_sku ) && ! empty( $array_sku ) ) {
 			try {
@@ -768,24 +604,18 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$contract_data = get_option( 'ced_unified_contract_details', array() );
 				$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
-				$catalog_query_params  = array(
-					'identifiers'       => implode( ',', $array_sku ),
-					'identifiers_types' => 'SKU' ,
-					'included_data'     => implode( ',', array( 'summaries', 'identifiers' ) ),
+				$catalog_topic = 'webapi/amazon/search-catalog-items-using-identifier';
+				$catalog_data  = array(
+					'refresh_token'    => $refresh_token,
+					'seller_id'        => $merchant_id,
+					'marketplace_id'   => $marketplace_id,
+					'identifiers'      => $array_sku,
+					'identifiers_type' => array( 'SKU' ),
+					'included_data'    => array( 'summaries', 'identifiers' ),
+					'contract_id'      => $contract_id,
 				);
 
-				$catalog_topic = 'items?' .  http_build_query( $catalog_query_params );
-
-				// echo '<pre>';
-				// print_r($catalog_topic);
-				// die;
-
-				$catalog_data = array( 'contract_id' => $contract_id, 'mode' => '_sandbox', 'remote_shop_id' => $remote_shop_id );
-
-				$logger->info( 'Existing product sync job: ', $context );
-				$logger->info( wc_print_r($array_sku, true), $context );
-
-				$catalog_response = $amzonCurlRequestInstance->ced_amazon_serverless_process( $catalog_topic, $catalog_data, 'GET');
+				$catalog_response = $amzonCurlRequestInstance->ced_amazon_serverless_process( $catalog_topic, $catalog_data, 'POST');
 
 				$code = wp_remote_retrieve_response_code( $catalog_response );
 				if ( 429 == $code ) {
@@ -795,13 +625,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$catalog_body = json_decode( $catalog_response['body'], true );
 				$catalog_body = $catalog_body['data'];
 
-				if ( isset( $catalog_body['pagination'] ) &&  isset( $catalog_body['pagination']['nextToken'] ) ) {
-					update_option( 'ced_amazon_exist_product_sync_' . $merchant_id, $catalog_body['pagination']['nextToken'] );
-				}
-
 				if ( isset( $catalog_body['items'] ) ) {
-
-					$logger->info( wc_print_r($catalog_body, true), $context );
 
 					$array_sku_amazon = array();
 					foreach ( $catalog_body['items'] as $key => $value ) {
@@ -850,21 +674,18 @@ class Amazon_Integration_For_Woocommerce_Admin {
 									$pro_id = $this->get_amazon_seller_sku( 'item_sku', $sku );
 								}
 								$pro_id = (int) $pro_id;
-								// if ( ! empty( $pro_id ) ) {
-								// 	delete_post_meta( $pro_id, 'ced_amazon_already_uploaded_' . $mplocation );
-								// 	delete_post_meta( $pro_id, 'ced_amazon_product_asin_' . $mplocation );
-								// }
+								if ( ! empty( $pro_id ) ) {
+									delete_post_meta( $pro_id, 'ced_amazon_already_uploaded_' . $mplocation );
+									delete_post_meta( $pro_id, 'ced_amazon_product_asin_' . $mplocation );
+								}
 							}
 						}
 					}
-
-				} else {
-					
-					$logger->info(  'Error in syncing products', $context );
-					$logger->info( wc_print_r($catalog_body, true), $context );
 				}
 			} catch ( Exception $e ) {
-				$logger->info( wc_print_r($e->getMessage(), true), $context );
+				echo 'Exception when calling report data API end point: ', esc_attr( $e->getMessage() ), PHP_EOL;
+				// Save error in log
+				ced_amazon_log_data( $e->getMessage(), $log_name, 'report' );
 			}
 		}
 
@@ -882,56 +703,44 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 */
 	public function ced_amazon_cron_catalog_asin_sync( $seller_id ) {
 
-		// test starts
-		if( empty( $seller_id ) ){
-            $seller_id = 'in|A3VSMOL1YWESR0';
-		}
-		// test ends
-
 		// Log file name
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_catalog_asin_sync' );
-		$logger->info( wc_print_r(ced_woo_timestamp(), true), $context );
-
-
-		$amazon_feed_manager = CED_AMAZON_DIRPATH . 'admin/amazon/lib/class-feed-manager.php';
-		if ( file_exists( $amazon_feed_manager ) ) {
-			require_once $amazon_feed_manager;
-			$this->amazon_feed_manager = new Ced_Umb_Amazon_Feed_Manager();
-		} 
-
-		if ( is_null( $this->amazon_feed_manager ) ) {
-			$logger->info( "Unable to find feed manager file \n", $context );
-			return;
-		}
-
-		if ( empty( $seller_id ) ) {
-			$logger->info( "Seller id argument is missing from ASIN CRON scheduler! \n", $context );
-			return;
-		}
+		$log_date = gmdate( 'Y-m-d' );
+		$log_name = 'catalog_api_' . $log_date . '.txt';
 
 		$amzonCurlRequest = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
 		if ( file_exists( $amzonCurlRequest ) ) {
 			require_once $amzonCurlRequest;
 			$amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
+
 		} else {
-			$log_message = "Amazon curl request file instance doesn't exist \n";
-			$logger->info( wc_print_r($log_message), $context );
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Amazon curl request file instance doesn't exist \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'report' );
 			return;
 		}
 
 		$mplocation = '';
-		$mplocation_arr = explode( '|', $seller_id );
-		$mplocation     = isset( $mplocation_arr[1] ) ? $mplocation_arr[0] : '';
+		if ( empty( $seller_id ) ) {
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Seller id argument is missing from ASIN sync CRON scheduler! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'catalog' );
+			return;
+		} else {
+			$mplocation_arr = explode( '|', $seller_id );
+			$mplocation     = isset( $mplocation_arr[1] ) ? $mplocation_arr[0] : '';
+		}
+
 
 		// throttle check
 		$ced_amazon_catalog_asin_sync_throttle = get_transient('ced_amazon_catalog_asin_sync_throttle') ;
 		if ( $ced_amazon_catalog_asin_sync_throttle ) {
-			$log_message = "API call limit exceeded. Please try after 5 mins.! \n\n\n";
-			$logger->info( wc_print_r($log_message) , $context );
-			return;
-		}
 
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "API call limit exceeded. Please try after 5 mins.! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'catalog' );
+			return;
+			
+		}
 
 		$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', false );
 		$location_for_seller  = $seller_id;
@@ -939,13 +748,14 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$shop_data = $saved_amazon_details[ $location_for_seller ];
 		}
 
+		$refresh_token  = isset( $shop_data['amazon_refresh_token'] ) ? $shop_data['amazon_refresh_token'] : '';
 		$marketplace_id = isset( $shop_data['marketplace_id'] ) ? $shop_data['marketplace_id'] : '';
-		$remote_shop_id = isset( $shop_data['seller_next_shop_id'] ) ? $shop_data['seller_next_shop_id'] : '';
 
-
-		if (  empty( $marketplace_id ) || empty( $mplocation ) || empty( $location_for_seller ) ) {
-			$log_message = "Refresh_token/marketplace_id/mplocation/seller_id are missing while ASIN sync! \n\n\n";
-			$logger->info( wc_print_r($log_message, true), $context );
+		if ( empty( $refresh_token ) || empty( $marketplace_id ) || empty( $mplocation ) || empty( $location_for_seller ) ) {
+			// Save error in log
+			$log_message  = ced_woo_timestamp() . "\n";
+			$log_message .= "Refresh_token/marketplace_id/mplocation/seller_id are missing while ASIN sync! \n\n\n";
+			ced_amazon_log_data( $log_message, $log_name, 'catalog' );
 			return;
 		}
 
@@ -957,7 +767,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		// Get UPC/EAN mapping data from global settings
 		$global_setting_data = get_option( 'ced_amazon_global_settings', false );
 		$meta_key_map        = ! empty( $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta'] : '_sku';
-		$meta_key_map_type   = isset( $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta_type'] ) ? $global_setting_data[ $location_for_seller ]['ced_amazon_catalog_asin_sync_meta_type'] : 'EAN';
 
 		$args = array(
 			'post_type'        => array( 'product', 'product_variation' ),
@@ -972,7 +781,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		if ( isset( $products ) && ! empty( $products ) ) {
 
-			$ean_array = array();
 			foreach ( $products as $product_id ) {
 
 				$product   = wc_get_product( $product_id );
@@ -982,90 +790,58 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$upc_number        = get_post_meta( $product_id, $meta_key_map, true );
 				$upc_number_length = strlen( $upc_number );
 
-				// test starts
-				    $upc_number = '792671197164';
-					$upc_number = '8033637703701';
-				// test ends
-				// die( $upc_number );
-
 				if ( ! empty( $upc_number ) && is_numeric( $upc_number ) && ( 11 == $upc_number_length || 12 == $upc_number_length || 13 == $upc_number_length || 14 == $upc_number_length ) ) {
 					// Request to get product data using UPC/EAN
-					$ean_array[$product_id] = $upc_number;
-				}
 
-			}
+					$contract_data = get_option( 'ced_unified_contract_details', array() );
+					$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
 
+					
+					$catalog_topic = 'webapi/amazon/search_catalog_items';
+					$catalog_data  = array(
+						'seller_id'      => $seller_id,
+						'marketplace_id' => $marketplace_id,
+						'token'          => $refresh_token,
+						'ean'            => $upc_number,
+						'contract_id'    => $contract_id,
+					);
 
-			if( !empty( $ean_array ) && is_array($ean_array) ){
+					$catalog_response_main = $amzonCurlRequestInstance->ced_amazon_serverless_process( $catalog_topic, $catalog_data, 'POST');
 
-				$contract_data = get_option( 'ced_unified_contract_details', array() );
-				$contract_id   = isset( $contract_data['amazon'] ) && isset( $contract_data['amazon']['contract_id'] ) ? $contract_data['amazon']['contract_id'] : '';
-
-				$catalog_query_params  = array(
-					'identifiers'       => implode( ',', array_values($ean_array) ),
-					'identifiers_types' => $meta_key_map_type ,
-					'included_data'     => implode( ',', array( 'summaries', 'identifiers', 'relationships' ) ),
-				);
-
-				$catalog_topic = 'items?' .  http_build_query( $catalog_query_params );
-				$catalog_data  = array( 'contract_id' => $contract_id, 'mode'  => '_sandbox', 'remote_shop_id' => $remote_shop_id );
-				
-				$catalog_response_main = $amzonCurlRequestInstance->ced_amazon_serverless_process( $catalog_topic, $catalog_data, 'GET');
-			
-				$code = wp_remote_retrieve_response_code( $catalog_response_main );
-				if ( 429 == $code ) {
-					set_transient( 'ced_amazon_catalog_asin_sync_throttle', 'on', 300 );
-				}
-
-				if ( is_wp_error( $catalog_response_main ) ) {
-					$logger->info( wc_print_r($catalog_response_main, true), $context );
-				}
-
-				$catalog_response = json_decode( $catalog_response_main['body'], true );
-				$catalog_response = $catalog_response['data'];
-
-				if ( isset( $catalog_response['success'] ) && 'false' == $catalog_response['success'] ) {
-					$logger->info( wc_print_r($catalog_response_main, true), $context );
-				}
-
-			}
-
-			if ( isset( $catalog_response['items'][0] ) && is_array( $catalog_response['items'][0] ) && ! empty( $catalog_response['items'][0] ) ) {
-				foreach ( $catalog_response['items'] as $key => $value ) {
-
-					$child_asin   = $value['asin'];
-					$identifiers  = $value['identifiers'][0]['identifiers'];
-					$unique_id_no = '';
-
-					foreach ( $identifiers as $k => $val ) {
-						if ( $meta_key_map_type == $val['identifierType'] ) {
-							$unique_id_no = $val['identifier'];
-						}
+					$code = wp_remote_retrieve_response_code( $catalog_response_main );
+					if ( 429 == $code ) {
+						set_transient( 'ced_amazon_catalog_asin_sync_throttle', 'on', 300 );
 					}
 
-					if( empty( $unique_id_no ) ){
+
+					if ( is_wp_error( $catalog_response_main ) ) {
+						ced_amazon_log_data( $catalog_response_main, $log_name, 'catalog' );
+						continue;
+					}
+					$catalog_response = json_decode( $catalog_response_main['body'], true );
+					$catalog_response = $catalog_response['data'];
+					if ( isset( $catalog_response['success'] ) && 'false' == $catalog_response['success'] ) {
+						// Save error in log
+						ced_amazon_log_data( $catalog_response_main, $log_name, 'catalog' );
 						continue;
 					}
 
-					$relationships = $value['relationships'][0]['relationships'];
-					$parent_asin   = isset( $relationships[0]['parentAsins'][0] ) ? $relationships[0]['parentAsins'][0] : '';
-					
-					$product_id = array_search( $unique_id_no, $ean_array );
-					$product    = wc_get_product( $product_id );
-					$parent_id  = $product->get_parent_id(); 
+					if ( isset( $catalog_response['payload']['Items'][0] ) && is_array( $catalog_response['payload']['Items'][0] ) && ! empty( $catalog_response['payload']['Items'][0] ) ) {
 
+						$child_asin  = $catalog_response['payload']['Items'][0]['Identifiers']['MarketplaceASIN']['ASIN'];
+						$parent_asin = isset( $catalog_response['payload']['Items'][0]['Relationships'][0]['Identifiers']['MarketplaceASIN']['ASIN'] ) ? $catalog_response['payload']['Items'][0]['Relationships'][0]['Identifiers']['MarketplaceASIN']['ASIN'] : '';
 
-					if ( ! empty( $child_asin ) ) {
-						update_post_meta( $product_id, 'ced_amazon_catalog_asin_' . $mplocation, $child_asin );
+						if ( ! empty( $child_asin ) ) {
+							update_post_meta( $product_id, 'ced_amazon_catalog_asin_' . $mplocation, $child_asin );
+						}
+
+						if ( 0 != $parent_id && ! empty( $parent_asin ) ) {
+							update_post_meta( $parent_id, 'ced_amazon_catalog_asin_' . $mplocation, $parent_asin );
+						}
 					}
-
-					if ( 0 != $parent_id && ! empty( $parent_asin ) ) {
-						update_post_meta( $parent_id, 'ced_amazon_catalog_asin_' . $mplocation, $parent_asin );
-					}
-
 				}
-
 			}
+
 			++$page_number;
 			update_option( 'ced_amazon_catalog_asin_sync_page_number_' . $location_for_seller, $page_number );
 
@@ -1116,13 +892,13 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			case 'order_from':
 				if ( $this->create_amz_order_hops ) {
 
-					$order           = wc_get_order( $post_id );
+					$order = wc_get_order( $post_id );
 					$amazon_order_id = $order->get_meta( 'amazon_order_id' ) ;
-
+					 
 				} else {
 					$amazon_order_id = get_post_meta( $post_id, 'amazon_order_id', true );
 				}
-
+				
 				if ( ! empty( $amazon_order_id ) ) {
 					$amazon_icon = plugin_dir_url( __FILE__ ) . 'images/amazon-logo.png';
 					echo '<p><img src="' . esc_url( $amazon_icon ) . '" height="35" width="60"></p>';
@@ -1132,12 +908,13 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			case 'sales_channel':
 				if ( $this->create_amz_order_hops ) {
 
-					$order               = wc_get_order( $post_id );
+					$order = wc_get_order( $post_id );
 					$order_sales_channel = $order->get_meta( 'ced_umb_order_sales_channel' ) ;
-
+					 
 				} else {
 					// Get custom post meta data
 					$order_sales_channel = get_post_meta( $post_id, 'ced_umb_order_sales_channel', true );
+
 
 				}
 
@@ -1173,8 +950,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			* class.
 			*/
 
-			$section = ! empty( $_GET['section'] ) ? sanitize_text_field( $_GET['section'] ) : false;
-			$channel = ! empty( $_GET['channel'] ) ? sanitize_text_field( $_GET['channel'] ) : false;
+		$section = ! empty( $_GET['section'] ) ? sanitize_text_field( $_GET['section'] ) : false;
+		$channel = ! empty( $_GET['channel'] ) ? sanitize_text_field( $_GET['channel'] ) : false;
 
 		if ( isset( $_GET['page'] ) && ( 'sales_channel' == $_GET['page'] ) ) {
 
@@ -1221,7 +998,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$seller_id = urldecode( $seller_id );
 		}
 
-		// $access_token = isset( $ced_amzon_configuration_validated[ $seller_id ]['seller_next_access_token'] ) ? $ced_amzon_configuration_validated[ $seller_id ]['seller_next_access_token'] : '';
+		$access_token = isset( $ced_amzon_configuration_validated[ $seller_id ]['seller_next_access_token'] ) ? $ced_amzon_configuration_validated[ $seller_id ]['seller_next_access_token'] : '';
 
 		// Ensure nonce is properly generated
 		$ajax_nonce     = wp_create_nonce( 'ced-amazon-ajax-seurity-string' );
@@ -1230,7 +1007,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			'ajax_nonce'   => $ajax_nonce,
 			'site_url'     => get_option( 'siteurl' ),
 			'user_id'      => $user_id,
-			// 'access_token' => $access_token,
+			'access_token' => $access_token,
 		);
 
 		wp_enqueue_media();
@@ -1250,20 +1027,18 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			wp_register_script( 'woocommerce_admin', WC()->plugin_url() . '/assets/js/admin/woocommerce_admin' . $suffix . '.js', array( 'jquery', 'jquery-blockui', 'jquery-ui-sortable', 'jquery-ui-widget', 'jquery-ui-core', 'jquery-tiptip' ), WC_VERSION );
 			wp_register_script( 'jquery-tiptip', WC()->plugin_url() . '/assets/js/jquery-tiptip/jquery.tipTip' . $suffix . '.js', array( 'jquery' ), WC_VERSION, true );
 
-			// $params = array(
-			// 	'strings' => array(
-			// 		'import_products' => __( 'Import', 'woocommerce' ),
-			// 		'export_products' => __( 'Export', 'woocommerce' ),
-			// 	),
-			// 	'urls'    => array(
-			// 		'import_products' => esc_url_raw( admin_url( 'edit.php?post_type=product&page=product_importer' ) ),
-			// 		'export_products' => esc_url_raw( admin_url( 'edit.php?post_type=product&page=product_exporter' ) ),
-			// 	),
-			// );
+			$params = array(
+				'strings' => array(
+					'import_products' => __( 'Import', 'woocommerce' ),
+					'export_products' => __( 'Export', 'woocommerce' ),
+				),
+				'urls'    => array(
+					'import_products' => esc_url_raw( admin_url( 'edit.php?post_type=product&page=product_importer' ) ),
+					'export_products' => esc_url_raw( admin_url( 'edit.php?post_type=product&page=product_exporter' ) ),
+				),
+			);
 
-			// wp_localize_script( 'woocommerce_admin' );
-			// wp_localize_script( 'woocommerce_admin', 'woocommerce_admin', $params );
-
+			wp_localize_script( 'woocommerce_admin', 'woocommerce_admin', $params );
 			wp_enqueue_script( 'woocommerce_admin' );
 
 			wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/amazon-integration-for-woocommerce-admin.js', array( 'jquery', 'jquery-tiptip', 'jquery-ui-spinner', 'jquery-blockui' ), $this->version, false );
@@ -1276,20 +1051,12 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		global $post;
 		$post_type = get_post_type( $post );
 		$order_id  = isset( $post->ID ) ? intval( $post->ID ) : '';
-		if ( empty( $order_id ) ) {
-			$page = isset( $_GET['page'] ) ? sanitize_text_field($_GET['page']) : '';
-			if ( 'wc-orders' == $page ) {
-				$order_id = isset( $_GET['id'] ) ? sanitize_text_field($_GET['id']) : '';
-			}
-		}
 
 		$screen      = get_current_screen();
 		$screen_id   = $screen ? $screen->id : '';
 		$order_types = wc_get_order_types();
 
-		$page = isset( $_GET['page'] ) ? sanitize_text_field($_GET['page']) : '';
-
-		if ( ( in_array( $post_type, $order_types ) && in_array( $screen_id, $order_types ) ) || 'wc-orders' == $page  ) {
+		if ( in_array( $post_type, $order_types ) && in_array( $screen_id, $order_types ) ) {
 
 			$marketplace = $this->order_manager->get_marketplace_info( $order_id );
 			if ( $marketplace && ! is_null( $marketplace ) ) {
@@ -1341,13 +1108,13 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	public function ced_marketplace_home_page() {
 		?>
 		<div class='woocommerce'>
-			<?php
-			require CED_AMAZON_DIRPATH . 'admin/partials/home.php';
-			if ( isset( $_GET['page'] ) && 'sales_channel' == $_GET['page'] && ! isset( $_GET['channel'] ) ) {
-				require CED_AMAZON_DIRPATH . 'admin/partials/marketplaces.php';
-			} else {
+		<?php
+		require CED_AMAZON_DIRPATH . 'admin/partials/home.php';
+		if ( isset( $_GET['page'] ) && 'sales_channel' == $_GET['page'] && ! isset( $_GET['channel'] ) ) {
+			require CED_AMAZON_DIRPATH . 'admin/partials/marketplaces.php';
+		} else {
 
-				$channel = ! empty( $_GET['channel'] ) ? sanitize_text_field( $_GET['channel'] ) : '';
+			$channel = ! empty( $_GET['channel'] ) ? sanitize_text_field( $_GET['channel'] ) : '';
 			/**
 			 *
 			 * This action will be used in each plugin and basis of url segments to load the marketplace landing page.
@@ -1355,10 +1122,10 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			 * @since  1.0.0
 			 */
 			do_action( 'ced_sales_channel_include_template', $channel );
-			}
-			?>
-	</div>
-	<?php
+		}
+		?>
+		</div>
+		<?php
 	}
 
 
@@ -1370,9 +1137,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 */
 	public function ced_amazon_add_marketplace_menus_to_array( $menus = array() ) {
 
-
-		$mode = isset( $_GET['mode'] ) ? sanitize_text_field(  $_GET['mode'] )  : 'prdouction';
-		
 		$installed_plugins = get_plugins();
 		$menus             = array(
 			'woocommerce-etsy-integration'        => array(
@@ -1413,7 +1177,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 										 * @return 'list'
 										 * @since 1.0.0
 										 */
-					apply_filters( 'active_plugins', get_option( 'active_plugins' ) )
+										apply_filters( 'active_plugins', get_option( 'active_plugins' ) )
 				),
 				'is_installed'    => isset( $installed_plugins['walmart-integration-for-woocommerce/walmart-woocommerce-integration.php'] ) ? true : false,
 			),
@@ -1445,7 +1209,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				'doc_url'         => 'https://woocommerce.com/document/amazon-for-woocommerce/',
 				'slug'            => 'amazon-for-woocommerce',
 				'menu_link'       => 'amazon',
-				'mode'            => $mode,
 				'card_image_link' => CED_AMAZON_URL . 'admin/images/amazon-logo.png',
 				'is_active'       => in_array(
 					'amazon-for-woocommerce/amazon-for-woocommerce.php',
@@ -1456,7 +1219,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 										 * @return 'list'
 										 * @since 1.0.0
 										 */
-					apply_filters( 'active_plugins', get_option( 'active_plugins' ) )
+										apply_filters( 'active_plugins', get_option( 'active_plugins' ) )
 				),
 				'is_installed'    => isset( $installed_plugins['amazon-for-woocommerce/amazon-for-woocommerce.php'] ) ? true : false,
 			),
@@ -1471,11 +1234,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 */
 	public function ced_amazon_accounts_page( $channel = 'amazon' ) {
 
-		if ( 'pricing' == $channel ) {
-			include_once CED_AMAZON_DIRPATH . 'admin/saas/template/class-ced-common-pricing-plan.php';
-			( new Ced_Pricing_Plans() )->ced_pricing_plan_display();
-
-		} elseif ( 'amazon' == $channel ) {
+		if ( 'amazon' == $channel ) {
 			$fileAccounts = CED_AMAZON_DIRPATH . 'admin/partials/ced-amazon-accounts.php';
 			if ( file_exists( $fileAccounts ) ) {
 				require_once $fileAccounts;
@@ -1553,7 +1312,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		$url_array = array(
 
 			4 => array(
-				'url' => 'category-attribute/?category_id=' . $category_id . '&sub_category_id=' . $sub_category_id . '&browse_node_id=' . $browse_nodes . '&barcode_exemption=false',
+				'url' => 'webapi/rest/v1/category-attribute/?shop_id=' . $user_id . '&category_id=' . $category_id . '&sub_category_id=' . $sub_category_id . '&browse_node_id=' . $browse_nodes . '&barcode_exemption=false',
 				'key' => 'category_attributes',
 			),
 		);
@@ -1570,9 +1329,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		}
 
-		$userData       = $ced_amzon_configuration_validated[ $seller_id ];
-		$userCountry    = $userData['ced_mp_name'];
-		$marketplace_id = $userData[ 'marketplace_id' ];
+		$userData    = $ced_amzon_configuration_validated[ $seller_id ];
+		$userCountry = $userData['ced_mp_name'];
 
 		if ( 4 == $next_level ) {
 
@@ -1585,8 +1343,9 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 			// fetch product template
 			$product_template = $upload_dir['basedir'] . '/ced-amazon/templates/' . $userCountry . '/' . $category_id . '/products_template_fields.json';
+
 			if ( 'no' == $display_saved_values || ! file_exists( $product_template ) ) {
-				$amzonCurlRequestInstance->fetchProductTemplate( $category_id, $userCountry, $seller_id, $marketplace_id, $user_id );
+				$amzonCurlRequestInstance->fetchProductTemplate( $category_id, $userCountry, $seller_id );
 			}
 
 			// fetch product template
@@ -1633,8 +1392,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				}
 			} elseif ( WP_Filesystem() && $wp_filesystem ) {
 
-				$amazon_profile_template_data     = $wp_filesystem->get_contents( $fileName );
-				$amazon_profile_valid_values_data = $wp_filesystem->get_contents( $valid_values_file );
+					$amazon_profile_template_data     = $wp_filesystem->get_contents( $fileName );
+					$amazon_profile_valid_values_data = $wp_filesystem->get_contents( $valid_values_file );
 			}
 
 			$amazonCategoryList = json_decode( $amazon_profile_template_data, true );
@@ -1709,13 +1468,13 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 				} elseif ( ! empty( $optionalFields ) ) {
 
-					$select_html .= '<tr class="categoryAttributes"><th colspan="3" class="profileSectionHeading" >
-					<label style="font-size: 1.25rem;" > Optional Fields </label></th></tr>';
+						$select_html .= '<tr class="categoryAttributes"><th colspan="3" class="profileSectionHeading" >
+						<label style="font-size: 1.25rem;" > Optional Fields </label></th></tr>';
 
-					$optionalFieldsHtml = '';
-					$saved_value        = json_decode( $current_amazon_profile['category_attributes_data'], true );
+						$optionalFieldsHtml = '';
+						$saved_value        = json_decode( $current_amazon_profile['category_attributes_data'], true );
 
-					$html .= '<tr class="categoryAttributes"><td></td><td><select id="optionalFields"><option  value="" >--Select--</option>';
+						$html .= '<tr class="categoryAttributes"><td></td><td><select id="optionalFields"><option  value="" >--Select--</option>';
 					foreach ( $optionalFields as $optionalField ) {
 						foreach ( $optionalField as $fieldsKey1 => $fieldsValue1 ) {
 							$html .= '<optgroup label="' . $fieldsKey1 . '">';
@@ -1734,12 +1493,12 @@ class Amazon_Integration_For_Woocommerce_Admin {
 						}
 					}
 
-					$html        .= '</select></td>';
-					$modFieldsKey = str_replace( ' ', '', $fieldsKey );
-					$html        .= '<td><button class="button-primary ced_amazon_add_rows_button" id="' . $modFieldsKey . '">Add Row</button></td></tr>';
+						$html        .= '</select></td>';
+						$modFieldsKey = str_replace( ' ', '', $fieldsKey );
+						$html        .= '<td><button class="button-primary ced_amazon_add_rows_button" id="' . $modFieldsKey . '">Add Row</button></td></tr>';
 
-					$select_html .= $optionalFieldsHtml;
-					$select_html .= $html;
+						$select_html .= $optionalFieldsHtml;
+						$select_html .= $html;
 				}
 			}
 
@@ -1900,8 +1659,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$rowHtml .= '</select>';
 
 		} elseif ( 'feed_product_type' == $fieldsKey2 && empty( $default_value) ) {
-			$rowHtml .= '<input class="custom_category_attributes_input" value="' . esc_attr( $sub_category_id ) . '" id="' . esc_attr( $fieldsKey2 ) . '" type="text" name="ced_amazon_profile_data[' . esc_attr( $fieldsKey2 ) . '][default]" />';
-
+				$rowHtml .= '<input class="custom_category_attributes_input" value="' . esc_attr( $sub_category_id ) . '" id="' . esc_attr( $fieldsKey2 ) . '" type="text" name="ced_amazon_profile_data[' . esc_attr( $fieldsKey2 ) . '][default]" />';
+	
 		} else { 
 			$rowHtml .= '<input class="custom_category_attributes_input" value="' . esc_attr( $default_value ) . '" id="' . esc_attr( $fieldsKey2 ) . '" type="text" name="ced_amazon_profile_data[' . esc_attr( $fieldsKey2 ) . '][default]" />';
 		}
@@ -2004,7 +1763,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 * Function to create sellernext user
 	 */
 	public function ced_amazon_create_sellernext_user() {
-
 		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
 		if ( ! $check_ajax ) {
 			return;
@@ -2013,55 +1771,172 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		$marketplace_id = isset( $_POST['marketplace_id'] ) ? sanitize_text_field( $_POST['marketplace_id'] ) : false;
 		$seller_email   = isset( $_POST['seller_email'] ) ? sanitize_text_field( $_POST['seller_email'] ) : false;
 
-		$mode           = isset( $_POST['mode'] ) ? sanitize_text_field( $_POST['mode'] ) : 'production';
-        $ced_base_uri = ced_amazon_base_uri($mode); 
-
-		update_option( 'ced_amazon_current_marketplace_id', $marketplace_id );
-		$domain = get_admin_url() . $ced_base_uri . '&section=setup-amazon';
-		
 		if ( ! empty( $marketplace_id && $seller_email ) ) {
-
-			$amzonCurlRequest = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
-			if ( file_exists( $amzonCurlRequest ) ) {
-				require_once $amzonCurlRequest;
-				$this->amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-			} 
-
-			$amzonRegions = CED_AMAZON_DIRPATH . 'admin/partials/amazonRegions.php';
-			if ( file_exists( $amzonRegions ) ) {
-				require_once $amzonRegions;
-			} 
-
-			$home_redirect_url_params = array(
-				'page'    => 'sales_channel',
-				'channel' => 'amazon', 
-				'section' => 'setup-amazon'
+			$username    = parse_url( get_site_url(), PHP_URL_HOST ) . '_' . $seller_email;
+			$requestBody = array(
+				'username'          => 'wooced_' . $username . rand(),
+				'name'              => $seller_email,
+				'marketplace'       => 'amazon',
+				'app_id'            => 2,
+				'platform'          => 'woocommerce',
+				'website'           => get_site_url(),
+				'email'             => $seller_email,
+				'password'          => 'password',
+				'domain'            => get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=setup-amazon',
+				'confirmation_link' => 'https://amazon-sales-channel-api-backend.cifapps.com/apiconnect/uservalidate/validate',
 			);
 
-			if( '_sandbox' == $mode ){
-				$home_redirect_url_params['mode'] = $mode;
+			$requestBody      = wp_json_encode( $requestBody );
+			$response_payload = wp_remote_post(
+				'https://amazon-sales-channel-api-backend.cifapps.com/apiconnect/user/create',
+				array(
+					'body'        => $requestBody,
+					'headers'     => array(
+						'Content-Type'  => 'application/json',
+						'Authorization' => 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1c2VyX2lkIjoiNjM2Y2ZjYTgxNzkwOGMwNzg0MGFhOWY3Iiwicm9sZSI6ImFwcCIsImlzcyI6Imh0dHBzOlwvXC9hcHBzLmNlZGNvbW1lcmNlLmNvbSIsInRva2VuX2lkIjoiNjM2ZDBiYWU5ZDAxYTY2OTIxMDI1ZDUyIn0.k3NiJh1LoqzapwQiXkqpgn-JIoFhwfntaWHcANS3PL49xuasdSpZhhVcMTerkRU0gcpLTMKTowvuM4GCcDtOYjhxPSpVVQvbCZKyc0JRNj4bTW7HX8fhDZskbqec8S2XyMhUGZcSz2qVwZRJd9ZlyxUeifk93L4QeYydgO4jt0RV_HlxlZXID_mSaLDyMmoeYw5jXggN7ihCkxQ2l7avHeyp-SJ7ZIVt_tR_Z4sKGd9q4E-hmJE9JBseUag_zwCqpKKPYRKPVMPU-q04vQ4WwBtRHYkGZVn9JeIbcJJHJYs6v4oQNWz9Gu2ONExq8g-bv34HtmMzW45Jr2diNsXA0A',
+
+					),
+					'httpversion' => '1.0',
+					'sslverify'   => true,
+					'timeout'     => 200,
+				)
+			);
+
+			wc_get_logger()->info( wc_print_r( $response_payload, true ) );
+
+			if ( isset( $response_payload['body'] ) && ! empty( $response_payload['body'] ) ) {
+				$response_body = json_decode( $response_payload['body'], true );
+
+				if ( $response_body['success'] && isset( $response_body['data'] ) ) {
+
+					$sellernextResponse = array(
+						'username'          => isset( $response_body['data'] ) && isset( $response_body['data']['username'] ) ? $response_body['data']['username'] : '',
+						'name'              => isset( $response_body['data'] ) && isset( $response_body['data']['name'] ) ? $response_body['data']['name'] : '',
+						'marketplace'       => isset( $response_body['data'] ) && isset( $response_body['data']['marketplace'] ) ? $response_body['data']['marketplace'] : '',
+						'app_id'            => isset( $response_body['data'] ) && isset( $response_body['data']['app_id'] ) ? $response_body['data']['app_id'] : '',
+						'email'             => isset( $response_body['data'] ) && isset( $response_body['data']['email'] ) ? $response_body['data']['email'] : '',
+						'password'          => isset( $response_body['data'] ) && isset( $response_body['data']['password'] ) ? $response_body['data']['password'] : '',
+						'domain'            => isset( $response_body['data'] ) && isset( $response_body['data']['domain'] ) ? $response_body['data']['domain'] : '',
+						'confirmation_link' => isset( $response_body['data'] ) && isset( $response_body['data']['confirmation_link'] ) ? $response_body['data']['confirmation_link'] : '',
+
+					);
+
+					update_option( 'ced_amazon_current_marketplace_id', $marketplace_id );
+					update_option( 'ced_amazon_sellernext_user_creation_response', $sellernextResponse );
+
+					if ( isset( $response_body['data']['apps'][0] ) && ! empty( $response_body['data']['apps'][0]['refresh_token'] ) ) {
+						$refresh_token = $response_body['data']['apps'][0]['refresh_token'];
+
+						wp_send_json(
+							array(
+								'status'        => 'success',
+								'message'       => 'Redirecting to Amazon...',
+								'refresh_token' => $refresh_token,
+							)
+						);
+					}
+				}
+				if ( 'false' == $response_body['success'] || '' == $response_body['success'] ) {
+					wp_send_json(
+						array(
+							'status'  => 'failed',
+							'message' => $response_body['data']['errors'][0],
+						)
+					);
+				}
 			}
-			
-
-			$home_redirect_url = base64_encode( get_admin_url() . $ced_base_uri . '&section=setup-amazon&connected=true' );
-
-			$login_query_params  = array( 
-			    'region'  => $ced_amazon_regions_info[$marketplace_id]['region_value'],
-				'country' => $ced_amazon_regions_info[$marketplace_id]['shop-name'],
-				'state'   => 'test',
-				'marketplace_id' => $marketplace_id ,
-				'domain'         => 'http://localhost:8888/wordpress' , // site_url(),
-				'marketplace'    => 'amazon',
-				'home_redirect_url' => $home_redirect_url,
-			);
-			
-			$redirect_url    = 'https://api.cedcommerce.com/cedcommerce-validator/v1/auth?' . http_build_query( $login_query_params );
-			wp_send_json_success( $redirect_url );
-
 		}
 
 		wp_die();
+	}
 
+
+	/*
+	 *
+	 * Function to get sellernext access token
+	 */
+	public function ced_amazon_sellernext_get_access_token_and_redirect() {
+		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
+		if ( ! $check_ajax ) {
+			return;
+		}
+		$marketplace_id     = isset( $_POST['marketplace_id'] ) ? sanitize_text_field( $_POST['marketplace_id'] ) : false;
+		$refresh_token      = isset( $_POST['refresh_token'] ) ? sanitize_text_field( $_POST['refresh_token'] ) : false;
+		$marketplace_region = isset( $_POST['marketplace_region'] ) ? sanitize_text_field( $_POST['marketplace_region'] ) : false;
+		$end_point          = isset( $_POST['end_pt'] ) ? sanitize_text_field( $_POST['end_pt'] ) : false;
+
+		$shop_name       = isset( $_POST['shop_name'] ) ? sanitize_text_field( $_POST['shop_name'] ) : false;
+		$name_value      = isset( $_POST['name_value'] ) ? sanitize_text_field( $_POST['name_value'] ) : false;
+		$country_name    = isset( $_POST['country_name'] ) ? sanitize_text_field( $_POST['country_name'] ) : false;
+		$marketplace_url = isset( $_POST['marketplace_url'] ) ? sanitize_text_field( $_POST['marketplace_url'] ) : false;
+
+		if ( ! empty( $refresh_token ) && ! empty( $marketplace_id ) ) {
+			$access_token_response = wp_safe_remote_get(
+				'https://amazon-sales-channel-api-backend.cifapps.com/core/token/getTokenByRefresh/?bearer=' . $refresh_token,
+				array(
+
+					'httpversion' => '1.0',
+					'sslverify'   => false,
+					'timeout'     => 200,
+				)
+			);
+
+			wc_get_logger()->info( wc_print_r( $access_token_response, true ) );
+
+			if ( ! empty( $access_token_response['body'] ) ) {
+				$access_token_data = json_decode( $access_token_response['body'], true );
+
+				if ( 'true' == $access_token_data['success'] ) {
+					$access_token         = $access_token_data['data']['token'];
+					$access_token_decoded = json_decode( base64_decode( str_replace( '_', '/', str_replace( '-', '+', explode( '.', $access_token )[1] ) ) ), true );
+
+					$sub_app_id = $access_token_decoded['sub_app_id'];
+
+					// saving data
+
+					$ced_amazon_accounts_data = get_option( 'ced_amazon_account_data', array() );
+
+					$current_amazon_account = array(
+						'marketplace_region'        => $marketplace_region,
+						'seller_next_refresh_token' => $refresh_token,
+						'seller_next_access_token'  => $access_token,
+						'sub_app_id'                => $sub_app_id,
+						'service_url'               => $end_point,
+						'marketplace_id'            => $marketplace_id,
+						'country_name'              => $country_name,
+						'country_value'             => $name_value,
+						'ced_mp_name'               => $shop_name,
+						'marketplace_url'           => $marketplace_url,
+
+					);
+
+					if ( empty( $ced_amazon_accounts_data ) ) {
+
+						$ced_amazon_accounts_data = array(
+							$marketplace_id => $current_amazon_account,
+						);
+
+					} else {
+						$ced_amazon_accounts_data[ $marketplace_id ] = $current_amazon_account;
+					}
+
+					update_option( 'ced_amazon_account_data', $ced_amazon_accounts_data );
+
+					// Prepare the redirect URL and redirect user
+					if ( ! empty( $access_token ) ) {
+						$redirect_url = 'https://amazon-sales-channel-api-backend.cifapps.com/apiconnect/request/auth?region=' . $marketplace_region . '&version=new&state=test&sAppId=' . $sub_app_id . '&bearer=' . $access_token . '&marketplace_id=' . $marketplace_id;
+						wp_send_json(
+							array(
+								'status'       => 'success',
+								'redirect_url' => $redirect_url,
+							)
+						);
+					}
+				}
+			}
+		}
+
+		wp_die();
 	}
 
 
@@ -2082,34 +1957,10 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				'display'  => __( 'Once every 6 minutes' ),
 			);
 		}
-		if ( ! isset( $schedules['ced_amazon_8min'] ) ) {
-			$schedules['ced_amazon_8min'] = array(
-				'interval' => 8 * 60,
-				'display'  => __( 'Once every 8 minutes' ),
-			);
-		}
-		if ( ! isset( $schedules['ced_amazon_9min'] ) ) {
-			$schedules['ced_amazon_9min'] = array(
-				'interval' => 9 * 60,
-				'display'  => __( 'Once every 9 minutes' ),
-			);
-		}
 		if ( ! isset( $schedules['ced_amazon_10min'] ) ) {
 			$schedules['ced_amazon_10min'] = array(
 				'interval' => 10 * 60,
 				'display'  => __( 'Once every 10 minutes' ),
-			);
-		}
-		if ( ! isset( $schedules['ced_amazon_11min'] ) ) {
-			$schedules['ced_amazon_11min'] = array(
-				'interval' => 11 * 60,
-				'display'  => __( 'Once every 11 minutes' ),
-			);
-		}
-		if ( ! isset( $schedules['ced_amazon_12min'] ) ) {
-			$schedules['ced_amazon_12min'] = array(
-				'interval' => 12 * 60,
-				'display'  => __( 'Once every 12 minutes' ),
 			);
 		}
 		if ( ! isset( $schedules['ced_amazon_15min'] ) ) {
@@ -2163,7 +2014,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		}
 	}
 
-	/* 
+	/*
 	 *
 	 * Function to get orders.
 	 */
@@ -2173,17 +2024,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			return;
 		}
 
-		$seller_id      = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
-		$amz_order_id   = isset( $_POST['amz_order_id'] ) ? sanitize_text_field( $_POST['amz_order_id'] ) : '';
-		$created_after  = isset( $_POST['created_after'] ) ? sanitize_text_field( $_POST['created_after'] ) : '';
-		$created_before = isset( $_POST['created_before'] ) ? sanitize_text_field( $_POST['created_before'] ) : '';
-		$mode           = isset( $_POST['mode'] ) ? sanitize_text_field( $_POST['mode'] ) : 'production';
-
-		$params = array(
-			'amz_order_id' => $amz_order_id, 'created_after' => $created_after, 'created_before' => $created_before,
-			'mode' => $mode
-		);
-
+		$seller_id  = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
 		$mplocation = '';
 		if ( ! empty( $seller_id ) ) {
 			$mplocation_arr = explode( '|', $seller_id );
@@ -2200,7 +2041,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$OrderInstance = Ced_Umb_Amazon_Order_Manager::get_instance();
 				if ( ! is_wp_error( $OrderInstance ) ) {
 
-					$notices = $OrderInstance->fetchOrders( $mplocation, $cron = false, $seller_id, $params );
+					$notices = $OrderInstance->fetchOrders( $mplocation, $cron = false, $amazon_order_id = '', $seller_id );
 
 					if ( $notices ) {
 						$message = __( 'Order fetch requested successfully.', 'amazon-for-woocommerce' );
@@ -2257,18 +2098,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		wp_die();
 	}
 
-
-	public function ced_amz_fetch_next_page_orders( $next_token, $mplocation, $seller_id ) {
-
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_order_fetch' );
-		$logger->info( 'ced amzon next page order function called', $context );
-
-		$this->order_manager->fetchOrders( $mplocation, $cron = false, $seller_id, array( 'next_token' => $next_token ) );
-
-	}
-
-
 	public function ced_amazon_remove_account_from_integration() {
 		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
 		if ( $check_ajax ) {
@@ -2281,31 +2110,27 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$ced_amazon_sellernext_shop_ids = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 				unset( $ced_amazon_sellernext_shop_ids[ $sellernextShopId ] );
 				update_option( 'ced_amazon_sellernext_shop_ids', $ced_amazon_sellernext_shop_ids );
+
 				update_option( 'ced_amazon_mode_of_operation', '' );
 
+				if ( wp_next_scheduled( 'ced_amazon_order_scheduler_job_' . $seller_id ) ) {
+					wp_clear_scheduled_hook( 'ced_amazon_order_scheduler_job_' . $seller_id );
+				}
+				if ( wp_next_scheduled( 'ced_amazon_existing_products_sync_job_' . $seller_id ) ) {
+					wp_clear_scheduled_hook( 'ced_amazon_existing_products_sync_job_' . $seller_id );
+				}
+				if ( wp_next_scheduled( 'ced_amazon_import_products_job_' . $seller_id ) ) {
+					wp_clear_scheduled_hook( 'ced_amazon_import_products_job_' . $seller_id );
+				}
+				if ( wp_next_scheduled( 'ced_amazon_inventory_scheduler_job_' . $seller_id ) ) {
+					wp_clear_scheduled_hook( 'ced_amazon_inventory_scheduler_job_' . $seller_id );
+				}
 
 				if ( function_exists( 'as_has_scheduled_action' ) ) {
 
-					if ( as_has_scheduled_action( 'ced_amazon_price_scheduler_job_' . $seller_id ) ) {
-						as_unschedule_all_actions( 'ced_amazon_price_scheduler_job_' . $seller_id );
-					}
-					
 					if ( as_has_scheduled_action( 'ced_amazon_inventory_scheduler_job_' . $seller_id ) ) {
 						as_unschedule_all_actions( 'ced_amazon_inventory_scheduler_job_' . $seller_id );
 					}
-
-					if ( as_has_scheduled_action( 'ced_amazon_order_scheduler_job_' . $seller_id ) ) {
-						as_unschedule_all_actions( 'ced_amazon_order_scheduler_job_' . $seller_id );
-					}
-
-					if ( as_has_scheduled_action( 'ced_amazon_existing_products_sync_job_' . $seller_id ) ) {
-						as_unschedule_all_actions( 'ced_amazon_existing_products_sync_job_' . $seller_id );
-					}
-
-					if ( as_has_scheduled_action( 'ced_amazon_catalog_asin_sync_job_' . $seller_id ) ) {
-						as_unschedule_all_actions( 'ced_amazon_catalog_asin_sync_job_' . $seller_id );
-					}
-
 				}
 
 				$amazon_accounts = get_option( 'ced_amzon_configuration_validated', array() );
@@ -2385,7 +2210,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		$file_url = isset( $_POST['fileUrl'] ) ? sanitize_text_field( $_POST['fileUrl'] ) : '';
 
-
+	
 		if ( empty( $seller_id ) ) {
 			$ced_amazon_sellernext_shop_ids = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 			$seller_id                      = isset( $ced_amazon_sellernext_shop_ids[ $user_id ] ) ? $ced_amazon_sellernext_shop_ids[ $user_id ]['ced_mp_seller_key'] : '';
@@ -2402,7 +2227,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		global $wpdb;
 		$results       = $wpdb->get_results( "SELECT DISTINCT meta_key FROM {$wpdb->prefix}postmeta", 'ARRAY_A' );
 		$query         = $wpdb->get_results( $wpdb->prepare( "SELECT `meta_value` FROM  {$wpdb->prefix}postmeta WHERE `meta_key` LIKE %s", '_product_attributes' ), 'ARRAY_A' );
-		                
 		$addedMetaKeys = get_option( 'CedUmbProfileSelectedMetaKeys', false );
 
 		$row_html         = '';
@@ -2420,8 +2244,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			$optionLabel = $custom_value['label'];
 
 			$row_html .= '<tr class="categoryAttributes" id="ced_amazon_categories" >
-			<td class="ced_template_labels" >
-			<label for="" class="">' . $optionLabel . ' (' . $slug . ') ';
+				<td class="ced_template_labels" >
+					<label for="" class="">' . $optionLabel . ' (' . $slug . ') ';
 
 			$row_html .= wc_help_tip( $custom_value['definition'], 'amazon-for-woocommerce' );
 			$row_html .= '</label>';
@@ -2464,7 +2288,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$attributes = isset($attributes) ? $attributes : array();
 				
 				$ced_amazon_general_options = get_option( 'ced_amazon_general_options', array() );
-
+			
 				// $ced_amazon_general_options = isset( $ced_amazon_general_options[$seller_id] ) ? $ced_amazon_general_options[$seller_id] : array();
 				$current_amazon_profile = array();
 
@@ -2515,8 +2339,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 					CURLOPT_HTTPHEADER => array(
 						'Authorization: application/json',
 					),
-				)
-			);
+					)
+				);
 
 				$valid_value_response = curl_exec($curl);
 				$valid_value_response = json_decode( $valid_value_response, true );
@@ -2551,10 +2375,10 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				}
 
 				$row_html .= '</select>
-				<span >
-				<i class="fa fa-info-circle" data-tooltip-content="' . $custom_value['definition'] . '" ></i>
-				</span> 
-				</td>';
+								<span >
+								   <i class="fa fa-info-circle" data-tooltip-content="' . $custom_value['definition'] . '" ></i>
+							    </span> 
+				            </td>';
 
 			} elseif ( ( isset( $valid_values2[ $custom_key ] ) && isset( $valid_values2[ $custom_key ][ 'all_cat' ] ) ) ||  ( isset( $valid_values2[ $optionLabel ] ) && isset( $valid_values2[ $optionLabel ][ 'all_cat' ] ) ) ) {
 
@@ -2568,10 +2392,10 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				}
 
 				$row_html .= '</select>
-				<span >
-				<i class="fa fa-info-circle" data-tooltip-content="' . $custom_value['definition'] . '" ></i>
-				</span> 
-				</td>';
+								<span >
+								   <i class="fa fa-info-circle" data-tooltip-content="' . $custom_value['definition'] . '" ></i>
+							    </span> 
+				            </td>';
 
 			} else {
 
@@ -2584,17 +2408,17 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				}
 
 				$row_html .= '<input class="custom_category_attributes_input" value="" id="' . $custom_key . '" type="text" name="ced_amazon_profile_data[' . $custom_key . '][default]" >
-				<span class="app ">
-				<i class="fa fa-info-circle" data-tooltip-content="' . $custom_value['definition'] . '" ></i>
-				</span> 
+							<span class="app ">
+						<i class="fa fa-info-circle" data-tooltip-content="' . $custom_value['definition'] . '" ></i>
+						</span> 
 				</td>';
 
 			}
 
 
 			$row_html          .= '<td>';
-
 			$selectDropdownHTML = '<select class="select2 custom_category_attributes_select"  name="ced_amazon_profile_data[' . esc_attr( $custom_key ) . '][metakey]" >';
+
 			foreach ( $results as $key2 => $meta_key ) {
 				$post_meta_keys[] = $meta_key['meta_key'];
 			}
@@ -2673,8 +2497,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			wp_die();
 
 		}
-
-
 	}
 
 
@@ -2709,9 +2531,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		}
 
-		$userData       = $ced_amzon_configuration_validated[ $seller_id ];
-		$userCountry    = $userData['ced_mp_name'];
-		$marketplace_id = $ced_amzon_configuration_validated[ $marketplace_id ];
+		$userData    = $ced_amzon_configuration_validated[ $seller_id ];
+		$userCountry = $userData['ced_mp_name'];
 
 		$amzonCurlRequest = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
 
@@ -2735,7 +2556,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		$url_array = array(
 			4 => array(
-				'url' => 'webapi/rest/v1/category-attribute/?category_id=' . $category_id . '&sub_category_id=' . $sub_category_id . '&browse_node_id=' . $browse_nodes . '&barcode_exemption=false',
+				'url' => 'webapi/rest/v1/category-attribute/?shop_id=' . $user_id . '&category_id=' . $category_id . '&sub_category_id=' . $sub_category_id . '&browse_node_id=' . $browse_nodes . '&barcode_exemption=false',
 				'key' => 'category_attributes',
 			),
 		);
@@ -2762,7 +2583,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		$amazon_profile_template = isset( $amazon_profile_data['response'] ) ? $amazon_profile_data['response'] : array();
 
 		// Update product flat file template stricture json file
-		$amzonCurlRequestInstance->fetchProductTemplate( $category_id, $userCountry, $seller_id, $marketplace_id, $user_id );
+		$amzonCurlRequestInstance->fetchProductTemplate( $category_id, $userCountry, $seller_id );
 
 		if ( empty( $amazon_profile_template ) ) {
 			echo wp_json_encode(
@@ -2892,108 +2713,253 @@ class Amazon_Integration_For_Woocommerce_Admin {
 	 * Function to verify seller
 	 */
 
-	 public function ced_amazon_seller_verification() {
-        $check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
-        if ( ! $check_ajax ) {
-            return;
-        }
-        $user_id           = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
-        $seller_id         = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
-        $mode              = isset( $_POST['mode'] ) ? sanitize_text_field( $_POST['mode'] ) : '';
-        $sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
+	public function ced_amazon_seller_verification() {
+		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
+		if ( ! $check_ajax ) {
+			return;
+		}
 
-        $config_array_key  = $seller_id;
+		$user_id           = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
+		$sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 
-        if ( ! empty( $user_id ) && !empty($seller_id)) {
-            // newly added code starts
-            $configuration_validated_array = get_option( 'ced_amzon_configuration_validated', array() );
-            
+		if ( ! empty( $user_id ) ) {
+
+			$marketplace_id = isset( $sellernextShopIds[ $user_id ] ) ? $sellernextShopIds[ $user_id ]['marketplace_id'] : '';
+
+			$ced_amazon_accounts_data = get_option( 'ced_amazon_account_data', array() );
+			$access_token             = isset( $ced_amazon_accounts_data[ $marketplace_id ] ) && isset( $ced_amazon_accounts_data[ $marketplace_id ]['seller_next_access_token'] ) ? $ced_amazon_accounts_data[ $marketplace_id ]['seller_next_access_token'] : '';
+
+			$amz_connected_accounts = wp_safe_remote_get(
+				'https://amazon-sales-channel-api-backend.cifapps.com/webapi/rest/v1/connected-accounts/?remote_shop_id[]=' . $user_id,
+				array(
+					'headers' => array(
+						'Authorization' => 'Bearer ' . $access_token,
+						'timeout'       => 120,
+					),
+				)
+			);
+
+
+			// newly added code starts
+
+			$all_data = get_option( 'ced_amazon_account_data', true );
+
+			if ( is_wp_error( $amz_connected_accounts ) ) {
+				wp_send_json_success(
+					array(
+						'status'  => false,
+						'message' => 'unable to verify you',
+					)
+				);
+			}
+
+			if ( ! empty( $amz_connected_accounts['body'] ) ) {
+
+				$amz_connected_accounts_data = json_decode( $amz_connected_accounts['body'], true );
+				$amz_connected_data          = isset( $amz_connected_accounts_data['data'] ) && isset( $amz_connected_accounts_data['data'][0] ) ? $amz_connected_accounts_data['data'][0] : array();
+
+				if ( empty( $amz_connected_data ) ) {
+					wp_send_json_success(
+						array(
+							'status'  => false,
+							'message' => 'unable to verify you',
+						)
+					);
+
+				}
+
+				$seller_id      = isset( $amz_connected_data['seller_id'] ) ? $amz_connected_data['seller_id'] : '' ;
+				$marketplace_id = isset( $amz_connected_data['marketplace_id'] ) ? $amz_connected_data['marketplace_id'] : '';
+				$ced_mp_name    = isset( $ced_amazon_accounts_data[ $marketplace_id ] ) ? $ced_amazon_accounts_data[ $marketplace_id ]['ced_mp_name'] : '';
+
+				if ( ! empty( $ced_mp_name ) && ! empty( $seller_id ) ) {
+
+					$config_array_key                                   = $ced_mp_name . '|' . $seller_id;
+					$sellernextShopIds[ $user_id ]['ced_mp_name']       = $ced_mp_name;
+					$sellernextShopIds[ $user_id ]['ced_mp_seller_key'] = $config_array_key;
+
+					update_option( 'ced_amazon_sellernext_shop_ids', $sellernextShopIds );
+
+
+				} else {
+					wp_send_json_success(
+						array(
+							'status'  => false,
+							'message' => 'unable to verify marketplace/seller id',
+						)
+					);
+				}
+			} 
+
+			$refresh_token = '';
+
+			if ( is_wp_error( $amz_connected_accounts ) ) {
+				$refresh_token = '';
+			} elseif ( ! empty( $amz_connected_accounts['body'] ) ) {
+		
+				$amz_connected_accounts_data = json_decode( $amz_connected_accounts['body'], true );
+		
+				if ( '1' == $amz_connected_accounts_data['success'] ) {
+		
+					$amz_connected_data = isset( $amz_connected_accounts_data['data'] ) && isset( $amz_connected_accounts_data['data'][0] ) ? $amz_connected_accounts_data['data'][0]['apps'][0] : array();
+					$refresh_token      = ! empty( $amz_connected_data ) && isset( $amz_connected_data['refresh_token'] ) ? $amz_connected_data['refresh_token'] : '';
+					$config_array       = array(
+						'ced_umb_amazon_marketplace_configuration' => 1,
+						'key_id'                                   => $amz_connected_data['access_key'],
+						'merchant_id'                              => $amz_connected_data['seller_id'],
+						'secret_key'                               => $amz_connected_data['secret_key'],
+						'auth_token'                               => $amz_connected_data['mws_auth_token'],
+						'spapi_oauth_code'                         => $amz_connected_data['spapi_oauth_code'],
+						'seller_next_shop_id'                      => $user_id,
+						'amazon_refresh_token'                     => $amz_connected_data['refresh_token'],
+						'amazon_access_token'                      => $amz_connected_data['access_token'],
+						'ced_umb_amazon_validate_marketplace_config' => 'Validate',
+					);
+		
+					$ced_amazon_data_store                                = $all_data[ $amz_connected_data['marketplace_id'] ];
+					$final_amazon_configuration                           = array_merge( $ced_amazon_data_store, $config_array );
+					$config_array_key                                     = $final_amazon_configuration['ced_mp_name'] . '|' . $final_amazon_configuration['merchant_id'];
+					$final_amazon_configuration_save                      = array();
+					$final_amazon_configuration_save[ $config_array_key ] = $final_amazon_configuration;
+					$configuration_validated_array                        = get_option( 'ced_amzon_configuration_validated', array() );
+		
+					if ( is_array( $configuration_validated_array ) && ! empty( $configuration_validated_array ) ) {
+						$configuration_validated_array = array_replace( $configuration_validated_array, $final_amazon_configuration_save );
+					} else {
+						$configuration_validated_array = $final_amazon_configuration_save;
+					}
+		
+		
+					update_option( 'ced_amzon_configuration_validated', $configuration_validated_array );
+					
+		
+				} else {
+					$refresh_token = '';
+				}
+			}
+
+
+
+			if ( ! isset( $refresh_token ) ) {
+				$refresh_token = '';
+			}
+
+
+			$configuration_validated_array = get_option( 'ced_amzon_configuration_validated', array() );
+
 			$sellerDetails     = isset( $configuration_validated_array[ $config_array_key ] ) ? $configuration_validated_array[ $config_array_key ] : array();
-            $shop_id           = isset( $sellerDetails['seller_next_shop_id'] ) ? $sellerDetails['seller_next_shop_id'] : '';
-            $merchant_id       = isset( $sellerDetails['merchant_id'] ) ? $sellerDetails['merchant_id'] : '';
-            $marketplace_id    = isset( $sellerDetails['marketplace_id'] ) ? $sellerDetails['marketplace_id'] : '';
-            $ced_mp_name       = isset( $sellerDetails['ced_mp_name'] ) ? $sellerDetails['ced_mp_name'] : '';
-            $sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
-           
+			$shop_id           = isset( $sellerDetails['seller_next_shop_id'] ) ? $sellerDetails['seller_next_shop_id'] : '';
+			$merchant_id       = isset( $sellerDetails['merchant_id'] ) ? $sellerDetails['merchant_id'] : '';
+			$refresh_token     = isset( $sellerDetails['amazon_refresh_token'] ) ? $sellerDetails['amazon_refresh_token'] : '';
+			$marketplace_id    = isset( $sellerDetails['marketplace_id'] ) ? $sellerDetails['marketplace_id'] : '';
+			$ced_mp_name       = isset( $sellerDetails['ced_mp_name'] ) ? $sellerDetails['ced_mp_name'] : '';
+			$sellernextShopIds = get_option( 'ced_amazon_sellernext_shop_ids', array() );
 			$amzonCurlRequest  = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
-            if ( file_exists( $amzonCurlRequest ) ) {
-                require_once $amzonCurlRequest;
-                $amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-            } else {
-                return;
-            }
-            $payload         = array();
-            $originalPayload = array();
-            if (  ! empty( $marketplace_id ) && ! empty( $merchant_id ) ) {
-                $originalPayload = $amzonCurlRequestInstance->getMarketplaceParticipations( $marketplace_id, $merchant_id, $user_id, $mode );
-				
 
-                if ( $originalPayload['success'] ) {
-                    $payload = isset( $originalPayload['response'] ) && isset( $originalPayload['response']['payload'] ) ?  $originalPayload['response']['payload']  : array();
-                }
-            }
+			if ( file_exists( $amzonCurlRequest ) ) {
+				require_once $amzonCurlRequest;
+				$amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
+			} else {
+				return;
+			}
 
-            $accountData         = array();
-            $sellerParticipation = false;
-            $participate_accounts = array();
-            if ( ! empty( $payload ) && is_array( $payload ) && isset( $originalPayload['success'] ) && $originalPayload['success'] ) {
-                foreach ( $payload as $index => $accountsConnected ) {
-                    if ( $accountsConnected['marketplace']['id'] == $marketplace_id ) {
-                        $accountData         = $accountsConnected;
-                        $sellerParticipation = isset( $accountsConnected['participation']['isParticipating'] ) ? $accountsConnected['participation']['isParticipating'] : false;
-                        $current_mp_participation = array( $config_array_key => $sellerParticipation );
-                        if ( is_array( $participate_accounts ) && ! empty( $participate_accounts ) ) {
-                            $participate_accounts = array_replace( $participate_accounts, $current_mp_participation );
-                        } else {
-                            $participate_accounts = $current_mp_participation;
-                        }
-                        $sellernextShopIds[ $user_id ]['marketplaces_participation'] = $participate_accounts;
-                        update_option( 'ced_amazon_sellernext_shop_ids', $sellernextShopIds );
-                        wp_send_json_success(
-                            array(
-                                'status' => true,
-                                'data'   => array(
-                                    'seller_id'         => $seller_id,
-                                    'marketplace_id'    => $marketplace_id,
-                                    'ced_mp_name'       => $ced_mp_name,
-                                    'user_id'           => $user_id,
-                                    // 'sellernextShopIds' => $sellernextShopIds,
-                                ),
-                            )
-                        );
-                    }
-                }
-            } else {
-                $ced_amzon_configuration_validated = get_option( 'ced_amzon_configuration_validated', array() );
-                $sellernextShopIds                 = get_option( 'ced_amazon_sellernext_shop_ids', array() );
-                $ced_mp_seller_key = '';
-                if ( ! empty( $user_id ) && isset( $sellernextShopIds[ $user_id ] ) ) {
-                    $ced_mp_seller_key = isset( $sellernextShopIds[ $user_id ] ) && isset( $sellernextShopIds[ $user_id ]['ced_mp_seller_key'] ) ? $sellernextShopIds[ $user_id ]['ced_mp_seller_key'] : '';
-                    if ( isset( $ced_mp_seller_key ) && ! empty( $ced_mp_seller_key ) ) {
-                        unset( $ced_amzon_configuration_validated[ $ced_mp_seller_key ] );
-                        update_option( 'ced_amzon_configuration_validated', $ced_amzon_configuration_validated );
-                    }
-                }
-                unset( $sellernextShopIds[ $user_id ] );
-                update_option( 'ced_amazon_sellernext_shop_ids', $sellernextShopIds );
-                wp_send_json_success(
-                    array(
-                        'status'  => false,
-                        'message' => 'unable to verify marketplace/seller id',
-                    )
-                );
-            }
-            // newly added code ends
-            die;
-        } else{
-            wp_send_json_success(
-                array(
-                    'status'  => false,
-                    'message' => 'User Id or Sellr Id is missing',
-                )
-            );
-        }
-    }
+
+			$payload         = array();
+			$originalPayload = array();
+
+
+			if ( ! empty( $refresh_token ) && ! empty( $marketplace_id ) && ! empty( $merchant_id ) ) {
+
+				$originalPayload = $amzonCurlRequestInstance->getMarketplaceParticipations( $refresh_token, $marketplace_id, $merchant_id );
+				if ( $originalPayload['success'] ) {
+
+					$payload = isset( $originalPayload['data'] ) && isset( $originalPayload['data']['payload'] ) ? json_decode( wp_json_encode( $originalPayload['data']['payload'] ), true ) : array();
+
+				}
+			}
+
+
+			$accountData         = array();
+			$sellerParticipation = false;
+
+			$participate_accounts = array();
+
+			if ( ! empty( $payload ) && is_array( $payload ) && isset( $originalPayload['success'] ) && $originalPayload['success'] ) {
+
+				foreach ( $payload as $index => $accountsConnected ) {
+					if ( $accountsConnected['marketplace']['id'] == $marketplace_id ) {
+						$accountData         = $accountsConnected;
+						$sellerParticipation = isset( $accountsConnected['participation']['isParticipating'] ) ? $accountsConnected['participation']['isParticipating'] : false;
+
+
+						$current_mp_participation = array( $config_array_key => $sellerParticipation );
+						if ( is_array( $participate_accounts ) && ! empty( $participate_accounts ) ) {
+							$participate_accounts = array_replace( $participate_accounts, $current_mp_participation );
+						} else {
+							$participate_accounts = $current_mp_participation;
+						}
+
+						$sellernextShopIds[ $user_id ]['marketplaces_participation'] = $participate_accounts;
+						// $sellernextShopIds[ $user_id ]['ced_amz_current_step']       = 4;
+
+						update_option( 'ced_amazon_sellernext_shop_ids', $sellernextShopIds );
+
+						unset( $all_data[ $amz_connected_data['marketplace_id'] ] );
+						update_option( 'ced_amazon_account_data', $all_data );
+
+						wp_send_json_success(
+							array(
+								'status' => true,
+								'data'   => array(
+									'seller_id'         => $seller_id,
+									'marketplace_id'    => $marketplace_id,
+									'ced_mp_name'       => $ced_mp_name,
+									'user_id'           => $user_id,
+									// 'sellernextShopIds' => $sellernextShopIds,
+								),
+							)
+						);
+
+					}
+				}
+			} else {
+
+				$ced_amzon_configuration_validated = get_option( 'ced_amzon_configuration_validated', array() );
+				$sellernextShopIds                 = get_option( 'ced_amazon_sellernext_shop_ids', array() );
+
+				$ced_mp_seller_key = '';
+
+				if ( ! empty( $user_id ) && isset( $sellernextShopIds[ $user_id ] ) ) {
+					$ced_mp_seller_key = isset( $sellernextShopIds[ $user_id ] ) && isset( $sellernextShopIds[ $user_id ]['ced_mp_seller_key'] ) ? $sellernextShopIds[ $user_id ]['ced_mp_seller_key'] : '';
+
+					if ( isset( $ced_mp_seller_key ) && ! empty( $ced_mp_seller_key ) ) {
+						unset( $ced_amzon_configuration_validated[ $ced_mp_seller_key ] );
+
+						update_option( 'ced_amzon_configuration_validated', $ced_amzon_configuration_validated );
+					}
+				}
+
+				unset( $sellernextShopIds[ $user_id ] );
+				update_option( 'ced_amazon_sellernext_shop_ids', $sellernextShopIds );
+
+
+				wp_send_json_success(
+					array(
+						'status'  => false,
+						'message' => 'unable to verify marketplace/seller id',
+					)
+				);
+
+			}
+			
+
+			// newly added code ends
+
+			die;
+
+
+		}
+	}
 
 
 
@@ -3013,7 +2979,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		$feed_id   = isset( $_POST['feed_id'] ) ? sanitize_text_field( $_POST['feed_id'] ) : '';
 		$seller_id = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
-		$mode      = isset( $_POST['mode'] ) ? sanitize_text_field( $_POST['mode'] ) : 'production';
 
 		if ( empty( $feed_id ) || empty( $seller_id ) ) {
 			$html_response = '<h6>Error: Feed id or seller id missing!</h6>';
@@ -3047,7 +3012,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 				$response_format = true;
 
 			} else {
-				$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance($mode);
+				$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance();
 				$response     = $feed_manager->getFeedItemsStatusSpApi( $feed_id, $feed_type, $location_id, $marketplace, $seller_id );
 
 				if ( isset( $response['status'] ) && 'DONE' == $response['status'] ) {
@@ -3086,9 +3051,9 @@ class Amazon_Integration_For_Woocommerce_Admin {
 						} elseif ( in_array( $line_data[2], $tab_error_code_arr ) ) {
 							continue;
 						} elseif ( ! empty( $line_data[2] ) ) {
-							$tab_error_code_arr[] = $line_data[2];
-							$tab_response_html   .= '<tr><td>' . esc_attr( $line_data[2] ) . '</td>';
-							$tab_response_html   .= '<td >' . esc_attr( $line_data[4] ) . '</td></tr>';
+								$tab_error_code_arr[] = $line_data[2];
+								$tab_response_html   .= '<tr><td>' . esc_attr( $line_data[2] ) . '</td>';
+								$tab_response_html   .= '<td >' . esc_attr( $line_data[4] ) . '</td></tr>';
 						}
 					}
 
@@ -3234,23 +3199,23 @@ class Amazon_Integration_For_Woocommerce_Admin {
 					}
 				}
 			} elseif ( isset( $response['feed_id'] ) && ! empty( $response['feed_id'] ) ) {
-				$tableHtml = '<table class="wp-list-table widefat striped table-view-list posts" >
-				<thead class="table-dark">
-				<tr>
-				<th scope="col">Feed Id </th>
-				<th scope="col">Feed Type</th>
-				<th scope="col">Feed Status</th>
-				</tr>
-				</thead>
-				<tbody>
-				<tr>
-				<td>' . esc_attr( $response['feed_id'] ) . '</td>
-				<td>' . esc_attr( $response['feed_action'] ) . '</td>
-				<td>' . esc_attr( $response['status'] ) . '</td>
-				</tr>
+					$tableHtml = '<table class="wp-list-table widefat striped table-view-list posts" >
+					<thead class="table-dark">
+					<tr>
+					<th scope="col">Feed Id </th>
+					<th scope="col">Feed Type</th>
+					<th scope="col">Feed Status</th>
+					</tr>
+					</thead>
+					<tbody>
+					<tr>
+					<td>' . esc_attr( $response['feed_id'] ) . '</td>
+					<td>' . esc_attr( $response['feed_action'] ) . '</td>
+					<td>' . esc_attr( $response['status'] ) . '</td>
+					</tr>
 
-				</tbody>
-				</table>';
+					</tbody>
+					</table>';
 
 			} else {
 				$message   = isset( $response['body'] ) ? $response['body'] : $response['message'];
@@ -3275,16 +3240,254 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 
 	/**
+	 * Product specific all feed actions using modal in products table.
+	 *
+	 * @name ced_amazon_product_specific_feeds()
+	 * @since 1.0.0
+	 */
+	public function ced_amazon_product_specific_feeds() {
+		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
+		if ( ! $check_ajax ) {
+			return;
+		}
+
+		$product_id = isset( $_POST['product_id'] ) ? sanitize_text_field( $_POST['product_id'] ) : '';
+		$seller_id  = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
+		$user_id    = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
+
+		if ( empty( $product_id ) || empty( $seller_id ) || empty( $user_id ) ) {
+			$html_response = '<h6>Error: Product_id / Seller_id / User_id is missing!</h6>';
+			wp_send_json_success( $html_response );
+			wp_die();
+		}
+
+		$seller_id_val = str_replace( '|', '_', $seller_id );
+
+		$product_feeds = get_post_meta( $product_id, 'ced_amazon_feed_actions_' . $seller_id_val, true );
+
+		$tab_response_html = '';
+		if ( is_array( $product_feeds ) && ! empty( $product_feeds ) ) {
+
+			foreach ( $product_feeds as $feed_action => $feed_id ) {
+				$tab_response_html .= '<tr><td>' . esc_attr( $feed_action ) . '</td>';
+				$tab_response_html .= '<td ><a class="feed-view" target="_blank" href="' . get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=feed-view&feed-id=' . esc_attr( $feed_id ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) . '" > ' . esc_attr( $feed_id ) . '</a></td></tr>';
+			}
+		}
+
+		$table_html  = '<table class="wp-list-table widefat striped table-view-list posts"  >
+		<thead class="table-dark">
+		<tr>
+		<th scope="col">Feed action</th>
+		<th scope="col">Feed Id</th>
+		</tr>
+		</thead>
+		<tbody>';
+		$table_html .= $tab_response_html;
+		$table_html .= '</tbody>
+		</table>';
+
+		// Final html preparation
+		$html_response = $table_html;
+
+		wp_send_json_success( $html_response );
+		wp_die();
+	}
+
+
+	/**
+	 * Amazon order detail with amazon data using modal in orders table.
+	 *
+	 * @name ced_amazon_order_detail_amazon_data()
+	 * @since 1.0.0
+	 */
+	public function ced_amazon_order_detail_amazon_data() {
+		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
+		if ( ! $check_ajax ) {
+			return;
+		}
+
+		$order_id  = isset( $_POST['order_id'] ) ? sanitize_text_field( $_POST['order_id'] ) : '';
+		$seller_id = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
+		$user_id   = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
+
+		if ( empty( $order_id ) || empty( $seller_id ) || empty( $user_id ) ) {
+			$html_response = '<h6>Error: Order_id / Seller_id / User_id is missing!</h6>';
+			wp_send_json_success( $html_response );
+			wp_die();
+		}
+
+		// Order info
+		$amazon_order_data     = get_post_meta( $order_id, 'umb_amazon_shippied_data', true );
+		$amazon_order_id       = isset( $amazon_order_data['amazon_order_id'] ) ? $amazon_order_data['amazon_order_id'] : '-';
+		$order_purchase_date   = isset( $amazon_order_data['order_detail']['PurchaseDate'] ) ? $amazon_order_data['order_detail']['PurchaseDate'] : '-';
+		$order_lastupdate_date = isset( $amazon_order_data['order_detail']['LastUpdateDate'] ) ? $amazon_order_data['order_detail']['LastUpdateDate'] : '-';
+		$order_total           = isset( $amazon_order_data['order_detail']['OrderTotal']['Amount'] ) ? $amazon_order_data['order_detail']['OrderTotal']['Amount'] : '-';
+		$order_currency        = isset( $amazon_order_data['order_detail']['OrderTotal']['CurrencyCode'] ) ? $amazon_order_data['order_detail']['OrderTotal']['CurrencyCode'] : '-';
+		$order_status          = isset( $amazon_order_data['order_detail']['OrderStatus'] ) ? $amazon_order_data['order_detail']['OrderStatus'] : '-';
+		$order_buyer_name      = isset( $amazon_order_data['order_detail']['BuyerName'] ) && ! empty( $amazon_order_data['order_detail']['BuyerName'] ) ? $amazon_order_data['order_detail']['BuyerName'] : '-';
+		$order_buyer_email     = isset( $amazon_order_data['order_detail']['BuyerEmail'] ) ? $amazon_order_data['order_detail']['BuyerEmail'] : '-';
+		$order_fulfillment     = isset( $amazon_order_data['order_detail']['FulfillmentChannel'] ) ? $amazon_order_data['order_detail']['FulfillmentChannel'] : '-';
+
+		// Shipping info
+		$shipping_service = isset( $amazon_order_data['order_detail']['ShipServiceLevel'] ) ? $amazon_order_data['order_detail']['ShipServiceLevel'] : '-';
+		$order_shipping   = isset( $amazon_order_data['order_detail']['ShippingAddress'] ) ? $amazon_order_data['order_detail']['ShippingAddress'] : '';
+		$customer_name    = isset( $order_shipping['Name'] ) && ! empty( $order_shipping['Name'] ) ? $order_shipping['Name'] : '-';
+		$address_line_1   = isset( $order_shipping['AddressLine1'] ) ? $order_shipping['AddressLine1'] : '-';
+		$address_line_2   = isset( $order_shipping['AddressLine2'] ) ? $order_shipping['AddressLine2'] : '-';
+		$city             = isset( $order_shipping['City'] ) ? $order_shipping['City'] : '-';
+		$county           = isset( $order_shipping['County'] ) ? $order_shipping['County'] : '-';
+		$district         = isset( $order_shipping['District'] ) ? $order_shipping['District'] : '-';
+		$state_or_region  = isset( $order_shipping['StateOrRegion'] ) ? $order_shipping['StateOrRegion'] : '-';
+		$postal_code      = isset( $order_shipping['PostalCode'] ) ? $order_shipping['PostalCode'] : '-';
+		$country_code     = isset( $order_shipping['CountryCode'] ) ? $order_shipping['CountryCode'] : '-';
+		$phone            = isset( $order_shipping['Phone'] ) ? $order_shipping['Phone'] : '-';
+
+		// Order items info
+		$order_items      = isset( $amazon_order_data['order_item_detail'] ) ? $amazon_order_data['order_item_detail'] : array();
+		$order_items_html = '';
+		if ( is_array( $order_items ) && ! empty( $order_items ) ) {
+
+			foreach ( $order_items as $order_item_key => $order_item_value ) {
+				$asin           = isset( $order_item_value['ASIN'] ) ? $order_item_value['ASIN'] : '-';
+				$seller_sku     = isset( $order_item_value['SellerSKU'] ) ? $order_item_value['SellerSKU'] : '-';
+				$title          = isset( $order_item_value['Title'] ) ? $order_item_value['Title'] : '-';
+				$quantity       = isset( $order_item_value['QuantityOrdered'] ) ? $order_item_value['QuantityOrdered'] : '-';
+				$item_price     = isset( $order_item_value['ItemPrice']['Amount'] ) ? $order_item_value['ItemPrice']['Amount'] : '-';
+				$item_tax       = isset( $order_item_value['ItemTax']['Amount'] ) ? $order_item_value['ItemTax']['Amount'] : '-';
+				$shipping_price = isset( $order_item_value['ShippingPrice']['Amount'] ) ? $order_item_value['ShippingPrice']['Amount'] : '-';
+				$shipping_tax   = isset( $order_item_value['ShippingTax']['Amount'] ) ? $order_item_value['ShippingTax']['Amount'] : '-';
+				$discount       = isset( $order_item_value['PromotionDiscount']['Amount'] ) ? $order_item_value['PromotionDiscount']['Amount'] : '-';
+
+				$order_items_html .= '<tr><td>' . esc_attr( $asin ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $seller_sku ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $title ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $quantity ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $item_price ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $item_tax ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $shipping_price ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $shipping_tax ) . '</td>';
+				$order_items_html .= '<td>' . esc_attr( $discount ) . '</td></tr>';
+			}
+		}
+
+		$order_heading = '<h6>Woo Order Id: #' . esc_attr( $order_id ) . '</h6>';
+
+		$html_response  = ''; // Final html response variable
+		$html_response .= $order_heading;
+
+		// Order detail html
+		$order_detail_html  = '';
+		$order_detail_html .= '<tr><td><strong>Order ID:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $amazon_order_id ) . '</td></tr>';
+		$order_detail_html .= '<tr><td><strong>Purchase Date:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $order_purchase_date ) . '</td></tr>';
+		$order_detail_html .= '<tr><td><strong>Last Update Date:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $order_lastupdate_date ) . '</td></tr>';
+		$order_detail_html .= '<tr><td><strong>Order Status:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $order_status ) . '</td></tr>';
+		$order_detail_html .= '<tr><td><strong>Fulfillment Channel:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $order_fulfillment ) . '</td></tr>';
+		$order_detail_html .= '<tr><td><strong>Buyer Name:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $order_buyer_name ) . '</td></tr>';
+		$order_detail_html .= '<tr><td><strong>Buyer Email:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $order_buyer_email ) . '</td></tr>';
+		$order_detail_html .= '<tr><td><strong>Order Total:</strong></td>';
+		$order_detail_html .= '<td>' . esc_attr( $order_currency ) . ' ' . esc_attr( $order_total ) . '</td></tr>';
+
+		$order_detail_table_html  = '<table class="wp-list-table widefat striped table-view-list posts"  >
+		<thead class="table-dark">
+		<tr>
+		<th scope="col" colspan="2">Order Detail:</th>
+		</tr>
+		</thead>
+		<tbody>';
+		$order_detail_table_html .= $order_detail_html;
+		$order_detail_table_html .= '</tbody>
+		</table>';
+
+		// Html response preparation with order detail
+		$html_response .= $order_detail_table_html;
+
+		// Shipping detail html
+		$shipping_detail_html  = '';
+		$shipping_detail_html .= '<tr><td><strong>Name:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $customer_name ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>Address 1:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $address_line_1 ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>Address 2:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $address_line_2 ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>City:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $city ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>County:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $county ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>District:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $district ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>State or Region:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $state_or_region ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>Postal Code:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $postal_code ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>Country Code:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $country_code ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>Phone Number:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $phone ) . '</td></tr>';
+		$shipping_detail_html .= '<tr><td><strong>Shipping Service:</strong></td>';
+		$shipping_detail_html .= '<td>' . esc_attr( $shipping_service ) . '</td></tr>';
+
+		$shipping_detail_table_html  = '<table class="wp-list-table widefat striped table-view-list posts" >
+		<thead class="table-dark">
+		<tr>
+		<th scope="col" colspan="2">Shipping Detail:</th>
+		</tr>
+		</thead>
+		<tbody>';
+		$shipping_detail_table_html .= $shipping_detail_html;
+		$shipping_detail_table_html .= '</tbody>
+		</table>';
+
+		// Html response preparation with shipping detail
+		$html_response .= $shipping_detail_table_html;
+
+		// Order items html
+		$order_items_table_html  = '<table class="wp-list-table widefat striped table-view-list posts"  >
+		<thead class="table-dark">
+		<tr>
+		<th scope="col" colspan="9">Items Detail:</th>
+		</tr>
+		</thead>
+		<tbody>
+		<tr>
+		<th>ASIN</th>
+		<th>SKU</th>
+		<th>Title</th>
+		<th>Quantity</th>
+		<th>Price</th>
+		<th>Price Tax</th>
+		<th>Shipping</th>
+		<th>Shipping Tax</th>
+		<th>Discount</th>
+		</tr>';
+		$order_items_table_html .= $order_items_html;
+		$order_items_table_html .= '</tbody>
+		</table>';
+
+		// Final html response preparation with order items
+		$html_response .= $order_items_table_html;
+
+		wp_send_json_success( $html_response );
+		wp_die();
+	}
+
+
+
+	/**
 	 * Add filter in order
 	 *
 	 * @since    1.0.0
 	 */
 	public function ced_amazon_add_woo_order_views( $views ) {
-		
 		if ( ! current_user_can( 'edit_others_pages' ) ) {
 			return $views;
 		}
-
 		$class        = ( isset( $_REQUEST['order_from_amazon'] ) && 'yes' == sanitize_text_field( $_REQUEST['order_from_amazon'] ) ) ? 'current' : '';
 		$query_string = esc_url_raw( remove_query_arg( array( 'order_from_amazon' ) ) );
 
@@ -3376,7 +3579,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		$attributes = isset($attributes) ? $attributes : array();
 		
 		$ced_amazon_general_options = get_option( 'ced_amazon_general_options', array() );
-
+	
 		// $ced_amazon_general_options = isset( $ced_amazon_general_options[$seller_id] ) ? $ced_amazon_general_options[$seller_id] : array();
 		$current_amazon_profile = array();
 
@@ -3429,8 +3632,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			CURLOPT_HTTPHEADER => array(
 				'Authorization: application/json',
 			),
-		)
-	);
+			)
+		);
 
 		$response = curl_exec($curl);
 
@@ -3450,7 +3653,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		$user_id   = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
 		$seller_id = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
-		$mode      = isset( $_POST['mode'] ) ? sanitize_text_field( $_POST['mode'] ) : 'production';
 
 		$template_id = isset( $_POST['template_id'] ) ? trim( sanitize_text_field( $_POST['template_id'] ) ) : '';
 
@@ -3464,8 +3666,8 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		$current_amazon_profile = isset( $result[0] ) ? $result[0] : array();
 
 		if ( empty( $current_amazon_profile ) ) {
-			wp_send_json_error('Unable to fetch selected template . Please try again later.');
-			wp_die();
+		   wp_send_json_error('Unable to fetch selected template . Please try again later.');
+		   wp_die();
 		}
 
 		$wpdb->insert(
@@ -3489,8 +3691,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 		$clone_template_id = $wpdb->insert_id;
 
 		if ( $clone_template_id ) {
-			$ced_base_uri = ced_amazon_base_uri($mode); 
-			$href = get_admin_url() . $ced_base_uri . '&section=add-new-template&template_id=' . esc_attr( $clone_template_id ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id );
+			$href = get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=add-new-template&template_id=' . esc_attr( $clone_template_id ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id );
 
 
 			$ced_woo_amazon_mapping                                     = get_option( 'ced_woo_amazon_mapping', array() );
@@ -3498,7 +3699,7 @@ class Amazon_Integration_For_Woocommerce_Admin {
 			update_option( 'ced_woo_amazon_mapping', $ced_woo_amazon_mapping );
 
 
-			$ced_amz_cloned_templates                 = get_option( 'ced_amz_cloned_templates', array() );
+			$ced_amz_cloned_templates                                   = get_option( 'ced_amz_cloned_templates', array() );
 			$ced_amz_cloned_templates[ $seller_id ][] = $clone_template_id;
 			update_option( 'ced_amz_cloned_templates', $ced_amz_cloned_templates );
 			
@@ -3512,444 +3713,6 @@ class Amazon_Integration_For_Woocommerce_Admin {
 
 		wp_die();
 	}
-
-
-	public function ced_search_amz_categories() {
-
-		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
-		if ( ! $check_ajax ) {
-			return;
-		}
-
-		$user_id   = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
-		$seller_id = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
-		$mode      = isset( $_POST['mode'] ) ? sanitize_text_field( $_POST['mode'] ) : '';
-
-		$cat_value = isset( $_POST['cat_value'] ) ? sanitize_text_field( $_POST['cat_value'] ) : '';
-
-		require_once CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
-
-		$amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-		$categories_array         = $amzonCurlRequestInstance->ced_search_amz_cat($user_id, $seller_id, $cat_value, $mode );
-
-		$html = '';
-
-		$html .= '<div class="ced-category-search-wrapper">';
-		$html .= '<div class="ced-category-mapping">';
-
-
-		$list             = '';
-		$second_category  = '';
-		$primary_category = '';
-
-
-		if ( !empty( $categories_array ) ) {
-
-			foreach ( $categories_array as $category_array ) {
-				$parent_ids = isset( $category_array['parent_id'] ) ? $category_array['parent_id'] : array();
-				if ( isset( $parent_ids ) && is_array( $parent_ids ) ) {
-					$parent_ids = implode( ',', $parent_ids );
-				}
-
-				$full_path        = isset( $category_array['full_path'] ) && is_array( $category_array['full_path'] ) ? implode( ' > ', $category_array['full_path'] ) : '';
-				$second_category  = isset( $category_array['category'] ) && isset( $category_array['category']['sub-category'] ) ? $category_array['category']['sub-category'] : '';
-				$primary_category = isset( $category_array['category'] ) && isset( $category_array['category']['primary-category'] ) ? $category_array['category']['primary-category'] : '';
-				$hasChildren      = isset( $category_array['hasChildren'] ) ? $category_array['hasChildren'] : false;
-
-				$list .= '<li data-category="' . esc_attr( json_encode( $category_array['category'] ) ) . '" class="ced_amazon_selected_srh_cat" data-name="' . esc_attr( $category_array['name'] ) . '" data-browsenodeID = "' . esc_attr( $category_array['browseNodeId'] ) . '" data-children="' . esc_attr( $hasChildren ) . '" data-id="' . esc_attr( $parent_ids ) . '" >' . esc_attr( $full_path  ) . '</li>';
-
-			}
-
-		}
-
-		$html .= '<input type="hidden" id="ced-category-header" value="Browse and Select a Category">';
-		$html .= '<strong><span id="ced_amazon_cat_header" data-level="1">' . __( 'Browse and Select a Category', 'amazon-for-woocommerce' ) . '</span></strong>';
-		$html .= '<ol id="ced_amz_categories_1" class="ced_amz_categories" data-level="1" data-node-value="Browse and Select a Category">';
-
-		$html .= $list;
-
-		$html .= '</ol>';
-		$html .= '</div>';
-		$html .= '</div>';
-
-		wp_send_json_success( $html );
-
-	}
-
-
-	public function ced_amz_email_restriction( $enable = '', $order = array() ) {
-		if ( ! is_object( $order ) ) {
-			return $enable;
-		}
-
-		$seller_id                  = $order->get_meta( 'ced_amazon_order_seller_id' );
-		$renderDataOnGlobalSettings = get_option( 'ced_amazon_global_settings', array() );
-		$ced_amz_stp_email_nfc      = isset( $renderDataOnGlobalSettings[ $seller_id ] ) && isset( $renderDataOnGlobalSettings[ $seller_id ]['ced_amz_stp_email_nfc'] ) ? $renderDataOnGlobalSettings[ $seller_id ]['ced_amz_stp_email_nfc'] : '';
-		$marketplace                = $order->get_meta( '_umb_marketplace' );
-
-		if ( empty( $ced_amz_stp_email_nfc ) && 'Amazon' == $marketplace ) {
-			$enable = false;
-		}
-		return $enable;
-
-	}
-
-
-	public function ced_amazon_woocommerce_duplicate_product_exclude_meta_filter( $exclude_meta, $existing_meta_keys ) {
-		
-		$get_location  = get_option('ced_amzon_configuration_validated' , array() );
-		$location_keys = array_keys($get_location);
-
-		if ( is_array($location_keys) && !empty( $location_keys ) ) {
-			foreach ( $location_keys as $key => $value ) {
-				$mplocation_arr = explode( '|', $value );
-				$mplocation     = isset( $mplocation_arr[1] ) ? $mplocation_arr[0] : '';
-				$exclude_meta[] = 'ced_amazon_already_uploaded_' . $mplocation;
-				$exclude_meta[] = 'ced_amazon_product_asin_' . $mplocation;
-				$exclude_meta[] = 'ced_amazon_catalog_asin_' . $mplocation;
-			}
-		}
-		return $exclude_meta;
-	}
-
-
-	// new code
-
-	public function ced_category_mapping_wrapper_html() {
-
-		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
-		if ( ! $check_ajax ) {
-			return;
-		}
-
-		$user_id   = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
-		$file = CED_AMAZON_DIRPATH . 'admin/partials/class-ced-amazon-categories.php';
-		if ( file_exists( $file ) ) {
-			require_once $file;
-			$obj = new Ced_Amazon_Get_Categoires( $user_id );
-		}
-
-		wp_die();
-		
-	}
-
-	// new code
-
-
-	public function ced_amazon_get_selected_categories(){
-
-		$check_ajax = check_ajax_referer( 'ced-amazon-ajax-seurity-string', 'ajax_nonce' );
-		if ( ! $check_ajax ) {
-			return;
-		}
-
-		$user_id   = isset( $_POST['user_id'] ) ? sanitize_text_field( $_POST['user_id'] ) : '';
-		$seller_id = isset( $_POST['seller_id'] ) ? sanitize_text_field( $_POST['seller_id'] ) : '';
-		$option    = isset( $_POST['option'] ) ? sanitize_text_field( $_POST['option'] ) : '';
-
-
-		$amzonCurlRequest = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
-		if ( file_exists( $amzonCurlRequest ) ) {
-			require_once $amzonCurlRequest;
-			$amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-
-		} 
-
-		$cat_topic = 'category-all/?&selected=' . $option;
-		$cat_data  =  array(
-			'contract_id'    => $contract_id,
-			'mode'           => 'production',
-			'remote_shop_id' => $user_id
-		);
-
-		$response = $amzonCurlRequestInstance->ced_amazon_serverless_process( $cat_topic, $cat_data, 'GET');
-
-		if ( isset( $response['body']) ) {
-			$response = json_decode( $response['body'], true );
-			$response = isset( $response['response'] ) ? $response['response'] : array();
-
-			wp_send_json_success($response);
-		} else {
-			// No response from the API
-			wp_send_json_error('No response from the API');
-		}
-
-
-	}
-
-
-	public function ced_amazon_shipment_method(){
-
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_shipment_tracking' );
-		$logger->info( wc_print_r(ced_woo_timestamp(), true), $context );
-
-		if ( CedAmazonHOPS::custom_orders_table_usage_is_enabled() ) {
-			$this->create_amz_order_hops = true;
-		}
-
-		$args = array(
-			'post_type' => 'shop_order',
-			'fields' => 'ids',
-			'post_status' =>  array('wc-completed'),
-			'numberposts' => -1,
-			'meta_query' => array(
-				array(
-					 
-					array(
-						'key' => '_amazon_umb_order_status',
-						'value' => 'Created',
-						'compare' => '=',
-						),
-					)
-				)
-			);
-
-		$orders = get_posts($args);
-
-		if( empty( $orders ) ){
-			$logger->info( "Empty Completed Orders \n\n\n", $context );
-			return;
-		}
-
-		$logger->info( 'Orders found for shipment: ', $context );
-        $logger->info(  wc_print_r($orders, true), $context );
-
-		
-		if( isset($orders) && !empty($orders) ) {
-
-			// Acknowledgement Orders
-			
-			foreach ($orders as $key => $orderID) {
-				if(empty($orderID)){
-					return;
-				}
-
-				if( $this->create_amz_order_hops ){
-					$order = wc_get_order($orderID);
-                    $ced_amazon_order_seller_id = $order->get_meta( 'ced_amazon_order_seller_id' ) ;
-				} else {
-                    $ced_amazon_order_seller_id = get_post_meta( $orderID, 'ced_amazon_order_seller_id', true );	
-				}
-				
-				$global_setting_data        = get_option( 'ced_amazon_global_settings', array() );
-
-				if( isset( $global_setting_data[$ced_amazon_order_seller_id] ) && !empty( $global_setting_data[ $ced_amazon_order_seller_id ] ) && is_array( $global_setting_data[$ced_amazon_order_seller_id] ) ){
-					$shop_data = $global_setting_data[$ced_amazon_order_seller_id];
-				}
-		
-				if( empty( $shop_data['ced_amazon_shipment_tracking_plugin'] ) ){
-					$logger->info( 'shipment tracking is not turned on' , $context );
-					return;
-				}
-
-				$this->ced_amazon_order_submit_tracking($orderID, false, $ced_amazon_order_seller_id );
-
-			}
-
-		}
-
-	}
-
-
-	public function ced_amazon_order_submit_tracking( $orderID = "", $statusMark = false, $ced_amazon_order_seller_id = '' ){
-	    
-		$logger  = wc_get_logger();
-		$context = array( 'source' => 'ced_amazon_shipment_tracking' );
-		$logger->info( wc_print_r(ced_woo_timestamp(), true), $context );
-
-		if( empty($orderID) || empty( $ced_amazon_order_seller_id ) ){
-			$logger->info( "WooCommerce order ID or ced_amazon_order_seller_id is missing \n\n\n", $context );
-			return;
-		}
-
-		$order = wc_get_order( $orderID );
-			
-		// order_item_detail
-		$marketplaceOrder = 'Amazon';
-		$isUmbOrder    = $order->get_meta( 'amazon_order_id' );
-		$order_detail  = $order->get_meta( 'order_detail' );
-		$order_details = $order->get_meta( 'order_item_detail' ); 
-
-
-		if( empty($isUmbOrder) || $marketplaceOrder !== "Amazon" ){
-			return;
-		}
-		
-		$saved_amazon_details = get_option( 'ced_amzon_configuration_validated', false );
-		
-		if( isset( $saved_amazon_details[$ced_amazon_order_seller_id] ) && !empty( $saved_amazon_details[ $ced_amazon_order_seller_id ] ) && is_array( $saved_amazon_details[$ced_amazon_order_seller_id] ) ){
-			$shop_data = $saved_amazon_details[$ced_amazon_order_seller_id];
-		}
-
-		if( empty($shop_data) ){
-			$logger->info( 'shop data is empty' , $context );
-			return;
-		}
-
-		$refresh_token  = isset($shop_data['amazon_refresh_token'])?$shop_data['amazon_refresh_token']:"";
-		$region         = isset($shop_data['marketplace_region'])?$shop_data['marketplace_region']:"";
-		$marketplace_id = isset($shop_data['marketplace_id'])?$shop_data['marketplace_id']:"";
-		$seller_id      = isset($shop_data['merchant_id'])?$shop_data['merchant_id']:"";
-
-
-		if( !$statusMark ){
-
-			$order = wc_get_order($orderID);
-
-			$global_setting_data  = get_option( 'ced_amazon_global_settings', array() );
-			$seller_data          = isset( $global_setting_data['ced_amazon_order_seller_id'] ) ? $global_setting_data['ced_amazon_order_seller_id'] : array();
-			$ced_amazon_shipment_tracking_plugin = isset( $seller_data['ced_amazon_shipment_tracking_plugin'] ) ? $seller_data['ced_amazon_shipment_tracking_plugin'] : '';
-
-			require_once CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-shipment-manager.php';
-            $shipment_instance    = new Ced_Amazon_Shipment_Manager();
-			$ced_tracking_details = $shipment_instance->getTrackingDetails( $ced_amazon_shipment_tracking_plugin, $orderID);
-			
-			if( empty( $ced_tracking_details ) || ! isset( $ced_tracking_details['tracking_number'] ) || empty( $ced_tracking_details['tracking_number'] ) ){
-				$logger->info( "Empty tracking details or tracking number found for WooCOmmerce order ID " . $orderID, $context ) ;
-				return;
-
-			}
-
-			$custom_plgn_carrier_code = isset( $ced_tracking_details['tracking_provider'] ) ? $ced_tracking_details['tracking_provider'] : '';
-			$tracking_number          = isset( $ced_tracking_details['tracking_number'] ) ? $ced_tracking_details['tracking_number'] : '';
-
-			$custom_plgn_carrier_name = isset( $ced_tracking_details['tracking_provider_name'] ) ? $ced_tracking_details['tracking_provider_name'] : '';
-
-			if( empty($custom_plgn_carrier_code) || empty($tracking_number) || empty($custom_plgn_carrier_name) ){
-				$logger->info( "custom plugin carrier code or custom plugin carrier name or tracking no is empty \n", $context );
-				return;
-			} 
-
-
-			require_once CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-shipment-carrier-codes.php';
-
-			$mod_custom_plgn_carrier_code = strtolower( $custom_plgn_carrier_name );
-			$carrier_code                 = $carriers[$mod_custom_plgn_carrier_code];
-
-
-			if( empty( $carrier_code ) ){
-				$logger->info( "custom_plgn_carrier_code is: " . $custom_plgn_carrier_code . " \n", $context );
-				$logger->info( "custom_plgn_carrier_name is: " . $custom_plgn_carrier_name . " \n", $context );
-				$logger->info( "unable to find carrier code in shipping carrier list \n", $context );
-				return;
-			} 
-
-			$ordershipfulfildata['CarrierCode']           = trim($carrier_code);
-			$ordershipfulfildata['ShippingMethod']        = 'Standard';
-			$ordershipfulfildata['ShipperTrackingNumber'] = trim($tracking_number);
-
-		}
-
-		$offset = '.0000000-00:00';
-		$FulfillmentDate = date("Y-m-d", time()) . 'T' . date("H:i:s", time()) . $offset;
-
-		$ordershiparray['AmazonOrderID'] = $order_detail['AmazonOrderId'];
-		$ordershiparray['FulfillmentDate'] = $FulfillmentDate;
-
-		if( !$statusMark ){
-			$ordershiparray['FulfillmentData'] = $ordershipfulfildata;
-		}
-
-		foreach($order_details as $key=>$order_item){
-
-			$amznitem['AmazonOrderItemCode'] = $order_item['OrderItemId'];
-			// $amznitem['MerchantFulfillmentItemID'] = $order_item['id'];
-			$amznitem['Quantity'] = $order_item['QuantityOrdered'];
-			$itemarray[] = $amznitem;
-			unset($order_details[$key]);
-
-		}
-
-		$ordershiparray['Item'] = $itemarray;
-
-		$ordershipmainarray = array();
-		$ordershipmainarray['@attributes'] = array(
-			'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
-			'xsi:noNamespaceSchemaLocation' => "amzn-envelope.xsd"
-			);
-
-		$ordershipmainarray['Header']['DocumentVersion'] = "1.01";
-		$ordershipmainarray['Header']['MerchantIdentifier'] = "M_SELLER_XXXXXX";
-		$ordershipmainarray['MessageType'] = "OrderFulfillment";
-		$ordershipmainarray['PurgeAndReplace'] = 'false';
-
-
-		$ordershipmainarray['Message']['MessageID'] = time();
-		$ordershipmainarray['Message']['OperationType'] = "Update";
-		$ordershipmainarray['Message']['OrderFulfillment'] = $ordershiparray;
-
-		require_once CED_AMAZON_DIRPATH . 'marketplaces/amazon/lib/array2xml.php';
-		$xml = Array2XML::createXML('AmazonEnvelope', $ordershipmainarray);
-		$xmlString = $xml->saveXML();
-
-		$xmlFileName = "shipment_data" .  $ced_amazon_order_seller_id . ".xml";
-
-		if( $statusMark ){
-			$xmlFileName = "shipment_status_data.xml";
-		}
-
-
-		$this->writeXMLStringToFile( $xmlString, $xmlFileName );
-		$logger->info( wc_print_r($xmlString, true), $context );
-
-		$order_topic = 'webapi/amazon/create_feed';
-		$order_keys  = array(
-			'feed_action'    => 'POST_ORDER_FULFILLMENT_DATA',
-			'seller_id'      => $ced_amazon_order_seller_id,
-			'marketplace_id' => $marketplace_id,
-			'token'          => $refresh_token,
-			'feed_content'   => $xmlString
-		);
-
-
-		$file = CED_AMAZON_DIRPATH . 'admin/amazon/lib/ced-amazon-curl-request.php';
-
-		if ( file_exists( $file) ){ 
-
-			require_once $file;
-			$amzonCurlRequestInstance = new Ced_Amazon_Curl_Request();
-
-			$ordershipmentreponse = $amzonCurlRequestInstance->ced_amazon_serverless_process( $order_topic, $order_keys, 'POST');
-			$ordershipmentreponse = isset( $ordershipmentreponse['body'] ) ? json_decode( $ordershipmentreponse['body'], true ) : array() ;
-
-			// test
-
-			if( $ordershipmentreponse['success'] && isset($ordershipmentreponse['data']) && isset($ordershipmentreponse['data']['feed_id'])){
-
-				$feedId = $ordershipmentreponse['data']['feed_id'];
-
-				$feedrequest['request'] = 'Shipped';
-				$feedrequest['id'] = $feedId;
-				$feedrequest['response'] = false;
-
-				require_once CED_AMAZON_DIRPATH . 'admin/amazon/lib/class-feed-manager.php';
-				$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance();
-
-				$mplocation_arr = explode( '|', $ced_amazon_order_seller_id );
-				$mplocation     = isset( $mplocation_arr[0] ) ? $mplocation_arr[0] : '';
- 
-				if( $statusMark ){
-					$feed_manager->insertFeedInfoToDatabase($feedId,'POST_ORDER_FULFILLMENT_DATA',$mplocation ,'amazon_spapi' );
-				} else{
-					$order->update_meta_data( '_umb_order_feed_status', true );
-					$order->update_meta_data( '_umb_order_feed_details', $feedrequest );
-
-					$feed_manager->insertFeedInfoToDatabase($feedId,'POST_ORDER_FULFILLMENT_DATA',$mplocation , 'amazon_spapi');		
-					$order->update_meta_data( '_amazon_umb_order_status', 'Shipped' );
-
-				}
-				
-			} else{
-				$logger->info( 'Unable to create feed for shipment tracking', $context);
-			}
- 
-		} 
-
-
-	}
-
-
 }
 
 ?>

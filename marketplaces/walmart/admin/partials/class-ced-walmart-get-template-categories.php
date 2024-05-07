@@ -3,26 +3,30 @@
 
 class Ced_Walmart_Get_Categories {
 
+
 	public function __construct() {
 		$this->ced_walmart_get_categories();
 	}
 
-	public function ced_walmart_get_categories() {
-		$ced_walmart_category          = array();
-		$ced_walmart_category_response = file_get_contents(CED_WALMART_DIRPATH . 'admin/walmart/lib/json/walmart-categories-latest.json');
-		$ced_walmart_category_response = json_decode($ced_walmart_category_response, true);
 
-		foreach ($ced_walmart_category_response as $key => $value) {
-			$ced_walmart_category[] = $key;
+
+
+	public function ced_walmart_get_categories() {
+
+		$ced_walmart_category = CED_WALMART_DIRPATH . 'admin/walmart/lib/json/MP_ITEM_SPEC.json';
+		if ( file_exists( $ced_walmart_category ) ) {
+			$ced_walmart_category = file_get_contents( $ced_walmart_category );
+			$ced_walmart_category = json_decode( $ced_walmart_category, true );
+			$ced_walmart_category = $ced_walmart_category['properties']['MPItem']['items']['properties']['Visible']['properties'];
 		}
 
-		if ( !empty($ced_walmart_category) && is_array($ced_walmart_category)) {
+		if ( isset( $ced_walmart_category ) ) {
 			print_r( $this->ced_walmart_render_select( $ced_walmart_category ) );
-			
 		} else {
 			echo esc_attr__( 'Categories not found', 'walmart-integration-for-woocommerce' );
 		}
 	}
+
 
 	public function ced_walmart_render_select( $categories ) {
 		$html                 = '';
@@ -54,7 +58,7 @@ class Ced_Walmart_Get_Categories {
 			$cat_name = ced_walmart_categories_tree( $value, $cat_name );
 			$html    .= '<option value="' . $value->term_id . '">' . $cat_name . '</option>';
 		}
-		$html        .= ' </select>
+		$html .= ' </select>
 		</td>
 		</tr>
 		<tr>
@@ -66,21 +70,24 @@ class Ced_Walmart_Get_Categories {
 		<td class="forminp forminp-select">
 		<div class="ced-category-mapping-wrapper">
 		<div class="ced-category-mapping">
-		<strong><span id="ced_walmart_cat_header" data-level="0">Browse and Select a Category</span></strong>';
-		$html        .= '<ol class="ced_walmart_category_0" id="ced_walmart_categories" data-level="0" data-node-value="Browse and Select a Category">';
-		$profile_type = isset($_GET['profile_type']) ? sanitize_text_field($_GET['profile_type']) : '' ;
-		$profile_type = 'MP_ITEM';
+		<strong><span id="ced_walmart_cat_header" data-level="1">Browse and Select a Category</span></strong>
+		';
+		$html .= '<ol id="ced_walmart_categories_1" class="ced_walmart_categories" data-level="1" data-node-value="Browse and Select a Category">';
 		foreach ( $categories  as $index => $data ) {
-			$cat_name = $data;
+
+			$cat_name = $index;
+
 			if ( isset( $cat_name ) && ! empty( $cat_name ) ) {
-				$html .= '<li class="ced_walmart_category_level_0 ced_walmart_category_arrow" data-name="' . esc_attr( $cat_name ) . '" id="' . esc_attr( $cat_name ) . '" data-id="' . esc_attr( $cat_name ) . '"data-level="0" data-profile="' . $profile_type . '"> ' . esc_attr( $cat_name ) . '<span  class="dashicons dashicons-arrow-right-alt2" id="ced_walmart_category_level_0" data-id="' . esc_attr( $cat_name ) . '"></span></li>';
+				$html .= '<li class="ced_walmart_category" data-name="' . esc_attr( $cat_name ) . '" id="' . esc_attr( $cat_name ) . '" data-id="' . esc_attr( $cat_name ) . '"> ' . esc_attr( $cat_name ) . ' <input type="radio"  name="ced_walmart_last_level_cat" id="ced_walmart_last_level_cat" data-id="' . esc_attr( $cat_name ) . '" value="' . esc_attr( $cat_name ) . '" required/></li>';
+
 			}
 		}
 		$html .= '</ol>';
 		$html .= '
 		</div>
 		</div>
-		<div class="ced-category-mapping-wrapper-breadcrumb"><p id="ced_walmart_breadcrumb" style="display: none;"></p></div>
+		<div class="ced-category-mapping-wrapper-breadcrumb"><p id="ced_walmart_breadcrumb" style="display: none;">
+		</p></div>
 		</td>
 		</tr>
 		</tbody>
@@ -88,7 +95,7 @@ class Ced_Walmart_Get_Categories {
 		</div>
 		</div>';
 
-		// $html.= '';
+				// $html.= '';
 		return $html;
 	}
 }

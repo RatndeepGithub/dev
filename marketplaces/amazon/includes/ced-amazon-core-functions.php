@@ -37,25 +37,88 @@ function ced_amazon_time_elapsed_string( $datetime, $full = false ) {
 }
 
 
+
+function ced_amazon_log_data( $message, $log_name, $log_type = '' ) {
+
+	if ( is_array( $message ) ) {
+		$message = print_r( $message, true );
+	} elseif ( is_object( $message ) ) {
+		$ob_get_length = ob_get_length();
+		if ( ! $ob_get_length ) {
+			if ( false === $ob_get_length ) {
+				ob_start();
+			}
+			var_dump( $message );
+			$message = ob_get_contents();
+			if ( false === $ob_get_length ) {
+				ob_end_clean();
+			} else {
+				ob_clean();
+			}
+		} else {
+			$message = '(' . get_class( $message ) . ' Object)';
+		}
+	}
+
+	if ( ! empty( $log_name ) ) {
+		$upload_dir = wp_upload_dir();
+		$log_dir    = ! empty( $log_type ) ? $upload_dir['basedir'] . '/ced-amazon/logs/' . $log_type : $upload_dir['basedir'] . '/ced-amazon/logs';
+		if ( ! is_dir( $log_dir ) ) {
+			wp_mkdir_p( $log_dir, 0777 );
+		}
+		$log_file = $log_dir . '/' . $log_name;
+		file_put_contents( $log_file, PHP_EOL . $message, FILE_APPEND );
+	}
+}
+
 if ( ! function_exists( 'ced_get_navigation_url' ) ) {
 	function ced_get_navigation_url( $channel = 'home', $query_args = array() ) {
-		if ( ! empty( $query_args )  ) {
+		if ( ! empty( $query_args ) ) {
 			return admin_url( 'admin.php?page=sales_channel&channel=' . $channel . '&' . http_build_query( $query_args ) );
-		} 
+		}
 		return admin_url( 'admin.php?page=sales_channel&channel=' . $channel );
 	}
 }
 
+function ced_amazon_get_access_token( $user_id, $seller_id = '' ) {
+
+	if ( empty( $user_id ) ) {
+		return wp_json_encode(
+			array(
+				'status'  => false,
+				'message' => 'Invalid access token',
+			)
+		);
+	}
+
+	$sellernextShopIds                 = get_option( 'ced_amazon_sellernext_shop_ids', array() );
+	$ced_amzon_configuration_validated = get_option( 'ced_amzon_configuration_validated', array() );
+
+	if ( empty( $seller_id ) ) {
+		$seller_id = $sellernextShopIds[ $user_id ]['ced_mp_seller_key'];
+	}
+
+	$access_token = isset( $ced_amzon_configuration_validated[ $seller_id ] ) ? $ced_amzon_configuration_validated[ $seller_id ]['seller_next_access_token'] : '';
+
+	if ( ! empty( $access_token ) ) {
+		return wp_json_encode(
+			array(
+				'status' => true,
+				'data'   => $access_token,
+			)
+		);
+	} else {
+		return wp_json_encode(
+			array(
+				'status'  => false,
+				'message' => 'Invalid UserId',
+			)
+		);
+	}
+}
 
 
 function ced_amazon_get_categories_hierarchical( $args = array() ) {
-
-	$cached_result = get_transient('ced_amz_product_categories');
-
-    // If cached result exists, return it
-    if (false !== $cached_result) {
-        return $cached_result;
-    }
 
 	if ( ! isset( $args['parent'] ) ) {
 		$args['parent'] = 0;
@@ -66,9 +129,6 @@ function ced_amazon_get_categories_hierarchical( $args = array() ) {
 		$args['parent']                       = $category->term_id;
 		$categories[ $key ]->child_categories = ced_amazon_get_categories_hierarchical( $args );
 	endforeach;
-
-	// Store product categories in cache for 1 hour (3600 seconds)
-    set_transient('ced_amz_product_categories', $categories, 3600);
 
 	return $categories;
 }
@@ -158,111 +218,40 @@ function ced_woo_timestamp() {
 		if ( 0 == $current_offset ) {
 
 
-			$tzstring                     = 'UTC';
-			$target_timezone              = new DateTimeZone( $tzstring); 
+			$tzstring = 'UTC';
+			$target_timezone = new DateTimeZone( $tzstring); 
 			$current_time_target_timezone = new DateTime('now', $target_timezone);
 
 		} elseif ( $current_offset < 0 ) {
 
-			$tzstring                       = 'UTC' ;
+			$tzstring = 'UTC' ;
 			$target_timezone_offset_seconds = $current_offset * 3600;
 
 
-			$current_time_utc             = new DateTime('now', new DateTimeZone('UTC'));
+			$current_time_utc = new DateTime('now', new DateTimeZone('UTC'));
 			$current_time_target_timezone = $current_time_utc->modify("$target_timezone_offset_seconds seconds");
 
 
 		} else {
-			$tzstring                       = 'UTC' ;
+			$tzstring = 'UTC' ;
 			$target_timezone_offset_seconds = $current_offset * 3600;
 
-			$current_time_utc             = new DateTime('now', new DateTimeZone('UTC'));
+			$current_time_utc = new DateTime('now', new DateTimeZone('UTC'));
 			$current_time_target_timezone = $current_time_utc->modify("+$target_timezone_offset_seconds seconds");
 
 		}
 
 	} else {
 
-		$target_timezone              = new DateTimeZone( $tzstring); 
+		$target_timezone = new DateTimeZone( $tzstring); 
 		$current_time_target_timezone = new DateTime('now', $target_timezone);
 
 	}
 
+	
+	// $current_time = new DateTime('now', $target_timezone);
 
 	$formatted_time = $current_time_target_timezone->format('Y-m-d H:i:s');
+
 	return !empty( $formatted_time ) ? $formatted_time : gmdate('Y-m-d H:i:s');
-	
-}
-
-
-function ced_redirect_page( $mode, $page_query_params = array() ){
-
-	if( '_sandbox' == $mode ){
-		$page_query_params['mode'] = '_sandbox';
-	}
-
-	$pricing_url = add_query_arg(
-		$page_query_params,
-		admin_url() . 'admin.php'
-	);
-
-	wp_safe_redirect( $pricing_url );
-
-}
-
-
-function ced_amazon_base_uri( $mode ){
-
-	if ( '_sandbox' == $mode ) {
-		return 'admin.php?page=sales_channel&channel=amazon&mode=_sandbox';
-	} else{
-		return 'admin.php?page=sales_channel&channel=amazon';
-	}
-
-}
-
-
-function ced_calculate_price( $markup_type = '', $base_price = 0, $markup_value = 0 ){
-
-
-	if ( 'Fixed_Increased' == $markup_type ) {
-		$markup_price    = (float) $base_price + (float) $markup_value;
-	} elseif ( 'Fixed_Decreased' == $markup_type ){
-		$markup_price    = (float) $base_price - (float) $markup_value;
-	} elseif ( 'Percentage_Increased' == $markup_type ){ 
-		$markup_price    = ( ( ( (float) $base_price * (float) $markup_value ) / 100 ) + $base_price );
-	} elseif ( 'Percentage_Decreased' == $markup_type ) {
-		$markup_price    = ( (float) $base_price ) - ( ( (float) $base_price * (float) $markup_value ) / 100 );
-	} else{
-	   $markup_price = $base_price;
-	}
-
-
-	return $markup_price;
-
-}
-
-
-
-function ced_amz_print_label( $title = '', $tooltip_desc = '', $display_tooltip = false ){ ?>
-
-    <label for="woocommerce_currency">
-		<?php echo esc_html__( $title, 'amazon-for-woocommerce' ); 
-			if( $display_tooltip ) {
-				print_r( wc_help_tip( $tooltip_desc, 'amazon-for-woocommerce' ) );
-			} 
-		?>
-    </label>
-
-	<?php
-}
-
-
-function ced_amazon_print_table_label( $title = '', $tooltip_desc = '', $display_tooltip = false  ){ ?>
-	<th scope="row" class="titledesc">
-		<?php echo ced_amz_print_label( $title, $tooltip_desc, $display_tooltip ); ?>
-	</th>
-
-<?php
-
 }

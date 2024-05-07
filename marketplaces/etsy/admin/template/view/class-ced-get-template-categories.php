@@ -1,30 +1,8 @@
 <?php
-class Ced_Etsy_Categories {
-	/**
-	 * Current Etsy shop name.
-	 *
-	 * @since    1.0.0
-	 * @var      string    $shop_name    current active Etsy shop name.
-	 */
-	public $shop_name;
+class Ced_Etsy_Get_Categories {
 
-	/**
-	 * Initialize the class and set its properties.
-	 *
-	 * @since    3.0.0
-	 * @param      string $shop_name       Etsy Shop Name.
-	 */
-
-	public function __construct( $shop_name = '' ) {
-		$this->shop_name = ! empty( $shop_name ) ? $shop_name : '';
+	public function __construct() {
 	}
-
-	/**
-	 * Get Etsy first level of category.
-	 *
-	 * @since    3.0.0
-	 */
-
 	public function ced_etsy_get_categories() {
 		$categories = @file_get_contents( CED_ETSY_DIRPATH . 'admin/lib/json/categoryLevel-1.json' );
 		if ( ! empty( $categories ) ) {
@@ -40,12 +18,6 @@ class Ced_Etsy_Categories {
 		}
 	}
 
-	/**
-	 * Etsy category tree, level wise.
-	 *
-	 * @since    3.0.0
-	 * @param      string $categories       Etsy Shop Name.
-	 */
 	public function ced_etsy_render_select( $categories ) {
 
 			$html  = '';

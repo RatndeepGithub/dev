@@ -6,7 +6,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 class EtsyListProducts extends WP_List_Table {
 
 	public $show_reset;
-	public $args;
 	public function __construct() {
 		parent::__construct(
 			array(
@@ -20,23 +19,7 @@ class EtsyListProducts extends WP_List_Table {
 	public function prepare_items() {
 
 		global $wpdb;
-
-		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		if ( isset( $_POST['ced_etsy_view_products_entries_table'] ) && wp_verify_nonce( sanitize_text_field( $_POST['ced_etsy_view_products_entries_table'] ), 'ced_etsy_view_products_entries_table_nonce' ) ) {
-			$per_page_preference = ! empty( $_POST['ced_etsy_product_entries_input_field'] ) ? sanitize_text_field( $_POST['ced_etsy_product_entries_input_field'] ) : 0;
-			if ( is_numeric( $per_page_preference ) && ( preg_match( '/^[1-9][0-9]*$/', $per_page_preference ) ) ) {
-				update_option( 'ced_etsy_product_section_per_page_' . $user_id, $per_page_preference );
-			} else {
-				?>
-					<div class="notice notice-error">
-						<p>Invalid input !! Only numbers are allowed [ numbers should be grater than 0 ].</p>
-					</div>
-				<?php
-			}
-		}
-		$per_page = ! empty( get_option( 'ced_etsy_product_section_per_page_' . $user_id ) ) ? get_option( 'ced_etsy_product_section_per_page_' . $user_id ) : 25;
-
-		// $per_page  = 25;
+		$per_page  = 25;
 		$post_type = 'product';
 		$columns   = $this->get_columns();
 		$hidden    = array();
@@ -76,7 +59,7 @@ class EtsyListProducts extends WP_List_Table {
 		$pro_fltr_inst = new \Cedcommerce\Template\Ced_Template_Product_Filter();
 		$shop_name     = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
 		$args          = $this->GetFilteredData( $per_page, $page_number );
-		if ( ! empty( $args ) && ( isset( $args['tax_query'] ) || isset( $args['meta_query'] ) || isset( $args['s'] ) ) ) {
+		if ( ! empty( $args ) && isset( $args['tax_query'] ) || isset( $args['meta_query'] ) || isset( $args['s'] ) ) {
 			$args = $args;
 		} else {
 			$args = array(
@@ -89,31 +72,9 @@ class EtsyListProducts extends WP_List_Table {
 		$args['post_status']  = 'publish';
 		$args['order']        = 'DESC';
 		$args['orderby']      = 'ID';
-		$this->args           = $args;
-		$loop                 = new WP_Query( $this->args );
+		$loop                 = new WP_Query( $args );
 		$product_data         = $loop->posts;
-		$search               = isset( $this->args['s'] ) ? $this->args['s'] : '';
-		if ( empty( $product_data ) && ! empty( $search ) ) {
-			unset( $this->args['s'] );
-			$this->args['meta_query'] = array(
-				array(
-					'key'     => '_sku',
-					'value'   => $search,
-					'compare' => 'LIKE',
-				),
-			);
-
-			$loop         = new WP_Query( $this->args );
-			$product_data = $loop->posts;
-		}
-
-		if ( empty( $product_data ) && ! empty( $search ) ) {
-			unset( $this->args['meta_query'] );
-			$this->args['post__in'] = array( $search );
-			$loop                   = new WP_Query( $this->args );
-			$product_data           = $loop->posts;
-		}
-		$wooProducts = array();
+		$wooProducts          = array();
 		foreach ( $product_data as $key => $value ) {
 			$prodID        = $value->ID;
 			$productDATA   = wc_get_product( $prodID );
@@ -230,7 +191,7 @@ class EtsyListProducts extends WP_List_Table {
 	 */
 	public function get_count( $per_page, $page_number ) {
 		$args = $this->GetFilteredData( $per_page, $page_number );
-		if ( ! empty( $args ) && ( isset( $args['tax_query'] ) || isset( $args['meta_query'] ) ) ) {
+		if ( ! empty( $args ) && isset( $args['tax_query'] ) || isset( $args['meta_query'] ) ) {
 			$args = $args;
 		} else {
 			$args = array( 'post_type' => 'product' );
@@ -239,7 +200,7 @@ class EtsyListProducts extends WP_List_Table {
 		$args['post_status']  = 'publish';
 		$args['order']        = 'DESC';
 		$args['orderby']      = 'ID';
-		$loop                 = new WP_Query( $this->args );
+		$loop                 = new WP_Query( $args );
 		$product_data         = $loop->posts;
 		$product_data         = $loop->found_posts;
 		return $product_data;
@@ -297,23 +258,10 @@ class EtsyListProducts extends WP_List_Table {
 		$productBuilder->ced_etsy_check_profile( $item['id'], $shop_name );
 		if ( $productBuilder->profile_name ) {
 			$profile_name     = esc_attr( $productBuilder->profile_name );
-			$edit_profile_url = ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'templates',
-					'profileID' => $productBuilder->profile_id,
-					'shop_name' => $shop_name,
-				)
-			);
+			$edit_profile_url = admin_url( 'admin.php?page=sales_channel&channel=etsy&profileID=' . $productBuilder->profile_id . '&section=templates&details=edit&shop_name=' . $shop_name );
 			echo '<a href="' . esc_url( $edit_profile_url ) . '">' . esc_html( $profile_name ) . '</a>';
 		} else {
-			$cat_mapping_section = ced_get_navigation_url(
-				'etsy',
-				array(
-					'section'   => 'category',
-					'shop_name' => $shop_name,
-				)
-			);
+			$cat_mapping_section = admin_url( 'admin.php?page=sales_channel&channel=etsy&section=category&shop_name=' . $shop_name );
 			echo '<span class="">----</span>';
 		}
 	}
@@ -353,7 +301,7 @@ class EtsyListProducts extends WP_List_Table {
 		$listingId = get_post_meta( $item['id'], '_ced_etsy_listing_id_' . $shop_name, true );
 		$view_url  = get_post_meta( $item['id'], '_ced_etsy_url_' . $shop_name, true );
 		if ( ! empty( $listingId ) ) {
-			echo '<div class="ced_etsy_product_status_wrap"><p><span class="success_upload_on_etsy" id="' . esc_attr( $item['id'] ) . '"><span class="ced-circle-instock"></span><span class="ced_etsy_product_status"><a href="' . esc_url( $view_url ) . '" target="_blank"> Present on Etsy <i class="fa fa-eye" aria-hidden="true"></i></a></span></p></div>';
+			echo '<div class="ced_etsy_product_status_wrap"><p><span class="success_upload_on_etsy" id="' . esc_attr( $item['id'] ) . '"><span class="ced-circle-instock"></span><span class="ced_etsy_product_status">Present on Etsy</span></p></div>';
 		} else {
 			echo '<div class="ced_etsy_product_status_wrap"><p><span class="ced-circle-notuploaded"></span><span class="not_completed ced_etsy_product_status" id="' . esc_attr( $item['id'] ) . '">Not on Etsy</span></p></div>';
 		}
@@ -448,19 +396,7 @@ class EtsyListProducts extends WP_List_Table {
 		<div id="" class="">
 			<div class="ced_progress">
 				<h4 class="ced-red"><?php esc_html_e( '*Do not press any key or refresh the page until the operation is complete', 'woocommerce-etsy-integration' ); ?>
-					<a target="_blank" href="
-					<?php
-					echo esc_url(
-						ced_get_navigation_url(
-							'etsy',
-							array(
-								'section'   => 'timeline',
-								'shop_name' => $shop_name,
-							)
-						)
-					);
-					?>
-												">
+					<a target="_blank" href="<?php echo esc_url( admin_url( 'admin.php?page=sales_channel&channel=etsy&section=timeline&shop_name=' . esc_attr( $activeShop ) ) ); ?>">
 						<?php esc_html_e( 'Click here to see activity', 'woocommerce-etsy-integration' ); ?>
 					</a>
 				</h4>
@@ -473,18 +409,17 @@ class EtsyListProducts extends WP_List_Table {
 			<div id="">
 				<div class="">
 				<?php
-				$shop_name       = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
-				$status_actions  = array(
+				$shop_name      = isset( $_GET['shop_name'] ) ? sanitize_text_field( wp_unslash( $_GET['shop_name'] ) ) : '';
+				$status_actions = array(
 					'Uploaded'    => __( 'On Etsy', 'woocommerce-etsy-integration' ),
 					'NotUploaded' => __( 'Not on Etsy', 'woocommerce-etsy-integration' ),
 				);
-				$stock_status    = array(
+				$stock_status   = array(
 					'instock'    => __( 'In stock', 'woocommerce-etsy-integration' ),
 					'outofstock' => __( 'Out of stock', 'woocommerce-etsy-integration' ),
 				);
-				$product_types   = get_terms( 'product_type' );
-				$temp_array      = array();
-				$temp_array_type = array();
+				$product_types  = get_terms( 'product_type' );
+				$temp_array     = array();
 				foreach ( $product_types as $key => $value ) {
 					if ( 'simple' == $value->name || 'variable' == $value->name ) {
 						$temp_array_type[ $value->term_id ] = ucfirst( $value->name );
@@ -549,18 +484,10 @@ class EtsyListProducts extends WP_List_Table {
 					echo '<option ' . esc_attr( $selectedType ) . ' value="' . esc_attr( $name ) . '"' . esc_attr( $class ) . '>' . esc_attr( $title ) . '</option>';
 				}
 					echo '</select>';
-					$this->search_box( 'Search products', 'search_id', 'search_product', 'Search by Title, Sku, Id' );
+					$this->search_box( 'Search products', 'search_id', 'search_product' );
 					submit_button( __( 'Filter', 'ced-etsy' ), 'action', 'filter_button', false, array() );
 				if ( $this->show_reset ) {
-					echo '<span class="ced_reset"><a href="' . esc_url(
-						ced_get_navigation_url(
-							'etsy',
-							array(
-								'section'   => 'products',
-								'shop_name' => $shop_name,
-							)
-						)
-					) . '" class="button">X</a></span>';
+					echo '<span class="ced_reset"><a href="' . esc_url( admin_url( 'admin.php?page=sales_channel&channel=etsy&section=products&shop_name=' . $shop_name ) ) . '" class="button">X</a></span>';
 				}
 					echo '</div>';
 					echo '</form>';
@@ -578,54 +505,7 @@ class EtsyListProducts extends WP_List_Table {
 		</div>
 		<?php
 	}
-
-	public function search_box( $text, $input_id, $pa = '', $placeholder = '' ) {
-		if ( empty( $_REQUEST['s'] ) && ! $this->has_items() ) {
-			return;
-		}
-
-		$input_id = $input_id . '-search-input';
-
-		if ( ! empty( $_REQUEST['orderby'] ) ) {
-			$orderby = isset( $_REQUEST['orderby'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['orderby'] ) ) : '';
-			echo '<input type="hidden" name="orderby" value="' . esc_attr( $orderby ) . '" />';
-		}
-		if ( ! empty( $_REQUEST['order'] ) ) {
-			$order = isset( $_REQUEST['order'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['order'] ) ) : '';
-			echo '<input type="hidden" name="order" value="' . esc_attr( $order ) . '" />';
-		}
-		?>
-		<p class="search-box">
-			<label class="screen-reader-text" for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_attr( $text ); ?>:</label>
-			<input type="search" id="<?php echo esc_attr( $input_id ); ?>" class="wp-filter-search" name="s" value="<?php _admin_search_query(); ?>" placeholder="<?php esc_attr_e( $placeholder ); ?>" />
-			<?php submit_button( $text, '', '', false, array( 'id' => 'search-submit' ) ); ?>
-		</p>
-		<?php
-	}
-
-
-	public function extra_tablenav( $which ) {
-		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		if ( 'top' == $which ) {
-			ob_start();
-			?>
-			<div class="alignleft actions bulkactions" style="padding-right:0px !important;">
-				<input type="text" placeholder="No. of entries to view" name="ced_etsy_product_entries_input_field" style="line-height:0;" value="<?php echo ! empty( get_option( 'ced_etsy_product_section_per_page_' . $user_id ) ) ? esc_attr( get_option( 'ced_etsy_product_section_per_page_' . $user_id, true ) ) : ''; ?>">
-				<button style="vertical-align:bottom;" type="submit" class="button" name="ced_etsy_view_products_entries_table">
-					<span>Save</span>
-				</button>
-			</div>
-			<?php
-			ob_flush();
-
-			?>
-			<div class="alignright actions bulkactions">
-				<?php wp_nonce_field( 'ced_etsy_view_products_entries_table_nonce', 'ced_etsy_view_products_entries_table' ); ?>
-			</div>
-			<?php
-		}
-	}
 }
 
-	$ced_etsy_products_obj = new EtsyListProducts();
+	$ced_etsy_products_obj = new etsyListProducts();
 	$ced_etsy_products_obj->prepare_items();

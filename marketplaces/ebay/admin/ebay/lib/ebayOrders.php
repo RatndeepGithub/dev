@@ -48,7 +48,19 @@ if ( ! class_exists( 'EbayOrders' ) ) {
 			$sample = file_get_contents( CED_EBAY_DIRPATH . '/admin/fulfillment_api.json' );
 			return $sample;
 		}
-		
+		public function getOrders() {
+			$siteID     = $this->siteID;
+			$token      = $this->token;
+			$verb       = 'GetOrders';
+			$xmlbody    = $this->createGetOrderXml( $siteID, $token );
+			$cedRequest = new \Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, $verb );
+			$response   = $cedRequest->sendHttpRequest( $xmlbody );
+			// $response = json_decode( $this->sample_order(), true );
+			if ( $response ) {
+				return $response;
+			}
+			return false;
+		}
 
 
 		public function create_localOrders( $orders, $site_id, $userId = '' ) {
@@ -692,7 +704,20 @@ if ( ! class_exists( 'EbayOrders' ) ) {
 		}
 
 
-		
+		public function getOrderDetails( $ebayOrderId ) {
+			$siteID  = $this->siteID;
+			$token   = $this->token;
+			$verb    = 'GetOrders';
+			$xmlbody = $this->createGetOrderDetailXml( $siteID, $token, $ebayOrderId );
+
+			$cedRequest = new \Ced_Ebay_WooCommerce_Core\Cedrequest( $siteID, $verb );
+			$response   = $cedRequest->sendHttpRequest( $xmlbody );
+
+			if ( $response ) {
+				return $response;
+			}
+			return false;
+		}
 
 		public function umb_get_product_by( $params ) {
 			global $wpdb;
@@ -764,6 +789,47 @@ if ( ! class_exists( 'EbayOrders' ) ) {
 			}
 			return false;
 		}
+		public function createGetOrderDetailXml( $siteID, $token, $ebayOrderId ) {
+			$xmlBody = '<?xml version="1.0" encoding="utf-8"?>
+						<GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+						  <RequesterCredentials>
+						    <eBayAuthToken>' . $token . '</eBayAuthToken>
+						  </RequesterCredentials>
+						   <DetailLevel>ReturnAll</DetailLevel>
+						   <OrderIDArray>
+						    <OrderID>' . $ebayOrderId . '</OrderID>
+						  </OrderIDArray>
+						  <OrderRole>Seller</OrderRole>
+						  <OrderStatus>All</OrderStatus>
+						  <Version>859</Version>
+						</GetOrdersRequest>';
+			return $xmlBody;
+		}
+
+
+		public function createGetOrderXml( $siteID, $token ) {
+			$currentime = time();
+			$toDate     = $currentime - ( 1 * 60 );
+			$fromDate   = $currentime - ( 3 * 24 * 60 * 60 );
+			$offset     = '.000Z';
+			$toDate     = gmdate( 'Y-m-d', $toDate ) . 'T' . gmdate( 'H:i:s', $toDate ) . $offset;
+			$fromDate   = gmdate( 'Y-m-d', $fromDate ) . 'T' . gmdate( 'H:i:s', $fromDate ) . $offset;
+			$xmlBody    = '<?xml version="1.0" encoding="utf-8"?>
+						<GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+						  <RequesterCredentials>
+						    <eBayAuthToken>' . $token . '</eBayAuthToken>
+						  </RequesterCredentials>
+						   <DetailLevel>ReturnAll</DetailLevel>
+						   <CreateTimeFrom>' . $fromDate . '</CreateTimeFrom>
+  						   <CreateTimeTo>' . $toDate . '</CreateTimeTo>
+						  <OrderRole>Seller</OrderRole>
+						  <OrderStatus>Completed</OrderStatus>
+						  <Version>1193</Version>
+						</GetOrdersRequest>';
+			return $xmlBody;
+		}
+
+
 		/**
 		 * Function loadDepenedency
 		 *

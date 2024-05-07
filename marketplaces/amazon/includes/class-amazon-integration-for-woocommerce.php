@@ -150,49 +150,31 @@ class Amazon_Integration_For_Woocommerce {
 		$this->loader->add_action( 'wp_ajax_ced_amazon_add_custom_profile_rows', $plugin_admin, 'ced_amazon_add_custom_profile_rows' );
 
 		$this->loader->add_action( 'wp_ajax_ced_amazon_create_sellernext_user', $plugin_admin, 'ced_amazon_create_sellernext_user' );
+		$this->loader->add_action( 'wp_ajax_ced_amazon_sellernext_get_access_token_and_redirect', $plugin_admin, 'ced_amazon_sellernext_get_access_token_and_redirect' );
+
 		$this->loader->add_action( 'wp_ajax_ced_amazon_get_orders', $plugin_admin, 'ced_amazon_get_orders' );
 		$this->loader->add_filter( 'cron_schedules', $plugin_admin, 'my_amazon_cron_schedules' );
 
 		$this->loader->add_action( 'wp_ajax_ced_amazon_update_current_step', $plugin_admin, 'ced_amazon_update_current_step' );
+
 		$this->loader->add_action( 'wp_ajax_ced_amazon_remove_account_from_integration', $plugin_admin, 'ced_amazon_remove_account_from_integration' );
 		$this->loader->add_action( 'wp_ajax_ced_amazon_modify_product_data_for_upload', $plugin_admin, 'ced_amazon_modify_product_data_for_upload' );
 		$this->loader->add_action( 'wp_ajax_ced_amazon_update_template', $plugin_admin, 'ced_amazon_update_template' );
 
 		$this->loader->add_action( 'wp_ajax_ced_amazon_checkSellerNextCategoryApi', $plugin_admin, 'ced_amazon_checkSellerNextCategoryApi' );
+
 		$this->loader->add_action( 'wp_ajax_ced_amazon_seller_verification', $plugin_admin, 'ced_amazon_seller_verification' );
+
 		$this->loader->add_action( 'wp_ajax_ced_amazon_add_missing_field_row', $plugin_admin, 'ced_amazon_add_missing_field_row' );
 		$this->loader->add_action( 'wp_ajax_ced_amazon_view_feed_response', $plugin_admin, 'ced_amazon_view_feed_response' );
-		
-		
+		$this->loader->add_action( 'wp_ajax_ced_amazon_product_specific_feeds', $plugin_admin, 'ced_amazon_product_specific_feeds' );
+
+		$this->loader->add_action( 'wp_ajax_ced_amazon_order_detail_amazon_data', $plugin_admin, 'ced_amazon_order_detail_amazon_data' );
 		$this->loader->add_action( 'wp_ajax_ced_amazon_prepare_template', $plugin_admin, 'ced_amazon_prepare_template' );
+
 		$this->loader->add_action( 'wp_ajax_ced_amazon_change_region', $plugin_admin, 'ced_amazon_change_region' );
+
 		$this->loader->add_action( 'wp_ajax_ced_amazon_clone_template_modal', $plugin_admin, 'ced_amazon_clone_template_modal' );
-		$this->loader->add_action( 'wp_ajax_ced_search_amz_categories', $plugin_admin, 'ced_search_amz_categories' );
-		$this->loader->add_action( 'ced_amz_fetch_next_page_orders', $plugin_admin, 'ced_amz_fetch_next_page_orders' );
-
-		$this->loader->add_action( 'wp_ajax_ced_amazon_get_selected_categories', $plugin_admin, 'ced_amazon_get_selected_categories' );
-		$this->loader->add_action( 'wp_ajax_ced_category_mapping_wrapper_html', $plugin_admin, 'ced_category_mapping_wrapper_html' );
-		$this->loader->add_filter( 'woocommerce_duplicate_product_exclude_meta', $plugin_admin, 'ced_amazon_woocommerce_duplicate_product_exclude_meta_filter', 10, 2 );
-
-		$order_status = array(
-			'new_order',
-			'customer_processing_order',
-			'cancelled_order',
-			'customer_completed_order',
-			'customer_on_hold_order',
-			'customer_refunded_order',
-			'customer_failed_order',
-		);
-		foreach ( $order_status as $key => $status ) {
-			$this->loader->add_filter( 'woocommerce_email_enabled_' . esc_attr( $status ), $plugin_admin, 'ced_amz_email_restriction', 10, 2 );
-		}
-
-
-		$this->loader->add_action( 'wp_ajax_ced_amazon_cron_exist_product_sync', $plugin_admin, 'ced_amazon_cron_exist_product_sync' );
-		$this->loader->add_action( 'wp_ajax_nopriv_ced_amazon_cron_exist_product_sync', $plugin_admin, 'ced_amazon_cron_exist_product_sync' );
-		$this->loader->add_action( 'wp_ajax_ced_amazon_cron_catalog_asin_sync', $plugin_admin, 'ced_amazon_cron_catalog_asin_sync' );
-		$this->loader->add_action( 'wp_ajax_nopriv_ced_amazon_cron_catalog_asin_sync', $plugin_admin, 'ced_amazon_cron_catalog_asin_sync' );		
-
 	}
 
 

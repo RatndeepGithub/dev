@@ -43,7 +43,12 @@ if ( ! class_exists( 'Ced_Product_Category' ) ) {
 		 * @since    1.0.0
 		 */
 		public function get_etsy_categories( $shop_name = '' ) {
-			$categories = etsy_request()->ced_etsy_remote_req( 'taxonomy/nodes', array(), array( 'shop_id' => get_etsy_shop_id( $shop_name ) ), 'GET' );
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$categories = etsy_request()->get( 'application/seller-taxonomy/nodes', $shop_name );
 			return $categories;
 		}
 
@@ -54,128 +59,128 @@ if ( ! class_exists( 'Ced_Product_Category' ) ) {
 		 */
 		public function ced_etsy_store_categories( $fetchedCategories, $ajax = '' ) {
 			foreach ( $fetchedCategories['results'] as $key => $value ) {
-				if ( count( $value['children'] ) > 0 ) {
+				if ( count( $value['children_ids'] ) > 0 ) {
 					$arr1[] = array(
 						'id'       => $value['id'],
 						'name'     => $value['name'],
-						'path'     => $value['full_path_taxonomy_ids'],
-						'children' => count( $value['children'] ),
+						'path'     => $value['path'],
+						'children' => count( $value['children_ids'] ),
 					);
 				} else {
 					$arr1[] = array(
 						'id'       => $value['id'],
 						'name'     => $value['name'],
-						'path'     => $value['full_path_taxonomy_ids'],
+						'path'     => $value['path'],
 						'children' => 0,
 					);
 				}
 				foreach ( $value['children'] as $key1 => $value1 ) {
-					if ( count( $value1['children'] ) > 0 ) {
+					if ( count( $value1['children_ids'] ) > 0 ) {
 						$arr2[] = array(
-							'parent_id' => $value['parent_id'],
+							'parent_id' => $value['id'],
 							'id'        => $value1['id'],
 							'name'      => $value1['name'],
-							'path'      => $value1['full_path_taxonomy_ids'],
-							'children'  => count( $value1['children'] ),
+							'path'      => $value1['path'],
+							'children'  => count( $value1['children_ids'] ),
 						);
 					} else {
 						$arr2[] = array(
-							'parent_id' => $value['parent_id'],
+							'parent_id' => $value['id'],
 							'id'        => $value1['id'],
 							'name'      => $value1['name'],
-							'path'      => $value1['full_path_taxonomy_ids'],
+							'path'      => $value1['path'],
 							'children'  => 0,
 						);
 					}
 					foreach ( $value1['children'] as $key2 => $value2 ) {
-						if ( count( $value2['children'] ) > 0 ) {
+						if ( count( $value2['children_ids'] ) > 0 ) {
 							$arr3[] = array(
-								'parent_id' => $value1['parent_id'],
+								'parent_id' => $value1['id'],
 								'id'        => $value2['id'],
 								'name'      => $value2['name'],
-								'path'      => $value2['full_path_taxonomy_ids'],
-								'children'  => count( $value2['children'] ),
+								'path'      => $value2['path'],
+								'children'  => count( $value2['children_ids'] ),
 							);
 						} else {
 							$arr3[] = array(
-								'parent_id' => $value1['parent_id'],
+								'parent_id' => $value1['id'],
 								'id'        => $value2['id'],
 								'name'      => $value2['name'],
-								'path'      => $value2['full_path_taxonomy_ids'],
+								'path'      => $value2['path'],
 								'children'  => 0,
 							);
 						}
 						foreach ( $value2['children'] as $key3 => $value3 ) {
-							if ( count( $value3['children'] ) > 0 ) {
+							if ( count( $value3['children_ids'] ) > 0 ) {
 								$arr4[] = array(
-									'parent_id' => $value2['parent_id'],
+									'parent_id' => $value2['id'],
 									'id'        => $value3['id'],
 									'name'      => $value3['name'],
-									'path'      => $value3['full_path_taxonomy_ids'],
-									'children'  => count( $value3['children'] ),
+									'path'      => $value3['path'],
+									'children'  => count( $value3['children_ids'] ),
 								);
 							} else {
 								$arr4[] = array(
-									'parent_id' => $value2['parent_id'],
+									'parent_id' => $value2['id'],
 									'id'        => $value3['id'],
 									'name'      => $value3['name'],
-									'path'      => $value3['full_path_taxonomy_ids'],
+									'path'      => $value3['path'],
 									'children'  => 0,
 								);
 							}
 							foreach ( $value3['children'] as $key4 => $value4 ) {
-								if ( count( $value4['children'] ) > 0 ) {
+								if ( count( $value4['children_ids'] ) > 0 ) {
 									$arr5[] = array(
-										'parent_id' => $value3['parent_id'],
+										'parent_id' => $value3['id'],
 										'id'        => $value4['id'],
 										'name'      => $value4['name'],
-										'path'      => $value4['full_path_taxonomy_ids'],
-										'children'  => count( $value4['children'] ),
+										'path'      => $value4['path'],
+										'children'  => count( $value4['children_ids'] ),
 									);
 								} else {
 									$arr5[] = array(
-										'parent_id' => $value3['parent_id'],
+										'parent_id' => $value3['id'],
 										'id'        => $value4['id'],
 										'name'      => $value4['name'],
-										'path'      => $value4['full_path_taxonomy_ids'],
+										'path'      => $value4['path'],
 										'children'  => 0,
 									);
 								}
 								foreach ( $value4['children'] as $key5 => $value5 ) {
-									if ( count( $value5['children'] ) > 0 ) {
+									if ( count( $value5['children_ids'] ) > 0 ) {
 										$arr6[] = array(
-											'parent_id' => $value4['parent_id'],
+											'parent_id' => $value4['id'],
 											'id'        => $value5['id'],
 											'name'      => $value5['name'],
-											'path'      => $value5['full_path_taxonomy_ids'],
-											'children'  => count( $value5['children'] ),
+											'path'      => $value5['path'],
+											'children'  => count( $value5['children_ids'] ),
 										);
 									} else {
 										$arr6[] = array(
-											'parent_id' => $value4['parent_id'],
+											'parent_id' => $value4['id'],
 											'id'        => $value5['id'],
 											'name'      => $value5['name'],
-											'path'      => $value5['full_path_taxonomy_ids'],
+											'path'      => $value5['path'],
 											'children'  => 0,
 										);
 									}
 									foreach ( $value5['children'] as $key6 => $value6 ) {
-										if ( is_array( $value6['children'] ) && ! empty( $value6['children'] ) ) {
+										if ( is_array( $value6['children_ids'] ) && ! empty( $value6['children_ids'] ) ) {
 
 											$arr7[] = array(
-												'parent_id' => $value5['parent_id'],
+												'parent_id' => $value5['id'],
 												'id'       => $value6['id'],
 												'name'     => $value6['name'],
-												'path'     => $value6['full_path_taxonomy_ids'],
-												'children' => count( $value6['children'] ),
+												'path'     => $value6['path'],
+												'children' => count( $value6['children_ids'] ),
 											);
 
 										} else {
 											$arr7[] = array(
-												'parent_id' => $value5['parent_id'],
+												'parent_id' => $value5['id'],
 												'id'       => $value6['id'],
 												'name'     => $value6['name'],
-												'path'     => $value6['full_path_taxonomy_ids'],
+												'path'     => $value6['path'],
 												'children' => 0,
 											);
 										}
@@ -187,10 +192,10 @@ if ( ! class_exists( 'Ced_Product_Category' ) ) {
 				}
 			}
 
-			$folderName        = CED_ETSY_DIRPATH . 'admin/lib/json/';
 			$catFirstLevelFile = $folderName . 'category.json';
 			file_put_contents( $catFirstLevelFile, json_encode( $fetchedCategories['results'] ) );
 
+			$folderName        = CED_ETSY_DIRPATH . 'admin/etsy/lib/json/';
 			$catFirstLevelFile = $folderName . 'categoryLevel-1.json';
 			file_put_contents( $catFirstLevelFile, json_encode( $arr1 ) );
 			$catSecondLevelFile = $folderName . 'categoryLevel-2.json';

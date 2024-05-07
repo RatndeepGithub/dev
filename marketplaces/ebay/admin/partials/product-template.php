@@ -14,7 +14,7 @@ class Ced_Ebay_Get_Categories {
 	}
 	public function ced_ebay_get_categories() {
 		$user_id        = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id        = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id        = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$wp_upload_dir  = wp_upload_dir() ['baseurl'];
 		$is_ebay_motors = false;
 		$ebay_folder    = $wp_upload_dir . '/ced-ebay/category-templates-json';
@@ -63,8 +63,10 @@ class Ced_Ebay_Get_Categories {
 				$user_id             = isset( $sanitized_array['user_id'] ) ? ( $sanitized_array['user_id'] ) : '';
 				$profile_category_id = isset( $sanitized_array['profile_category_id'] ) ? $sanitized_array['profile_category_id'] : '';
 				$ebay_profile_name   = isset( $sanitized_array['ebay_profile_name'] ) ? $sanitized_array['ebay_profile_name'] : '';
-				$rsid           = ced_ebay_get_shop_data( $user_id );
-				
+				$shop_data           = ced_ebay_get_shop_data( $user_id );
+				if ( ! empty( $shop_data ) ) {
+					$token = $shop_data['access_token'];
+				}
 				foreach ( $common as $key ) {
 					$arrayToSave = array();
 					if ( false !== strpos( $key, '_required' ) ) {
@@ -139,13 +141,43 @@ class Ced_Ebay_Get_Categories {
 							update_term_meta( $woo_mapped_cat, 'ced_ebay_profile_name_' . $user_id . '>' . $site_id, $ebay_profile_name );
 						}
 					}
-					
-					$profile_edit_url = admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-templates&user_id=' . $user_id . '&profileID=' . $profileId . '&sid=' . $site_id . '&eBayCatID=' . $profile_category_id );
+					// $wp_upload_dir = wp_upload_dir() ['baseurl'];
+					// $wp_upload_dir = $wp_upload_dir . '/ced-ebay/';
+					// $cat_specifics_file = $wp_upload_dir . 'ebaycat_' . $profile_category_id . '.json';
+					// if ( file_exists( $cat_specifics_file ) ) {
+					// $available_attribute = json_decode( file_get_contents( $cat_specifics_file ), true );
+					// }
+					// if ( ! is_array( $available_attribute ) ) {
+					// $available_attribute = array();
+					// }
+
+					// if ( ! empty( $available_attribute ) ) {
+					// $categoryAttributes = $available_attribute;
+					// } else {
+					// $ebayCategoryInstance    = CedGetCategories::get_instance( $site_id, $token );
+					// $categoryAttributes      = $ebayCategoryInstance->_getCatSpecifics( $profile_category_id );
+					// $categoryAttributes_json = json_encode( $categoryAttributes );
+					// $cat_specifics_file      = $wp_upload_dir . 'ebaycat_' . $profile_category_id . '.json';
+					// if ( file_exists( $cat_specifics_file ) ) {
+					// wp_delete_file( $cat_specifics_file );
+					// }
+					// file_put_contents( $cat_specifics_file, $categoryAttributes_json );
+					// }
+					// $ebayCategoryInstance = CedGetCategories::get_instance( $site_id, $token );
+					// $getCatFeatures       = $cedCatInstance->_getCatFeatures( $catID, $limit );
+					// $getCatFeatures_json  = json_encode( $getCatFeatures );
+					// $cat_features_file    = $wp_upload_dir . 'ebaycatfeatures_' . $profile_category_id . '.json';
+					// if ( file_exists( $cat_features_file ) ) {
+					// wp_delete_file( $cat_features_file );
+					// }
+					// file_put_contents( $cat_features_file, $getCatFeatures_json );
+					// $getCatFeatures = isset( $getCatFeatures['Category'] ) ? $getCatFeatures['Category'] : false;
+					$profile_edit_url = admin_url( 'admin.php?page=sales_channel&channel=ebay&section=view-templates&user_id=' . $user_id . '&profileID=' . $profileId . '&site_id=' . $site_id . '&eBayCatID=' . $profile_category_id );
 					wp_redirect( $profile_edit_url );
 			}
 		}
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		global $wpdb;
 		$tableName    = $wpdb->prefix . 'ced_ebay_profiles';
 		$profile_data = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}ced_ebay_profiles WHERE `ebay_user`=%s AND `ebay_site`=%s", $user_id, $site_id ), 'ARRAY_A' );
@@ -177,7 +209,7 @@ class Ced_Ebay_Get_Categories {
 		<tr>
 		<th scope="row" class="titledesc">
 		<label for="woocommerce_currency">
-		Select WooCommerce Category
+		WooCommerce Category
 		</label>
 		</th>
 		<td class="forminp forminp-select ced-input-setting">
@@ -213,7 +245,7 @@ class Ced_Ebay_Get_Categories {
 		';
 			$html .= '<ol id="ced_ebay_categories_2" class="ced_ebay_categories" data-level="2" data-node-value="Browse and Select a Category">';
 			foreach ( $categories as $key => $value ) {
-				$parent_id = isset( $value['CategoryParentID'][0] ) ? $value['CategoryParentID'][0] : '';
+				$parent_id = isset( $value['CategoryParentID'] ) ? $value['CategoryParentID'] : '';
 				$cat_id    = isset( $value['CategoryID'] ) ? $value['CategoryID'] : '';
 				$html     .= '<li data-location="' . $location . '" id="' . $cat_id . '" data-level="2" class="ced_ebay_category_arrow" data-name="' . $value['CategoryName'] . '"  data-parentId = "' . $parent_id . '" data-id="' . $cat_id . '" >' . esc_attr( $value['CategoryName'] ) . '<span  class="dashicons dashicons-arrow-right-alt2"></span></li>';
 			}
@@ -240,7 +272,7 @@ class Ced_Ebay_Get_Categories {
 		<tr>
 		<th scope="row" class="titledesc">
 		<label for="woocommerce_currency">
-		eBay Category 
+		ebay Category 
 		</label>
 		</th>
 		<td class="forminp forminp-select">
@@ -250,7 +282,7 @@ class Ced_Ebay_Get_Categories {
 		';
 			$html .= '<ol id="ced_ebay_categories_1" class="ced_ebay_categories" data-level="1" data-node-value="Browse and Select a Category">';
 			foreach ( $categories as $key => $value ) {
-				$parent_id = isset( $value['CategoryParentID'][0] ) ? $value['CategoryParentID'][0] : '';
+				$parent_id = isset( $value['CategoryParentID'] ) ? $value['CategoryParentID'] : '';
 				$cat_id    = isset( $value['CategoryID'] ) ? $value['CategoryID'] : '';
 				$html     .= '<li data-location="' . $location . '" id="' . $cat_id . '" data-level="1" class="ced_ebay_category_arrow" data-name="' . $value['CategoryName'] . '"  data-parentId = "' . $parent_id . '" data-id="' . $cat_id . '" >' . esc_attr( $value['CategoryName'] ) . '<span  class="dashicons dashicons-arrow-right-alt2"></span></li>';
 			}

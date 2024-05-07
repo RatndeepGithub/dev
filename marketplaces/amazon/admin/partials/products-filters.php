@@ -10,15 +10,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class FilterClass {
 
-	public $mode;
-
-	/**
-	 * Class constructor
-	 */
-	public function __construct() {
-		$this->mode = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-	}
-
 	/**
 	 * Function- filter_by_category.
 	 * Used to Apply Filter on Product Page
@@ -44,8 +35,7 @@ class FilterClass {
 				$current_url = $current_url . '&seller_id=' . $seller_id;
 				wp_safe_redirect( $current_url . '&status_sorting=' . $status_sorting . '&pro_cat_sorting=' . $pro_cat_sorting . '&pro_type_sorting=' . $pro_type_sorting . '&pro_stock_sorting=' . $pro_stock_sorting . '&s=' . $s );
 			} else {
-				$ced_base_uri = ced_amazon_base_uri( $this->mode );
-				$url          = admin_url() . $ced_base_uri . '&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id;
+				$url = admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id;
 				wp_safe_redirect( $url );
 			}
 		}
@@ -76,8 +66,7 @@ class FilterClass {
 			$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : get_option( 'ced_umb_amazon_bulk_profile_loc_temp' );
 			$seller_id = str_replace( '|', '%7C', $seller_id );
 
-			$ced_base_uri = ced_amazon_base_uri( $this->mode );
-			$url          = admin_url( $ced_base_uri . '&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
+			$url = admin_url( 'admin.php?page=sales_channel&channel=amazon&section=products-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
 			wp_safe_redirect( $url );
 		}
 	}

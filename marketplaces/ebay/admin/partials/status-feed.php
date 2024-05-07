@@ -4,7 +4,9 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
-
+if ( empty( get_option( 'ced_ebay_user_access_token' ) ) ) {
+	wp_redirect( get_admin_url() . 'admin.php?page=ced_ebay' );
+}
 
 	$file = CED_EBAY_DIRPATH . 'admin/partials/header.php';
 if ( file_exists( $file ) ) {
@@ -47,7 +49,7 @@ class Ced_Ebay_Status_Feed extends WP_List_Table {
 		$filter_type = isset( $_GET['type'] ) ? sanitize_text_field( $_GET['type'] ) : '';
 		global $wpdb;
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$offset  = ( $page_number - 1 ) * $per_page;
 		if ( 'uploaded' == $filter_type ) {
 			$result = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}ced_ebay_bulk_upload WHERE `user_id` = %s AND `site_id` = %s AND `operation_status` = %s ORDER BY `scheduled_time` DESC LIMIT %d OFFSET %d", $user_id, $site_id, 'Uploaded', $per_page, $offset ), 'ARRAY_A' );
@@ -71,7 +73,7 @@ class Ced_Ebay_Status_Feed extends WP_List_Table {
 		$filter_type = isset( $_GET['type'] ) ? sanitize_text_field( $_GET['type'] ) : '';
 		global $wpdb;
 		$user_id = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		if ( 'uploaded' == $filter_type ) {
 			$sql = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}ced_ebay_bulk_upload WHERE `user_id` = %s AND `site_id` = %s AND `operation_status` = %s", $user_id, $site_id, 'Uploaded' ) );
 
@@ -150,7 +152,7 @@ class Ced_Ebay_Status_Feed extends WP_List_Table {
 	public function column_product_name( $item ) {
 		$actions       = array();
 		$user_id       = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id       = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id       = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$product_id    = $item['product_id'];
 		$listing_id    = get_post_meta( $product_id, '_ced_ebay_listing_id_' . $user_id . '>' . $site_id, true );
 		$product       = wc_get_product( $product_id );
@@ -253,7 +255,6 @@ class Ced_Ebay_Status_Feed extends WP_List_Table {
 	public function renderHTML() {
 		$total_items = self::record_count();
 		$user_id     = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
 		?>
 		<div class="ced-ebay-v2-header">
 				
@@ -268,7 +269,7 @@ class Ced_Ebay_Status_Feed extends WP_List_Table {
 				$scheduled_bulk_upload_actions = as_get_scheduled_actions(
 					array(
 						'group'  => 'ced_ebay_bulk_upload_' . $user_id,
-						'status' => \ActionScheduler_Store::STATUS_PENDING,
+						'status' => ActionScheduler_Store::STATUS_PENDING,
 					),
 					'ARRAY_A'
 				);
@@ -324,6 +325,11 @@ class Ced_Ebay_Status_Feed extends WP_List_Table {
 						$filter_type = isset( $_GET['type'] ) ? sanitize_text_field( $_GET['type'] ) : '';
 						if ( defined( 'EBAY_INTEGRATION_FOR_WOOCOMMERCE_VERSION' ) ) {
 							$plugin_version = EBAY_INTEGRATION_FOR_WOOCOMMERCE_VERSION;
+						}
+						$shop_data = ced_ebay_get_shop_data( $user_id );
+						if ( ! empty( $shop_data ) ) {
+							$site_id = $shop_data['site_id'];
+
 						}
 						if ( 'uploaded' == $filter_type ) {
 							$all_products_filter_html = sprintf( '<li><a href="?page=%s&channel=ebay&section=%s&user_id=%s&type=all_entries&site_id=%s" aria-current="page">All</a>|</li>', esc_attr( isset( $_REQUEST['page'] ) ? sanitize_text_field( $_REQUEST['page'] ) : '' ), 'feeds-view', esc_attr( isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '' ), $site_id );

@@ -1,12 +1,12 @@
 <?php
-namespace Ced\Ebay;
+namespace Ced_Ebay_WooCommerce_Core;
 
 // Prevent direct access to this script
 if ( ! defined( 'ABSPATH' ) ) {
 	exit();
 }
 
-if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
+if ( ! class_exists( __NAMESPACE__ . '\Ced_Ebay_Setup_Wizard' ) ) {
 	class Ced_Ebay_Setup_Wizard {
 
 
@@ -141,8 +141,7 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 		public function print_html() {
 			$is_error = filter_input( INPUT_GET, 'error', FILTER_SANITIZE_SPECIAL_CHARS );
 			$user_id  = filter_input( INPUT_GET, 'user_id', FILTER_SANITIZE_SPECIAL_CHARS );
-			$site_id  = filter_input( INPUT_GET, 'sid', FILTER_SANITIZE_SPECIAL_CHARS );
-			$remote_shop_id  = filter_input( INPUT_GET, 'rsid', FILTER_SANITIZE_SPECIAL_CHARS );
+			$site_id  = filter_input( INPUT_GET, 'site_id', FILTER_SANITIZE_SPECIAL_CHARS );
 			$keys     = array_keys( $this->steps );
 			if ( ! empty( $keys ) && is_array( $keys ) ) {
 				unset( $keys[0] );
@@ -150,7 +149,11 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 			}
 			$keys_length = count( $keys );
 			$step_index  = array_search( $this->step, $keys, true );
-			
+			// $connected_accounts = ! empty( get_option( 'ced_ebay_connected_accounts' ) ) ? get_option( 'ced_ebay_connected_accounts', true ) : array();
+			// if ( ! empty( $connected_accounts ) && isset( $connected_accounts[ $user_id ][ $site_id ] ) && false !== $step_index ) {
+			// $connected_accounts[ $user_id ][ $site_id ]['ced_ebay_current_step'] = (string) $step_index;
+			// update_option( 'ced_ebay_connected_accounts', $connected_accounts );
+			// }
 			switch ( $this->func_name ) {
 
 				case 'setup-ebay':
@@ -158,39 +161,39 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 					require_once CED_EBAY_DIRPATH . 'admin/partials/setup-wizard/connect-with-ebay.php';
 					break;
 				case 'onboarding-global-options':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/setup-wizard/ced-ebay-global-options.php';
 					break;
 				case 'onboarding-general-settings':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/setup-wizard/ced-ebay-general-settings.php';
 					break;
 				case 'onboarding-completed':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/setup-wizard/ced-ebay-onboarding-completed.php';
 					break;
 				case 'overview':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/overview.php';
 					break;
 				case 'settings':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/settings-view.php';
 					break;
 				case 'products-view':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/products-view.php';
 					break;
 				case 'feeds-view':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/status-feed.php';
 					break;
 				case 'description-template':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/ced_ebay_description_styling.php';
 					break;
 				case 'view-description-templates':
-					$this->check_if_url_params_are_valid( $user_id, $site_id,$remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/ced-ebay-description-template-fields.php';
 					break;
 				case 'product-template':
@@ -206,7 +209,7 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 					}
 					break;
 				case 'view-ebay-orders':
-					$this->check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id );
+					$this->check_if_url_params_are_valid( $user_id, $site_id );
 					require_once CED_EBAY_DIRPATH . 'admin/partials/orders-view.php';
 					break;
 				default:
@@ -216,14 +219,29 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 			}
 		}
 
-		public function check_if_url_params_are_valid( $user_id, $site_id, $remote_shop_id = '' ) {
+		public function check_if_url_params_are_valid( $user_id, $site_id ) {
+			$connected_accounts = ! empty( get_option( 'ced_ebay_connected_accounts' ) ) ? get_option( 'ced_ebay_connected_accounts', true ) : array();
 			$shop_data          = ced_ebay_get_shop_data( $user_id, $site_id );
-			if ( empty( $user_id ) || empty( $shop_data ) || false === $shop_data['remote_shop_id'] || ! isset( $shop_data['remote_shop_id'] ) ) {
+			if ( empty( $user_id ) || empty( $shop_data ) || false === $shop_data['is_site_valid'] || ! isset( $shop_data['is_site_valid'] ) ) {
 				$current_uri = remove_query_arg( array( 'user_id', 'site_id', 'section', 'channel' ), wc_get_current_admin_url() );
 				wp_safe_redirect( esc_url_raw( $current_uri ) );
 				exit();
 			}
-			
+			// $pre_flight_check = ced_ebay_pre_flight_check( $user_id, $site_id );
+			// if ( ! $pre_flight_check ) {
+			// if ( ! empty( $connected_accounts ) && isset( $connected_accounts[ $user_id ][ $site_id ] ) ) {
+			// $connected_accounts[ $user_id ][ $site_id ]['onboarding_error'] = 'unable_to_connect';
+			// update_option( 'ced_ebay_connected_accounts', $connected_accounts );
+			// }
+			// $current_uri = remove_query_arg( array( 'user_id', 'site_id', 'section', 'channel' ), wc_get_current_admin_url() );
+			// wp_safe_redirect( esc_url_raw( add_query_arg( array( 'error' => 'unable_to_connect' ), $current_uri ) ) );
+			// exit();
+			// } else {
+			// if ( ! empty( $connected_accounts ) && isset( $connected_accounts[ $user_id ][ $site_id ] ) && isset( $connected_accounts[ $user_id ][ $site_id ]['onboarding_error'] ) ) {
+			// unset( $connected_accounts[ $user_id ][ $site_id ]['onboarding_error'] );
+			// update_option( 'ced_ebay_connected_accounts', $connected_accounts );
+			// }
+			// }
 		}
 		public function print_step_content() {
 			$view        = ! empty( $this->steps[ $this->step ]['view'] ) ? $this->steps[ $this->step ]['view'] : '';
@@ -242,14 +260,12 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 		public function skip_options() {
 			$connected_accounts = ! empty( get_option( 'ced_ebay_connected_accounts' ) ) ? get_option( 'ced_ebay_connected_accounts', true ) : array();
 			$user_id            = filter_input( INPUT_GET, 'user_id', FILTER_SANITIZE_SPECIAL_CHARS );
-			$site_id            = filter_input( INPUT_GET, 'sid', FILTER_SANITIZE_SPECIAL_CHARS );
-			$remote_shop_id     = filter_input( INPUT_GET, 'rsid', FILTER_SANITIZE_SPECIAL_CHARS );
+			$site_id            = filter_input( INPUT_GET, 'site_id', FILTER_SANITIZE_SPECIAL_CHARS );
 			$section            = $this->steps[ $this->step ]['section'];
 			$keys               = array_keys( $this->steps );
 			$step_index         = array_search( $this->step, $keys, true );
 			$connected_accounts = ! empty( get_option( 'ced_ebay_connected_accounts' ) ) ? get_option( 'ced_ebay_connected_accounts', true ) : array();
 			if ( ! empty( $connected_accounts ) && isset( $connected_accounts[ $user_id ][ $site_id ] ) && false !== $step_index ) {
-				$connected_accounts[ $user_id ][ $site_id ]['remote_shop_id'] = $remote_shop_id;
 				$connected_accounts[ $user_id ][ $site_id ]['ced_ebay_current_step'] = (string) $step_index;
 				update_option( 'ced_ebay_connected_accounts', $connected_accounts );
 			}
@@ -300,12 +316,10 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 			$keys               = array_keys( $this->steps );
 			$step_index         = array_search( $this->step, $keys, true );
 			$user_id            = isset( $_GET['user_id'] ) ? wc_clean( $_GET['user_id'] ) : false;
-			$site_id            = isset( $_GET['sid'] ) ? wc_clean( $_GET['sid'] ) : false;
-			$remote_shop_id            = isset( $_GET['rsid'] ) ? wc_clean( $_GET['rsid'] ) : false;
+			$site_id            = isset( $_GET['site_id'] ) ? wc_clean( $_GET['site_id'] ) : false;
 			$login_mode         = isset( $_GET['login_mode'] ) ? wc_clean( $_GET['login_mode'] ) : 'production';
 			$connected_accounts = ! empty( get_option( 'ced_ebay_connected_accounts' ) ) ? get_option( 'ced_ebay_connected_accounts', true ) : array();
-			if ( false !== $step_index && !empty($user_id) && '' !== $site_id && !empty($remote_shop_id)) {
-				$connected_accounts[ $user_id ][ $site_id ]['remote_shop_id'] = $remote_shop_id;
+			if ( ! empty( $connected_accounts ) && isset( $connected_accounts[ $user_id ][ $site_id ] ) && false !== $step_index ) {
 				$connected_accounts[ $user_id ][ $site_id ]['ced_ebay_current_step'] = (string) $step_index;
 				update_option( 'ced_ebay_connected_accounts', $connected_accounts );
 			}
@@ -343,40 +357,31 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 							);
 							exit();
 						} else {
+							$oAuthFile = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedOAuthAuthorization.php';
+							if ( file_exists( $oAuthFile ) ) {
+								require_once $oAuthFile;
 								update_option( 'ced_ebay_mode_of_operation', $login_mode );
-								$cedAuthorization        = new Ebayauthorization();
+								$cedAuthorization        = new Ced_Ebay_OAuth_Authorization();
 								$cedAuhorizationInstance = $cedAuthorization->get_instance();
-								$authURL                 = $cedAuhorizationInstance->getOAuthUrl( $selected_ebay_site );
+								$authURL                 = $cedAuhorizationInstance->doOAuthAuthorization( $selected_ebay_site );
 								wp_safe_redirect( esc_url_raw( $authURL ) );
 								exit();
+							}
 						}
 					} elseif ( isset( $_REQUEST['action'] ) && 'ced_ebay_verify_account' == wc_clean( wp_unslash( $_REQUEST['action'] ) ) ) {
 						require_once CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayUpload.php';
-						if ( function_exists( 'as_enqueue_async_action' ) ) {
-							$async_action_id = as_enqueue_async_action(
-								'ced_ebay_fetch_site_categories',
-								array(
-									'data' => array(
-										'site_id' => $site_id,
-										'user_id' => $user_id,
-										'remote_shop_id' => $remote_shop_id
-									),
-								),
-								'ced_ebay'
-							);
-						}
-
-						$ebayUploadInstance = EbayUpload::get_instance( $remote_shop_id );
-						$activelist         = $ebayUploadInstance->get_active_products( 1,10 );
-						$total_products     = 0;
-						if ( ! empty( $activelist['Errors'] ) && '931' == $activelist['Errors']['ErrorCode'] ) {
-							$current_uri = remove_query_arg( array( 'user_id', 'site_id', 'remote_shop_id' ), wc_get_current_admin_url() );
+						$shop_data = ced_ebay_get_shop_data( $user_id, $site_id );
+						if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+							$siteID = $site_id;
+							$token  = $shop_data['access_token'];
+						} else {
+							$current_uri = remove_query_arg( array( 'user_id', 'site_id' ), wc_get_current_admin_url() );
 							wp_safe_redirect(
 								esc_url_raw(
 									add_query_arg(
 										array(
 											'section' => $keys[ $step_index ],
-											'error'   => 'ebay_api_error',
+											'error'   => 'invalid_user',
 										),
 										$current_uri
 									)
@@ -384,14 +389,41 @@ if ( ! class_exists( 'ed_Ebay_Setup_Wizard' ) ) {
 							);
 							exit();
 						}
-						if(!empty($activelist['error_code'])){
-							$current_uri = remove_query_arg( array( 'user_id', 'site_id', 'remote_shop_id' ), wc_get_current_admin_url() );
+						if ( function_exists( 'as_enqueue_async_action' ) ) {
+							$async_action_id = as_enqueue_async_action(
+								'ced_ebay_fetch_site_categories',
+								array(
+									'data' => array(
+										'site_id' => $site_id,
+										'user_id' => $user_id,
+									),
+								),
+								'ced_ebay'
+							);
+						}
+
+						$mainXml            = '<?xml version="1.0" encoding="utf-8"?>
+			<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+			  <RequesterCredentials>
+				<eBayAuthToken>' . $token . '</eBayAuthToken>
+			  </RequesterCredentials>
+			  <ActiveList>
+				<Pagination>
+				 <EntriesPerPage>10</EntriesPerPage>
+				</Pagination>
+			  </ActiveList>
+			</GetMyeBaySellingRequest>';
+						$ebayUploadInstance = \EbayUpload::get_instance( $siteID, $token );
+						$activelist         = $ebayUploadInstance->get_active_products( $mainXml );
+						$total_products     = 0;
+						if ( ! empty( $activelist['Errors'] ) && '931' == $activelist['Errors']['ErrorCode'] ) {
+							$current_uri = remove_query_arg( array( 'user_id', 'site_id' ), wc_get_current_admin_url() );
 							wp_safe_redirect(
 								esc_url_raw(
 									add_query_arg(
 										array(
 											'section' => $keys[ $step_index ],
-											'error'   => $activelist['error_code'],
+											'error'   => 'ebay_api_error',
 										),
 										$current_uri
 									)

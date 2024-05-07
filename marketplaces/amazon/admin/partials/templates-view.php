@@ -17,15 +17,11 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 
 	public $current_amazon_profile;
 	public $cloneTemplateIds = array();
-	public $mode;
-	public $ced_base_uri;
-
+	
 
 	/** Class constructor */
 	public function __construct() {
 
-		$this->mode             = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-		$this->ced_base_uri     = ced_amazon_base_uri( $this->mode );
 		$this->cloneTemplateIds = get_option( 'ced_amz_cloned_templates', array() );
 
 		parent::__construct(
@@ -78,11 +74,11 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 		);
 
 		if ( ! $this->current_action() ) {
-
+			
 			$this->items = self::ced_amazon_get_profiles( $per_page, $current_page );
 			$this->renderHTML();
 		} else {
-
+			
 			$this->process_bulk_action();
 		}
 	}
@@ -157,7 +153,7 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 		$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
 
 		$template_id = $item['id'];
-		$cloned      = false;
+		$cloned = false;
 
 		if ( isset( $this->cloneTemplateIds[ $seller_id ] ) && in_array( $template_id, $this->cloneTemplateIds[ $seller_id ] ) ) {
 			$cloned = true;
@@ -181,8 +177,8 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 
 		$ced_amaz_cat_val_array = $this->ced_amz_get_woo_categories();
 
-		$wooUsedCategoriesArray = isset( $ced_amaz_cat_val_array['wooUsedCategoriesArray'] ) ? $ced_amaz_cat_val_array['wooUsedCategoriesArray'] : array();
-		$allWooCategories       = isset( $ced_amaz_cat_val_array['allWooCategories'] ) ? $ced_amaz_cat_val_array['allWooCategories'] : array();
+		$wooUsedCategoriesArray = isset( $ced_amaz_cat_val_array['wooUsedCategoriesArray'] ) ? $ced_amaz_cat_val_array['wooUsedCategoriesArray'] : array() ;
+		$allWooCategories       = isset( $ced_amaz_cat_val_array['allWooCategories'] ) ? $ced_amaz_cat_val_array['allWooCategories'] : array() ;
 
 		echo '<p>' . esc_html__( $amazonCategories, 'amazon-for-woocommerce' );
 
@@ -190,15 +186,18 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 			<span class="ced-clone-lable-wrapper"> <span>Clone</span> </span>
 			<?php
 		}
-
+		
 		echo '</p>';
 
-		$actions['edit']  = '<a class="profile-edit" target="_blank" href="' . esc_attr( get_admin_url() ) . $this->ced_base_uri . '&section=add-new-template&template_id=' . esc_attr( $item['id'] ) . '&template_type=' . esc_attr( $item['template_type'] ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) . '">Edit</a>';
-		$actions['clone'] = '<a class="ced-amz-profile-clone"  href="#" data-clone_tmp_id="' . esc_attr( $template_id ) . '"
+		$actions['edit'] = '<a class="profile-edit" target="_blank" href="' . esc_attr( get_admin_url() ) . 'admin.php?page=sales_channel&channel=amazon&section=add-new-template&template_id=' . esc_attr( $item['id'] ) . '&template_type=' . esc_attr( $item['template_type'] ) . '&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) . '">Edit</a>';
+	
+		$actions['clone'] = '<a class="ced-amz-profile-clone"  href="#" data-clone_tmp_id="' . esc_attr($template_id) . '"
 
 		data-woo-used-cat="' . esc_attr( htmlspecialchars( json_encode( $wooUsedCategoriesArray ) ) ) . '" data-woo-all-cat = "' . esc_attr( htmlspecialchars( json_encode( $allWooCategories ) ) ) . '"
 		>Clone</a>';
-
+	
+	
+	
 		return $this->row_actions( $actions, true );
 	}
 
@@ -374,10 +373,7 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 			}
 		}
 
-		return array(
-			'allWooCategories'       => $allWooCategories,
-			'wooUsedCategoriesArray' => $wooUsedCategoriesArray,
-		);
+		return array( 'allWooCategories' => $allWooCategories, 'wooUsedCategoriesArray' => $wooUsedCategoriesArray );
 	}
 
 	/**
@@ -389,20 +385,21 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 
 			if ( isset( $_POST['add_meta_keys'] ) || isset( $_POST['ced_amazon_profile_save_button'] ) ) {
 
+
 				$sanitized_array     = filter_input_array( INPUT_POST, FILTER_UNSAFE_RAW );
 				$amazon_profile_data = isset( $sanitized_array['ced_amazon_profile_data'] ) ? ( $sanitized_array['ced_amazon_profile_data'] ) : array();
 
 				$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
 
 				$profileDetails = array(
-					'primary_category'       => isset( $amazon_profile_data['primary_category'] ) ? $amazon_profile_data['primary_category'] : '',
-					'secondary_category'     => isset( $amazon_profile_data['secondary_category'] ) ? $amazon_profile_data['secondary_category'] : '',
-					'browse_nodes'           => isset( $amazon_profile_data['browse_nodes'] ) ? $amazon_profile_data['browse_nodes'] : '',
-					'wocoommerce_category'   => isset( $amazon_profile_data['wocoommerce_category'] ) ? $amazon_profile_data['wocoommerce_category'] : '',
-					'template_type'          => isset( $amazon_profile_data['template_type'] ) ? $amazon_profile_data['template_type'] : '',
-					'file_url'               => isset( $amazon_profile_data['file_url'] ) ? $amazon_profile_data['file_url'] : '',
-					'browse_nodes_name'      => isset( $amazon_profile_data['browse_nodes_name'] ) ? $amazon_profile_data['browse_nodes_name'] : '',
-					'amazon_categories_name' => isset( $amazon_profile_data['amazon_categories_name'] ) ? $amazon_profile_data['amazon_categories_name'] : '',
+					'primary_category'     => isset( $amazon_profile_data['primary_category'] ) ? $amazon_profile_data['primary_category'] : '',
+					'secondary_category'   => isset( $amazon_profile_data['secondary_category'] ) ? $amazon_profile_data['secondary_category'] : '',
+					'browse_nodes'         => isset( $amazon_profile_data['browse_nodes'] ) ? $amazon_profile_data['browse_nodes'] : '',
+					'wocoommerce_category' => isset( $amazon_profile_data['wocoommerce_category'] ) ? $amazon_profile_data['wocoommerce_category'] : '',
+					'template_type'        => isset( $amazon_profile_data['template_type'] ) ? $amazon_profile_data['template_type'] : '',
+					'file_url'             => isset( $amazon_profile_data['file_url'] ) ? $amazon_profile_data['file_url'] : '',
+					'browse_nodes_name'    => isset( $amazon_profile_data['browse_nodes_name'] ) ? $amazon_profile_data['browse_nodes_name'] : '',
+					'amazon_categories_name'   => isset( $amazon_profile_data['amazon_categories_name'] ) ?  $amazon_profile_data['amazon_categories_name'] : '',
 				);
 
 				$profileDetails['category_attributes_structure'] = wp_json_encode( $amazon_profile_data['ref_attribute_list'] );
@@ -425,6 +422,7 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 				global $wpdb;
 				$tableName = $wpdb->prefix . 'ced_amazon_profiles';
 
+				
 				$wpdb->insert(
 					$tableName,
 					array(
@@ -449,11 +447,11 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 				$user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
 				$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
 				$seller_id = str_replace( '|', '%7C', $seller_id );
-				wp_safe_redirect( admin_url() . $this->ced_base_uri . '&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
+				wp_safe_redirect( admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
 				exit();
 
 			}
-		}
+		} 
 		$seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
 
 		global $wpdb;
@@ -475,9 +473,10 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 
 		$ced_amaz_cat_val_array = $this->ced_amz_get_woo_categories();
 
-		$wooUsedCategoriesArray = isset( $ced_amaz_cat_val_array['wooUsedCategoriesArray'] ) ? $ced_amaz_cat_val_array['wooUsedCategoriesArray'] : array();
-		$allWooCategories       = isset( $ced_amaz_cat_val_array['allWooCategories'] ) ? $ced_amaz_cat_val_array['allWooCategories'] : array();
+		$wooUsedCategoriesArray = isset( $ced_amaz_cat_val_array['wooUsedCategoriesArray'] ) ? $ced_amaz_cat_val_array['wooUsedCategoriesArray'] : array() ;
+		$allWooCategories       = isset( $ced_amaz_cat_val_array['allWooCategories'] ) ? $ced_amaz_cat_val_array['allWooCategories'] : array() ;
 
+		
 		if ( ! empty( $seller_id ) ) {
 
 			?>
@@ -491,12 +490,10 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 					> Upload Template </button> 
 
 					<span> 
-					<?php
-					echo wc_help_tip(
-						'Here you can upload your own XLSM feed template, generated on Seller Central.
+					<?php 
+					echo wc_help_tip('Here you can upload your own XLSM feed template, generated on Seller Central.
 					<p> </p>
-					<b> To generate your own feed templates, log in to Seller Central, visit Inventory / Add Products via Upload and open the "Download an Inventory file" tab.</b>'
-					);
+					<b> To generate your own feed templates, log in to Seller Central, visit Inventory / Add Products via Upload and open the "Download an Inventory file" tab.</b>'); 
 					?>
 							</span> -->
 
@@ -511,7 +508,6 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 		}
 
 		?>
-
 
 			<!-- Clone modal code starts -->
 
@@ -528,8 +524,8 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 										
 										<table class="form-table">
 											
-											<?php
-
+											<?php 
+												
 												$woo_store_categories = ced_amazon_get_categories_hierarchical(
 													array(
 														'taxonomy'   => 'product_cat',
@@ -542,10 +538,12 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 											<tbody>
 												
 												<tr>
-													
-													   <?php ced_amazon_print_table_label( 'WooCommerce Category', 'Select a WooCommerce category to map with the new template.', true ); ?>
-														
-													
+													<th scope="row" class="titledesc">
+														<label for="woocommerce_currency">
+															<?php esc_attr_e( 'WooCommerce Category', 'amazon-for-woocommerce' ); ?>
+															<?php print_r( wc_help_tip( 'Select a WooCommerce category to map with the new template.', 'amazon-for-woocommerce' ) ); ?>
+														</label>
+													</th>
 													<td class="forminp forminp-select">
 
 														<select  class="select2 wooCategories" name="ced_amazon_profile_data[wocoommerce_category][]"  multiple="multiple" >
@@ -632,9 +630,12 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 											<tbody>
 												
 												<tr>
-													
-														<?php ced_amazon_print_table_label( 'WooCommerce Category', 'Select a WooCommerce category to map with the new template.', true ); ?>
-													
+													<th scope="row" class="titledesc">
+														<label for="woocommerce_currency">
+															<?php esc_attr_e( 'WooCommerce Category', 'amazon-for-woocommerce' ); ?>
+															<?php print_r( wc_help_tip( 'Select a WooCommerce category to map with Amazon category.', 'amazon-for-woocommerce' ) ); ?>
+														</label>
+													</th>
 													<td class="forminp forminp-select">
 
 														<select  class="select2 wooCategories" name="ced_amazon_profile_data[wocoommerce_category][]"  multiple="multiple" >
@@ -647,11 +648,12 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 
 
 												<tr>
-													
-														<?php ced_amazon_print_table_label( 'Amazon Category', '', false ); ?>
-														<!-- <?php print_r( wc_help_tip( 'Choose an Amazon category to which you want to upload products.', 'amazon-for-woocommerce' ) ); ?> -->
-													
-													
+													<th scope="row" class="titledesc">
+														<label for="woocommerce_currency">
+															<?php esc_attr_e( 'Amazon Category', 'amazon-for-woocommerce' ); ?> 
+															<!-- <?php print_r( wc_help_tip( 'Choose an Amazon category to which you want to upload products.', 'amazon-for-woocommerce' ) ); ?> -->
+														</label>
+													</th>
 													<td  >
 														<!-- <input type="hidden" class="ced_primary_category" name="ced_amazon_profile_data[primary_category]" value="<?php echo esc_attr( $current_amazon_profile['primary_category'] ); ?>" />
 														<input type="hidden" class="ced_secondary_category" name="ced_amazon_profile_data[secondary_category]" value="<?php echo esc_attr( $current_amazon_profile['secondary_category'] ); ?>" /> -->
@@ -662,15 +664,15 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 															
 														<?php
 															// $categoryArray = array(
-															// 'primary_category' => isset( $current_amazon_profile['primary_category'] ) ? $current_amazon_profile['primary_category'] : '',
-															// 'secondary_category' => isset( $current_amazon_profile['secondary_category'] ) ? $current_amazon_profile['secondary_category'] : '',
-															// 'browse_nodes' => isset( $current_amazon_profile['browse_nodes'] ) ? $current_amazon_profile['browse_nodes'] : '',
-															// 'browse_nodes_name' => isset( $current_amazon_profile['browse_nodes_name'] ) ? $current_amazon_profile['browse_nodes_name'] : '',
+															//  'primary_category' => isset( $current_amazon_profile['primary_category'] ) ? $current_amazon_profile['primary_category'] : '',
+															//  'secondary_category' => isset( $current_amazon_profile['secondary_category'] ) ? $current_amazon_profile['secondary_category'] : '',
+															//  'browse_nodes' => isset( $current_amazon_profile['browse_nodes'] ) ? $current_amazon_profile['browse_nodes'] : '',
+															//  'browse_nodes_name' => isset( $current_amazon_profile['browse_nodes_name'] ) ? $current_amazon_profile['browse_nodes_name'] : '',
 															// );
 
 															// $amazonCategories = '';
 															// if ( ! empty( $current_amazon_profile['amazon_categories_name'] ) ) {
-															// $amazonCategories = $current_amazon_profile['amazon_categories_name'];
+															//  $amazonCategories = $current_amazon_profile['amazon_categories_name'];
 															// }
 
 														?>
@@ -763,7 +765,7 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 				</div>
 
 
-		<?php
+	<?php
 	}
 
 	/**
@@ -809,7 +811,7 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 			if ( is_array( $profileIds ) && ! empty( $profileIds ) ) {
 
 				global $wpdb;
-
+				
 				$seller_id_array = explode( '|', $seller_id );
 				$country         = isset( $seller_id_array[0] ) ? $seller_id_array[0] : '';
 
@@ -844,15 +846,16 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 
 				}
 
-				header( 'Location: ' . get_admin_url() . $this->ced_base_uri . '&section=templates-view&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) );
+				header( 'Location: ' . get_admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=templates-view&user_id=' . esc_attr( $user_id ) . '&seller_id=' . esc_attr( $seller_id ) );
 				exit();
 			} else {
 
 				$seller_id = str_replace( '|', '%7C', $seller_id );
-				wp_safe_redirect( admin_url() . $this->ced_base_uri . '&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
+				wp_safe_redirect( admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
 				exit();
 
 			}
+
 		} elseif ( isset( $_GET['panel'] ) && 'edit' == $_GET['panel'] ) {
 
 			$file = CED_AMAZON_DIRPATH . 'admin/partials/profile-edit-view.php';
@@ -862,7 +865,7 @@ class Ced_Amazon_Profile_Table extends WP_List_Table {
 		} else {
 
 			$seller_id = str_replace( '|', '%7C', $seller_id );
-			wp_safe_redirect( admin_url() . $this->ced_base_uri . '&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
+			wp_safe_redirect( admin_url() . 'admin.php?page=sales_channel&channel=amazon&section=templates-view&user_id=' . $user_id . '&seller_id=' . $seller_id );
 			exit();
 
 		}

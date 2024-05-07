@@ -73,11 +73,6 @@ class Ced_Product_Delete extends Etsy_Request {
 	 * @return array
 	 */
 	public function ced_etsy_delete_product( $product_ids = array(), $shop_name = '', $log = true ) {
-
-		if ( has_filter( 'ced_etsy_modify_product_delete' ) ) {
-			return apply_filters( 'ced_etsy_modify_product_delete', $product_ids, $shop_name, $log );
-		}
-
 		if ( ! is_array( $product_ids ) ) {
 			$product_ids = array( $product_ids );
 		}
@@ -86,8 +81,13 @@ class Ced_Product_Delete extends Etsy_Request {
 			$product    = wc_get_product( $product_id );
 			$listing_id = get_post_meta( $product_id, '_ced_etsy_listing_id_' . $shop_name, true );
 			if ( $listing_id ) {
-				$shop_id  = get_etsy_shop_id( $shop_name );
-				$response = parent::ced_etsy_remote_req( 'listings/delete', array( 'shop_id' => $shop_id ), array( 'listing_id' => $listing_id ), 'DELETE' );
+				/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+				do_action( 'ced_etsy_refresh_token', $shop_name );
+				$action   = "application/listings/{$listing_id}";
+				$response = parent::delete( $action, $shop_name );
 				if ( ! isset( $response['error'] ) ) {
 					delete_post_meta( $product_id, '_ced_etsy_listing_id_' . $shop_name );
 					delete_post_meta( $product_id, '_ced_etsy_url_' . $shop_name );

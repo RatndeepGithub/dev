@@ -279,15 +279,12 @@ class Ced_Walmart_Products_List extends WP_List_Table {
 	public function column_profile( $item ) {
 		$store_id = isset( $_GET['store_id'] ) ? sanitize_text_field( wp_unslash( $_GET['store_id'] ) ) : '';
 
-		$is_profile_assigned  = false;
-		$actions              = array();
-		$category_ids         = isset( $item['category_ids'] ) ? $item['category_ids'] : array();
-		$mapped_cat           = !empty(get_option( 'ced_mapped_cat_MP_ITEM' )) ? json_decode( get_option( 'ced_mapped_cat_MP_ITEM' ), 1) : array();
-		$wfsMappedCat         = !empty(get_option('ced_mapped_cat_MP_WFS_ITEM')) ? json_decode( get_option('ced_mapped_cat_MP_WFS_ITEM') , 1) : array();
-		$convert_wfsMappedCat = !empty(get_option('ced_mapped_cat_OMNI_WFS')) ? json_decode(get_option('ced_mapped_cat_OMNI_WFS') , 1) : array();
-		$category             = '';
-		$wfsCategory          = '';
-		$convertWfsCategory   = '';
+		$is_profile_assigned = false;
+		$actions             = array();
+		$category_ids        = isset( $item['category_ids'] ) ? $item['category_ids'] : array();
+		$mapped_cat          = get_option( 'ced_mapped_cat' );
+		$mapped_cat          = json_decode( $mapped_cat, 1 );
+		$category            = '';
 
 		if ( isset( $mapped_cat['profile'] ) ) {
 			foreach ( $category_ids as $index => $term_id ) {
@@ -300,54 +297,15 @@ class Ced_Walmart_Products_List extends WP_List_Table {
 			}
 		}
 
-		if ( isset( $wfsMappedCat['profile'] ) ) {
-			foreach ( $category_ids as $index => $term_id ) {
-				foreach ( $wfsMappedCat['profile'] as $key => $value ) {
-					if ( in_array( $term_id, $value['woo_cat'] ) ) {
-						
-						$wfsCategory = $key;
-
-					}
-				}
-			}
-		}
-
-		if ( isset( $convert_wfsMappedCat['profile'] ) ) {
-			foreach ( $category_ids as $index => $term_id ) {
-				foreach ( $convert_wfsMappedCat['profile'] as $key => $value ) {
-					if ( in_array( $term_id, $value['woo_cat'] ) ) {
-						$convertWfsCategory = $key;
-
-					}
-				}
-			}
-		}
-	
-		$htmlForTemplate = '';
 		if ( $category ) {
-			$edit_profile_url = admin_url( 'admin.php?page=sales_channel&channel=walmart&profile_id=' . ( urlencode( $category ) ) . '&section=templates&details=edit&profile_type=MP_ITEM&store_id=' . $store_id );
-			$htmlForTemplate .='MP ITEM - <a href="' . esc_url( $edit_profile_url ) . '">' . esc_attr( $category ) . '</a>';
-		} else {
-			$cat_mapping_section = admin_url( 'admin.php?page=sales_channel&channel=walmart&section=category&store_id=' . $store_id );
-			$htmlForTemplate    .= "<span class=''><span>";
-		}
 
-		if ( $wfsCategory ) {
-			$edit_profile_url = admin_url( 'admin.php?page=sales_channel&channel=walmart&profile_id=' . ( urlencode( $wfsCategory ) ) . '&section=templates&details=edit&profile_type=MP_WFS_ITEM&store_id=' . $store_id );
-			$htmlForTemplate .='<br>WFS - <a href="' . esc_url( $edit_profile_url ) . '">' . esc_attr( $wfsCategory ) . '</a>';
-		} else {
-			$cat_mapping_section = admin_url( 'admin.php?page=sales_channel&channel=walmart&section=category&store_id=' . $store_id );
-			$htmlForTemplate    .= "<span class=''><span>";
-		}
-		if ( $convertWfsCategory ) {
-			$edit_profile_url = admin_url( 'admin.php?page=sales_channel&channel=walmart&profile_id=' . ( urlencode( $convertWfsCategory ) ) . '&section=templates&details=edit&profile_type=OMNI_WFS&store_id=' . $store_id );
-			$htmlForTemplate .='<br>Convert WFS - <a href="' . esc_url( $edit_profile_url ) . '">' . esc_attr( $convertWfsCategory ) . '</a>';
-		} else {
-			$cat_mapping_section = admin_url( 'admin.php?page=sales_channel&channel=walmart&section=category&store_id=' . $store_id );
-			$htmlForTemplate    .= "<span class=''><span>";
-		}
+			$edit_profile_url = admin_url( 'admin.php?page=sales_channel&channel=walmart&profile_id=' . ( urlencode( $category ) ) . '&section=templates&details=edit&store_id=' . $store_id );
+			echo '<a href="' . esc_url( $edit_profile_url ) . '">' . esc_attr( $category ) . '</a>';
 
-		echo $htmlForTemplate;
+		} else {
+			$cat_mapping_section = admin_url( 'admin.php?page=sales_channel&channel=walmart&section=category&store_id=' . $store_id );
+			echo "<span class=''>----<span>";
+		}
 	}
 
 

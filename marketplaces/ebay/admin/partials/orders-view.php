@@ -4,6 +4,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
 
+if ( empty( get_option( 'ced_ebay_user_access_token' ) ) ) {
+	wp_redirect( get_admin_url() . 'admin.php?page=ced_ebay' );
+}
 $file = CED_EBAY_DIRPATH . 'admin/partials/header.php';
 
 if ( file_exists( $file ) ) {
@@ -72,7 +75,7 @@ class Ced_EBay_List_Orders extends WP_List_Table {
 	public function get_count() {
 		global $wpdb;
 		$user_id      = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id      = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id      = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$country_code = false !== ( $this->ced_ebay_get_ebay_site( $site_id ) ) ? $this->ced_ebay_get_ebay_site( $site_id ) : '';
 		$wooOrderIds  = array();
 		$args         = array(
@@ -91,7 +94,7 @@ class Ced_EBay_List_Orders extends WP_List_Table {
 	}
 
 	public function ced_ebay_get_ebay_site( $site_id ) {
-		$configInstance  = \Ced\Ebay\Ebayconfig::get_instance();
+		$configInstance  = \Ced_Ebay_WooCommerce_Core\Ebayconfig::get_instance();
 		$ebaySiteDetails = $configInstance->getEbaycountrDetail( $site_id );
 		if ( ! empty( $ebaySiteDetails ) && is_array( $ebaySiteDetails ) && isset( $ebaySiteDetails['countrycode'] ) ) {
 			return $ebaySiteDetails['countrycode'];
@@ -327,7 +330,7 @@ class Ced_EBay_List_Orders extends WP_List_Table {
 	public function ced_ebay_orders( $per_page = 10, $page_number = 1 ) {
 		global $wpdb;
 		$user_id      = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-		$site_id      = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
+		$site_id      = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 		$country_code = false !== ( $this->ced_ebay_get_ebay_site( $site_id ) ) ? $this->ced_ebay_get_ebay_site( $site_id ) : '';
 		$order_detail = array();
 		$wooOrderIds  = array();

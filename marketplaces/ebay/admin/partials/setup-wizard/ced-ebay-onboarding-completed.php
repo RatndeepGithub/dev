@@ -32,7 +32,7 @@
 				<?php
 				wp_nonce_field( 'ced_ebay_onboarding_completed_action', 'ced_ebay_onboarding_completed_button' );
 				?>
-						<a class="components-button is-primary" style="float: right;" data-attr='4' id="ced_ebay_continue_wizard_button" href="<?php esc_attr_e( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $user_id . '&sid=' . $site_id. '&rsid=' . $remote_shop_id ) ); ?>" ><?php echo esc_html__( 'Go to overview', 'ebay-integration-for-woocommerce' ); ?></a>
+						<a class="components-button is-primary" style="float: right;" data-attr='4' id="ced_ebay_continue_wizard_button" href="<?php esc_attr_e( admin_url( 'admin.php?page=sales_channel&channel=ebay&section=overview&user_id=' . $user_id . '&site_id=' . $site_id ) ); ?>" ><?php echo esc_html__( 'Go to overview', 'ebay-integration-for-woocommerce' ); ?></a>
 
 				
 			</div>

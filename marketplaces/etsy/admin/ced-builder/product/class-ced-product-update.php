@@ -95,10 +95,6 @@ class Ced_Product_Update {
 	  */
 	public function ced_etsy_update_product( $product_ids = array(), $shop_name = '' ) {
 
-		if ( has_filter( 'ced_etsy_modify_product_update' ) ) {
-			return apply_filters( 'ced_etsy_modify_product_update', $product_ids, $shop_name );
-		}
-
 		if ( ! is_array( $product_ids ) ) {
 			$product_ids = array( $product_ids );
 		}
@@ -117,16 +113,13 @@ class Ced_Product_Update {
 			} else {
 				$arguements['state'] = $payload->get_state();
 				$shop_id             = get_etsy_shop_id( $shop_name );
-				$response            = etsy_request()->ced_etsy_remote_req(
-					'listings/update',
-					$arguements,
-					array(
-						'shop_id'    => $shop_id,
-						'listing_id' => $this->listing_id,
-					),
-					'PUT'
-				);
-
+				$action              = "application/shops/{$shop_id}/listings/{$this->listing_id}";
+				/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+				do_action( 'ced_etsy_refresh_token', $shop_name );
+				$response = etsy_request()->put( $action, $arguements, $shop_name );
 				if ( isset( $response['listing_id'] ) ) {
 					update_post_meta( $product_id, '_ced_etsy_listing_data_' . $shop_name, json_encode( $response ) );
 					$notification['status']  = 200;
@@ -139,45 +132,33 @@ class Ced_Product_Update {
 					$notification['message'] = json_encode( $response );
 				}
 				global $activity;
-				$activity->action        = 'Update';
-				$activity->type          = 'product';
-				$activity->input_payload = $arguements;
-				$activity->response      = $response;
-				$activity->post_id       = $product_id;
-				$activity->shop_name     = $shop_name;
-				$activity->post_title    = $arguements['title'];
-				$activity->execute();
+					$activity->action        = 'Update';
+					$activity->type          = 'product';
+					$activity->input_payload = $arguements;
+					$activity->response      = $response;
+					$activity->post_id       = $product_id;
+					$activity->shop_name     = $shop_name;
+					$activity->post_title    = $arguements['title'];
+
+						$activity->execute();
 			}
 		}
 		return $notification;
 	}
 
 	public function ced_etsy_update_inventory( $product_ids = array(), $shop_name = '', $is_sync = false ) {
-
-		if ( has_filter( 'ced_etsy_modify_inventory_update' ) ) {
-			return apply_filters( 'ced_etsy_modify_inventory_update', $product_ids, $shop_name, $is_sync );
-		}
-
 		if ( ! is_array( $product_ids ) ) {
 			$product_ids = array( $product_ids );
 		}
 		$notification = array();
 		$shop_name    = empty( $shop_name ) ? $this->shop_name : $shop_name;
 		$product_ids  = empty( $product_ids ) ? $this->product_id : $product_ids;
-		$shop_id      = get_etsy_shop_id( $shop_name );
 		foreach ( $product_ids as $product_id ) {
-			if ( empty( $product_id ) || null == $product_id || '' == $product_id ) {
-				continue;
-			}
 			$_product = wc_get_product( $product_id );
-			if ( empty( $_product ) || null == $_product || '' == $_product ) {
-				continue;
-			}
 			if ( empty( $this->listing_id ) ) {
 				$this->listing_id = get_post_meta( $product_id, '_ced_etsy_listing_id_' . $shop_name, true );
 			}
-			$payload       = new \Cedcommerce\Product\Ced_Product_Payload( $product_id, $shop_name );
-			$input_payload = array();
+			$payload = new \Cedcommerce\Product\Ced_Product_Payload( $product_id, $shop_name );
 			if ( 'variable' == $_product->get_type() ) {
 				$offerings_payload = $payload->ced_variation_details( $product_id, $shop_name );
 				$input_payload     = $offerings_payload;
@@ -185,15 +166,7 @@ class Ced_Product_Update {
 			} else {
 				$payload->get_formatted_data( $product_id, $shop_name );
 				$sku      = get_post_meta( $product_id, '_sku', true );
-				$response = etsy_request()->ced_etsy_remote_req(
-					'listings/inventory',
-					array(),
-					array(
-						'listing_id' => $this->listing_id,
-						'shop_id'    => $shop_id,
-					),
-					'GET'
-				);
+				$response = etsy_request()->get( 'application/listings/' . (int) $this->listing_id . '/inventory', $shop_name );
 				if ( isset( $response['products'][0] ) ) {
 					if ( (int) $payload->get_quantity() <= 0 ) {
 						$response = $this->ced_etsy_deactivate_product( $product_id, $shop_name );
@@ -208,30 +181,27 @@ class Ced_Product_Update {
 						unset( $product_payload['products'][0]['product_id'] );
 						unset( $product_payload['products'][0]['offerings'][0]['is_deleted'] );
 						unset( $product_payload['products'][0]['offerings'][0]['offering_id'] );
+						/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+						do_action( 'ced_etsy_refresh_token', $shop_name );
 						$input_payload = $product_payload;
-						$response      = etsy_request()->ced_etsy_remote_req(
-							'listings/inventory',
-							$product_payload,
-							array(
-								'listing_id' => $this->listing_id,
-								'shop_id'    => $shop_id,
-							),
-							'PUT'
-						);
+						$response      = etsy_request()->put( 'application/listings/' . (int) $this->listing_id . '/inventory', $product_payload, $shop_name );
 					}
 				}
 			}
 
 			global $activity;
-			$activity->action        = 'Update';
-			$activity->type          = 'product_inventory';
-			$activity->input_payload = $input_payload;
-			$activity->response      = $response;
-			$activity->post_id       = $product_id;
-			$activity->shop_name     = $shop_name;
-			$activity->post_title    = $_product->get_title();
-			$activity->is_auto       = $is_sync;
-			$activity->execute();
+						$activity->action        = 'Update';
+						$activity->type          = 'product_inventory';
+						$activity->input_payload = $input_payload;
+						$activity->response      = $response;
+						$activity->post_id       = $product_id;
+						$activity->shop_name     = $shop_name;
+						$activity->post_title    = $_product->get_title();
+						$activity->is_auto       = $is_sync;
+						$activity->execute();
 
 			if ( isset( $response['products'][0] ) ) {
 				$notification['status']  = 200;
@@ -253,10 +223,6 @@ class Ced_Product_Update {
 
 	public function ced_etsy_activate_product( $product_ids = array(), $shop_name = '' ) {
 
-		if ( has_filter( 'ced_etsy_modify_active_update' ) ) {
-			return apply_filters( 'ced_etsy_modify_active_update', $product_ids, $shop_name );
-		}
-
 		if ( ! is_array( $product_ids ) ) {
 			$product_ids = array( $product_ids );
 		}
@@ -269,24 +235,18 @@ class Ced_Product_Update {
 			$payload             = new \Cedcommerce\Product\Ced_Product_Payload( $product_id, $shop_name );
 			$arguements['state'] = $payload->get_state();
 			$shop_id             = get_etsy_shop_id( $shop_name );
-			$this->response      = etsy_request()->ced_etsy_remote_req(
-				'listings/updateactive',
-				$arguements,
-				array(
-					'shop_id'    => $shop_id,
-					'listing_id' => $this->listing_id,
-				),
-				'PUT'
-			);
+			$action              = "application/shops/{$shop_id}/listings/{$this->listing_id}";
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$this->response = etsy_request()->put( $action, $arguements, $shop_name );
 			return $this->response;
 		}
 	}
 
 	public function ced_etsy_deactivate_product( $product_ids = array(), $shop_name = '' ) {
-
-		if ( has_filter( 'ced_etsy_modify_deactive_update' ) ) {
-			return apply_filters( 'ced_etsy_modify_deactive_update', $product_ids, $shop_name );
-		}
 
 		if ( ! is_array( $product_ids ) ) {
 			$product_ids = array( $product_ids );
@@ -300,15 +260,13 @@ class Ced_Product_Update {
 			$payload             = new \Cedcommerce\Product\Ced_Product_Payload( $product_id, $shop_name );
 			$arguements['state'] = 'inactive';
 			$shop_id             = get_etsy_shop_id( $shop_name );
-			$this->response      = etsy_request()->ced_etsy_remote_req(
-				'listings/updatedeactive',
-				$arguements,
-				array(
-					'shop_id'    => $shop_id,
-					'listing_id' => $this->listing_id,
-				),
-				'PUT'
-			);
+			$action              = "application/shops/{$shop_id}/listings/{$this->listing_id}";
+			/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+			do_action( 'ced_etsy_refresh_token', $shop_name );
+			$this->response = etsy_request()->put( $action, $arguements, $shop_name );
 			return $this->response;
 		}
 	}
@@ -326,13 +284,13 @@ class Ced_Product_Update {
 	  * @return $response ,
 	  */
 	private function update_variation_sku_to_etsy( $product_id = '', $listing_id = '', $shop_name = '', $offerings_payload = '', $is_sync = false ) {
-		if ( has_filter( 'ced_etsy_modify_variation_update' ) ) {
-			return apply_filters( 'ced_etsy_modify_variation_update', $product_id, $listing_id, $shop_name, $offerings_payload, $is_sync );
-		}
-		$response = etsy_request()->ced_etsy_remote_req( 'listings/inventory', array_merge( array( 'shop_id' => get_etsy_shop_id( $shop_name ) ), $offerings_payload ), array( 'listing_id' => $listing_id ), 'PUT' );
-		if ( ! $is_sync ) {
-			return $response;
-		}
+		/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+		do_action( 'ced_etsy_refresh_token', $shop_name );
+		$response = etsy_request()->put( "application/listings/{$listing_id}/inventory", $offerings_payload, $shop_name );
+		return $response;
 	}
 
 
@@ -349,10 +307,6 @@ class Ced_Product_Update {
 	 * @return array.
 	 */
 	public function ced_update_images_on_etsy( $product_ids = array(), $shop_name = '' ) {
-		if ( has_filter( 'ced_etsy_modify_image_update' ) ) {
-			return apply_filters( 'ced_etsy_modify_image_update', $product_ids, $shop_name );
-		}
-
 		if ( ! is_array( $product_ids ) ) {
 			$product_ids = array( $product_ids );
 		}
@@ -362,22 +316,19 @@ class Ced_Product_Update {
 			foreach ( $product_ids as $pr_id ) {
 				$listing_id = get_post_meta( $pr_id, '_ced_etsy_listing_id_' . $shop_name, true );
 				update_post_meta( $pr_id, 'ced_etsy_previous_thumb_ids' . $listing_id, '' );
-				$etsy_images = etsy_request()->ced_etsy_remote_req( 'listings/image', array(), array( 'listing_id' => $listing_id ), 'GET' );
+				$etsy_images = etsy_request()->get( "application/listings/{$listing_id}/images", $shop_name );
 				$etsy_images = isset( $etsy_images['results'] ) ? $etsy_images['results'] : array();
-				if ( count( $etsy_images ) ) {
-					foreach ( $etsy_images as $key => $image_info ) {
-						$main_image_id = isset( $image_info['listing_image_id'] ) ? $image_info['listing_image_id'] : '';
-						$etsy_images   = etsy_request()->ced_etsy_remote_req(
-							'listings/image',
-							array(),
-							array(
-								'shop_id'    => $shop_id,
-								'listing_id' => $listing_id,
-								'images'     => $main_image_id,
-							),
-							'DELETE'
-						);
-					}
+				foreach ( $etsy_images as $key => $image_info ) {
+					$main_image_id = isset( $image_info['listing_image_id'] ) ? $image_info['listing_image_id'] : '';
+					// Get all the listing Images form Etsy
+
+					/** Refresh token
+				 *
+				 * @since 2.0.0
+				 */
+					do_action( 'ced_etsy_refresh_token', $shop_name );
+					$action   = "application/shops/{$shop_id}/listings/{$listing_id}/images/{$main_image_id}";
+					$response = etsy_request()->delete( $action, $shop_name );
 				}
 				// Upload Images back to Etsy.
 				$upload = new \Cedcommerce\Product\Ced_Product_Upload();

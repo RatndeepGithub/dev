@@ -50,13 +50,13 @@ class Ced_View_Header {
 		?>
 		<div class="ced-menu-container">
 			<?php
-			$current_uri = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : ced_get_navigation_url( 'etsy', array() );
+			$current_uri = isset( $_SERVER['REQUEST_URI'] ) && ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : admin_url( 'admin.php?page=sales_channel&channel=etsy' );
 			$parts       = parse_url( $current_uri );
 			$query       = array();
 			if ( isset( $parts['query'] ) ) {
 				parse_str( $parts['query'], $query );
 			}
-			print_r( $this->header_wrap_view( $this->section, $this->shop_name ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+			print_r( $this->header_wrap_view( $this->section, $this->shop_name ) );
 			?>
 			<div class="ced-right">
 				<select style="min-width: 160px;" class="attachment-filters" id="ced_etsy_switch_account">
@@ -68,7 +68,7 @@ class Ced_View_Header {
 						<?php
 					}
 					?>
-					<option value="<?php echo esc_url( ced_etsy_get_auth_url() ); ?>"><?php esc_html_e( '+ Add another account', 'woocommerce-etsy-integration' ); ?></option>
+					<option value="<?php echo esc_url( ced_get_navigation_url( 'etsy', array( 'add-new-account' => 'yes' ) ) ); ?>"><?php esc_html_e( '+ Add another account', 'woocommerce-etsy-integration' ); ?></option>
 				</select>
 			</div>
 		</div>
@@ -86,7 +86,7 @@ class Ced_View_Header {
 		$view                = '';
 		$view                = '<ul class="subsubsub">';
 			$header_sections = $this->header_sections();
-			$this->not_show  = apply_filters( 'ced_etsy_not_show_in_header', array( 'shipping-add', 'shipping-edit', 'profile-edit' ) );
+			$this->not_show  = array( 'shipping-add', 'shipping-edit', 'profile-edit' );
 			$count           = 1;
 			$total_items     = count( $header_sections );
 		foreach ( $header_sections as $section => $name ) {
@@ -127,13 +127,7 @@ class Ced_View_Header {
 			$section   = $this->section;
 			$shop_name = $this->shop_name;
 		}
-		return ced_get_navigation_url(
-			'etsy',
-			array(
-				'section'   => $section,
-				'shop_name' => $shop_name,
-			)
-		);
+		return admin_url( 'admin.php?page=sales_channel&channel=etsy&section=' . $section . '&shop_name=' . $shop_name );
 	}
 
 	/**
@@ -143,18 +137,14 @@ class Ced_View_Header {
 	 * @param      string $plugin_name   The shop Name.
 	 */
 	public function header_sections() {
-		return apply_filters(
-			'ced_etsy_modify_header_section',
-			array(
-				'overview'     => __( 'Overview', 'woocommerce-etsy-integration' ),
-				'settings'     => __( 'Settings', 'woocommerce-etsy-integration' ),
-				'templates'    => __( 'Templates', 'woocommerce-etsy-integration' ),
-				'products'     => __( 'Products', 'woocommerce-etsy-integration' ),
-				'importer'     => __( 'Importer', 'woocommerce-etsy-integration' ),
-				'orders'       => __( 'Orders', 'woocommerce-etsy-integration' ),
-				'timeline'     => __( 'Timeline', 'woocommerce-etsy-integration' ),
-				'profile-edit' => __( 'Profile Edit', 'woocommerce-etsy-integration' ),
-			)
+		return array(
+			'overview'     => __( 'Overview', 'woocommerce-etsy-integration' ),
+			'settings'     => __( 'Settings', 'woocommerce-etsy-integration' ),
+			'templates'    => __( 'Templates', 'woocommerce-etsy-integration' ),
+			'products'     => __( 'Products', 'woocommerce-etsy-integration' ),
+			'orders'       => __( 'Orders', 'woocommerce-etsy-integration' ),
+			'timeline'     => __( 'Timeline', 'woocommerce-etsy-integration' ),
+			'profile-edit' => __( 'Profile Edit', 'woocommerce-etsy-integration' ),
 		);
 	}
 }

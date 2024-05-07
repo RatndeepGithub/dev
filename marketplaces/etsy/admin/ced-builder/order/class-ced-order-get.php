@@ -1,12 +1,8 @@
 <?php
-use Automattic\WooCommerce\Internal\DataStores\Orders\OrdersTableDataStore;
-use Automattic\WooCommerce\Utilities\OrderUtil as CedEtsyHPOS;
+
 class Ced_Order_Get {
 
 	public static $_instance;
-	private $create_in_hpos;
-	public $shop_name;
-	public $saved_global_settings_data;
 	/**
 	 * Ced_Etsy_Config Instance.
 	 *
@@ -24,13 +20,6 @@ class Ced_Order_Get {
 		return self::$_instance;
 	}
 
-	public function __construct( $shop_name = '' ) {
-		$this->shop_name                  = ! empty( $shop_name ) ? $shop_name : '';
-		$this->saved_global_settings_data = get_option( 'ced_etsy_global_settings', array() );
-		$this->create_in_hpos             = false;
-
-	}
-
 	/**
 	 * Fetch order from Etsy.
 	 *
@@ -38,15 +27,13 @@ class Ced_Order_Get {
 	 */
 
 	public function get_orders( $shopId, $is_sync = false ) {
-		if ( CedEtsyHPOS::custom_orders_table_usage_is_enabled() ) {
-			$this->create_in_hpos = true;
-		}
+
 		$this->is_sync                    = $is_sync;
 		$shop_id                          = get_etsy_shop_id( $shopId );
 		$last_created_order               = get_option( 'ced_etsy_last_order_created_time', '' );
 		$last_created_order               = date_i18n( 'F d, Y h:i', strtotime( $last_created_order ) );
 		$current_time                     = current_time( 'F-i-j h:i:s' );
-		$this->saved_global_settings_data = get_option( 'ced_etsy_global_settings', array() );
+		$this->saved_global_settings_data = get_option( 'ced_etsy_global_settings', '' );
 		$order_limit                      = isset( $this->saved_global_settings_data[ $shopId ]['order_limit'] ) ? $this->saved_global_settings_data[ $shopId ]['order_limit'] : '';
 
 		$params = array(
@@ -57,15 +44,14 @@ class Ced_Order_Get {
 			'was_canceled' => false,
 		);
 
-		$result = etsy_request()->ced_etsy_remote_req( 'shop/receipt/list', array(), array_merge( array( 'shop_id' => $shop_id ), $params ), 'GET' );
+		/** Refresh token
+		 *
+		 * @since 2.0.0
+		 */
+		do_action( 'ced_etsy_refresh_token', $shopId );
+		$result = etsy_request()->get( "application/shops/{$shop_id}/receipts", $shopId, $params );
 		if ( isset( $result['results'] ) && ! empty( $result['results'] ) ) {
-			$order_created = $this->createLocalOrder( $result['results'], $shopId );
-			if ( ! $is_sync ) {
-				return true;
-			}
-		}
-		if ( ! $is_sync ) {
-			return false;
+			$this->createLocalOrder( $result['results'], $shopId );
 		}
 	}
 
@@ -81,11 +67,21 @@ class Ced_Order_Get {
 			$OrderItemsInfo = array();
 			foreach ( $orders as $order ) {
 				$receipt_id = isset( $order['receipt_id'] ) ? $order['receipt_id'] : '';
-				$order_id   = $this->is_etsy_order_exists( $receipt_id, $shopId );
+
+				$order_id = $this->is_etsy_order_exists( $receipt_id );
+
 				if ( $order_id ) {
 					continue;
 				}
+
 				if ( ! empty( $receipt_id ) ) {
+					$saved_etsy_details = get_option( 'ced_etsy_details', array() );
+
+					if ( ! is_array( $saved_etsy_details ) ) {
+						$saved_etsy_details = array();
+					}
+					$shopDetails              = $saved_etsy_details[ $shopId ];
+					$shop_id                  = $shopDetails['details']['shop_id'];
 					$transactions_per_reciept = isset( $order['transactions'] ) ? $order['transactions'] : array();
 					$ShipToFirstName          = isset( $order['name'] ) ? $order['name'] : '';
 					$ShipToAddress1           = isset( $order['first_line'] ) ? $order['first_line'] : '';
@@ -140,7 +136,8 @@ class Ced_Order_Get {
 
 					$OrderNumber  = isset( $order['receipt_id'] ) ? $order['receipt_id'] : '';
 					$order_status = 'processing';
-					$ShipService  = 'Shipping';
+
+					$ShipService = 'Shipping';
 
 					$update_stock_with_no_order = isset( $this->saved_global_settings_data[ $shopId ]['update_stock_with_no_order'] ) ? $this->saved_global_settings_data[ $shopId ]['update_stock_with_no_order'] : '';
 					if ( ! empty( $transactions_per_reciept ) ) {
@@ -157,16 +154,12 @@ class Ced_Order_Get {
 							$listing_id = isset( $transaction['listing_id'] ) ? $transaction['listing_id'] : false;
 							$OrderedQty = isset( $transaction['quantity'] ) ? $transaction['quantity'] : 1;
 							$basePrice  = isset( $transaction['price']['amount'] ) ? $transaction['price']['amount'] / $transaction['price']['divisor'] : '';
-							if ( has_filter( 'ced_etsy_modify_order_base_price_as_per_conversion_rate' ) ) {
-								$basePrice = apply_filters( 'ced_etsy_modify_order_base_price_as_per_conversion_rate', $basePrice, $transaction['price']['currency_code'] );
-							}
 							$variations = isset( $transaction['variations'] ) ? $transaction['variations'] : array();
 							$CancelQty  = 0;
 							$sku        = isset( $transaction['sku'] ) ? $transaction['sku'] : '';
 							if ( ! empty( $sku ) ) {
 								$ID = $this->get_product_id_by_order_params( '_sku', $sku );
 							}
-
 							if ( 'on' == $update_stock_with_no_order ) {
 
 								if ( ! $ID && ! empty( $sku ) ) {
@@ -207,7 +200,8 @@ class Ced_Order_Get {
 					}
 				}
 
-				$ShippingAmount   = isset( $order['total_shipping_cost']['amount'] ) ? $order['total_shipping_cost']['amount'] / $order['total_shipping_cost']['divisor'] : 0;
+				$ShippingAmount = isset( $order['total_shipping_cost']['amount'] ) ? $order['total_shipping_cost']['amount'] / $order['total_shipping_cost']['divisor'] : 0;
+
 				$DiscountedAmount = isset( $order['discount_amt']['amount'] ) ? $order['discount_amt']['amount'] / $order['discount_amt']['divisor'] : 0;
 				$gift_wrap_price  = isset( $order['gift_wrap_price']['amount'] ) ? $order['gift_wrap_price']['amount'] / $order['gift_wrap_price']['divisor'] : 0;
 				$finalTax         = isset( $order['total_tax_cost']['amount'] ) ? $order['total_tax_cost']['amount'] / $order['total_tax_cost']['divisor'] : '';
@@ -242,7 +236,7 @@ class Ced_Order_Get {
 					'order_detail'      => isset( $orderDetail ) ? $orderDetail : '',
 					'order_items'       => isset( $orderItems ) ? $orderItems : '',
 				);
-				$creation_date   = isset( $order['created_timestamp'] ) ? $order['created_timestamp'] : time();
+				$creation_date   = $order['created_timestamp'];
 				if ( 'on' !== $update_stock_with_no_order ) {
 					$order_id = $this->create_order( $address, $OrderItemsInfo, 'Etsy', $etsyOrderMeta, $creation_date, $shopId );
 				}
@@ -292,7 +286,8 @@ class Ced_Order_Get {
 		if ( count( $OrderItemsInfo ) ) {
 
 			$OrderNumber = isset( $OrderItemsInfo['OrderNumber'] ) ? $OrderItemsInfo['OrderNumber'] : 0;
-			$order_id    = $this->is_etsy_order_exists( $OrderNumber, $shopId );
+			$order_id    = $this->is_etsy_order_exists( $OrderNumber );
+
 			if ( $order_id ) {
 				return $order_id;
 			}
@@ -305,14 +300,16 @@ class Ced_Order_Get {
 			$activity->post_id       = $OrderNumber;
 			$activity->shop_name     = $shopId;
 			$activity->is_auto       = $this->is_sync;
-			$response                = array();
+
+			$response = array();
 			if ( count( $OrderItemsInfo ) ) {
 				$ItemsArray = isset( $OrderItemsInfo['ItemsArray'] ) ? $OrderItemsInfo['ItemsArray'] : array();
 				if ( is_array( $ItemsArray ) ) {
 					foreach ( $ItemsArray as $ItemInfo ) {
-						$ProID         = isset( $ItemInfo['ID'] ) ? intval( $ItemInfo['ID'] ) : 0;
-						$Sku           = isset( $ItemInfo['Sku'] ) ? $ItemInfo['Sku'] : '';
-						$listing_id    = isset( $ItemInfo['listing_id'] ) ? $ItemInfo['listing_id'] : '';
+						$ProID      = isset( $ItemInfo['ID'] ) ? intval( $ItemInfo['ID'] ) : 0;
+						$Sku        = isset( $ItemInfo['Sku'] ) ? $ItemInfo['Sku'] : '';
+						$listing_id = isset( $ItemInfo['listing_id'] ) ? $ItemInfo['listing_id'] : '';
+
 						$MfrPartNumber = isset( $ItemInfo['MfrPartNumber'] ) ? $ItemInfo['MfrPartNumber'] : '';
 						$Upc           = isset( $ItemInfo['UPCCode'] ) ? $ItemInfo['UPCCode'] : '';
 						$Asin          = isset( $ItemInfo['ASIN'] ) ? $ItemInfo['ASIN'] : '';
@@ -382,12 +379,7 @@ class Ced_Order_Get {
 									} else {
 										$order_id = $order->get_id();
 									}
-									if ( $this->create_in_hpos ) {
-										$order->update_meta_data( '_ced_etsy_order_id', $OrderNumber );
-									} else {
-										update_post_meta( $order_id, '_ced_etsy_order_id', $OrderNumber );
-									}
-
+									update_post_meta( $order_id, '_ced_etsy_order_id', $OrderNumber );
 									$order_created = true;
 									$response[]    = 'Order created successfuly with woocommerce order id : ' . $order_id;
 								}
@@ -398,11 +390,7 @@ class Ced_Order_Get {
 								$order->add_order_note( $note );
 							}
 
-							if ( $this->create_in_hpos ) {
-								$order->update_meta_data( '_ced_etsy_order_id', $OrderNumber );
-							} else {
-								update_post_meta( $order_id, '_ced_etsy_order_id', $OrderNumber );
-							}
+							update_post_meta( $order_id, '_ced_etsy_order_id', $OrderNumber );
 
 							$_product->set_price( $UnitPrice );
 							$item_id = $order->add_product( $_product, $Qty );
@@ -457,11 +445,7 @@ class Ced_Order_Get {
 						$type = 'shipping';
 						foreach ( $ShippingAddress as $key => $value ) {
 							if ( ! empty( $value ) && null != $value && ! empty( $value ) ) {
-								if ( $this->create_in_hpos ) {
-									$order->update_meta_data( "_{$type}_" . $key, $value );
-								} else {
-									update_post_meta( $order->get_id(), "_{$type}_" . $key, $value );
-								}
+								update_post_meta( $order->get_id(), "_{$type}_" . $key, $value );
 								if ( is_callable( array( $order, "set_{$type}_{$key}" ) ) ) {
 									$order->{"set_{$type}_{$key}"}( $value );
 								}
@@ -491,11 +475,7 @@ class Ced_Order_Get {
 						$type = 'billing';
 						foreach ( $BillingAddress as $key => $value ) {
 							if ( null != $value && ! empty( $value ) ) {
-								if ( $this->create_in_hpos ) {
-									$order->update_meta_data( "_{$type}_" . $key, $value );
-								} else {
-									update_post_meta( $order->get_id(), "_{$type}_" . $key, $value );
-								}
+								update_post_meta( $order->get_id(), "_{$type}_" . $key, $value );
 								if ( is_callable( array( $order, "set_{$type}_{$key}" ) ) ) {
 									$order->{"set_{$type}_{$key}"}( $value );
 								}
@@ -511,38 +491,24 @@ class Ced_Order_Get {
 				} else {
 					$order->set_total( $DiscountAmount );
 				}
-				$order->calculate_totals();
-				if ( $this->create_in_hpos ) {
-					$order->update_meta_data( '_is_ced_etsy_order', 1 );
-					$order->update_meta_data( '_is_ced_order', 1 );
-					$order->update_meta_data( '_etsy_umb_order_status', 'Fetched' );
-					$order->update_meta_data( '_umb_etsy_marketplace', $frameworkName );
-					$order->update_meta_data( 'ced_etsy_order_shop_id', $shopId );
-					$order->update_meta_data( 'ced_etsy_last_order_created_time', $creation_date );
-					$order->save();
-				} else {
-					update_post_meta( $order_id, '_is_ced_etsy_order', 1 );
-					update_post_meta( $order_id, '_is_ced_order', 1 );
-					update_post_meta( $order_id, '_etsy_umb_order_status', 'Fetched' );
-					update_post_meta( $order_id, '_umb_etsy_marketplace', $frameworkName );
-					update_post_meta( $order_id, 'ced_etsy_order_shop_id', $shopId );
-					update_post_meta( $order_id, 'ced_etsy_last_order_created_time', $creation_date );
-				}
 
+				$order->calculate_totals();
+
+				update_post_meta( $order_id, '_is_ced_etsy_order', 1 );
+				update_post_meta( $order_id, '_is_ced_order', 1 );
+				update_post_meta( $order_id, '_etsy_umb_order_status', 'Fetched' );
+				update_post_meta( $order_id, '_umb_etsy_marketplace', $frameworkName );
+				update_post_meta( $order_id, 'ced_etsy_order_shop_id', $shopId );
 				update_option( 'ced_etsy_last_order_created_time', $creation_date );
+
 				$renderDataOnGlobalSettings = get_option( 'ced_etsy_global_settings', array() );
 				$default_order_status       = ! empty( $renderDataOnGlobalSettings[ $shopId ]['default_order_status'] ) ? $renderDataOnGlobalSettings[ $shopId ]['default_order_status'] : 'wc-processing';
 				$order->update_status( $default_order_status );
 				if ( count( $orderMeta ) ) {
 					foreach ( $orderMeta as $oKey => $oValue ) {
-						if ( $this->create_in_hpos ) {
-							$order->update_meta_data( $oKey, $oValue );
-						} else {
-							update_post_meta( $order_id, $oKey, $oValue );
-						}
+						update_post_meta( $order_id, $oKey, $oValue );
 					}
 				}
-				$order->save();
 			}
 			$final_response = $response;
 			if ( $order_created ) {
@@ -560,43 +526,12 @@ class Ced_Order_Get {
 	 *
 	 * @since    1.0.0
 	 */
-	public function is_etsy_order_exists( $order_number = 0, $shop_name = '' ) {
-		if ( $this->create_in_hpos ) {
-			$orders = wc_get_orders(
-				array(
-					'limit'      => -1,
-					'status'     => 'all',
-					'return'     => 'ids',
-					'meta_query' => array(
-						array(
-							'key'        => '_ced_etsy_order_id',
-							'value'      => $order_number,
-							'comparison' => '==',
-						),
-						array(
-							'key'        => '_umb_etsy_marketplace',
-							'value'      => 'Etsy',
-							'comparison' => '==',
-						),
-						array(
-							'key'        => 'ced_etsy_order_shop_id',
-							'value'      => $shop_name,
-							'comparison' => '==',
-						),
-						'fields' => 'ids',
-
-					),
-				)
-			);
-			$order_id = isset( $orders[0] ) ? $orders[0] : false;
-			return $order_id;
-		} else {
-			global $wpdb;
-			if ( $order_number ) {
-				$order_id = $wpdb->get_var( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='_ced_etsy_order_id' AND meta_value=%s LIMIT 1", $order_number ) );
-				if ( $order_id ) {
-					return $order_id;
-				}
+	public function is_etsy_order_exists( $order_number = 0 ) {
+		global $wpdb;
+		if ( $order_number ) {
+			$order_id = $wpdb->get_var( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='_ced_etsy_order_id' AND meta_value=%s LIMIT 1", $order_number ) );
+			if ( $order_id ) {
+				return $order_id;
 			}
 		}
 		return false;

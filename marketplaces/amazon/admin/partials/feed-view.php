@@ -19,11 +19,6 @@ $wooFeedId = isset( $_GET['woo-feed-id'] ) ? sanitize_text_field( $_GET['woo-fee
 
 $user_id   = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
 $seller_id = isset( $_GET['seller_id'] ) ? sanitize_text_field( $_GET['seller_id'] ) : '';
-$mode      = isset( $_GET['mode'] ) ? sanitize_text_field( $_GET['mode'] ) : 'production';
-
-$seller_id_array = explode( '|', $seller_id );
-$country         = isset( $seller_id_array[0] ) ? $seller_id_array[0] : '';
-$mod_seller_id   = isset( $seller_id_array[1] ) ? $seller_id_array[1] : '';
 
 require_once CED_AMAZON_DIRPATH . 'admin/amazon/lib/class-feed-manager.php';
 
@@ -54,36 +49,18 @@ $feed_request_id = $feed_request_ids[0];
 $main_id         = $feed_request_id['id'];
 $feed_type       = $feed_request_id['feed_action'];
 $location_id     = $feed_request_id['feed_location'];
-
-$opt_type     = isset( $feed_request_id['opt_type'] ) ? $feed_request_id['opt_type'] : '';
-$product_data = isset( $feed_request_id['sku'] ) ? json_decode( $feed_request_id['sku'], true ) : array();
-
-$response    = $feed_request_id['response'];
-$response    = json_decode( $response, true );
-$marketplace = 'amazon_spapi';
+$response        = $feed_request_id['response'];
+$response        = json_decode( $response, true );
+$marketplace     = 'amazon_spapi';
 
 $response_format = false;
-
-$feed_opt_array = array(
-	'POST_INVENTORY_AVAILABILITY_DATA' => 'Inventory Update',
-	'POST_FLAT_FILE_LISTINGS_DATA'     => 'Product Upload',
-	'POST_PRODUCT_PRICING_DATA'        => 'Price Update',
-	'POST_PRODUCT_IMAGE_DATA'          => 'Image Update',
-	'POST_ORDER_FULFILLMENT_DATA'      => 'Order Fulfillment',
-	'POST_PRODUCT_DATA'                => 'Relist Product',
-	'Delete_Product'                   => 'Delete Product',
-);
-
-$feed_name = isset( $feed_opt_array[ $feed_type ] ) ? $feed_opt_array[ $feed_type ] : '-';
-
-
 if ( ! empty( $feedId ) ) {
 
 	if ( isset( $response['status'] ) && 'DONE' == $response['status'] ) {
 		$response_format = true;
 
 	} else {
-		$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance( $mode );
+		$feed_manager = Ced_Umb_Amazon_Feed_Manager::get_instance();
 		$response     = $feed_manager->getFeedItemsStatusSpApi( $feedId, $feed_type, $location_id, $marketplace, $seller_id );
 
 		if ( isset( $response['status'] ) && 'DONE' == $response['status'] ) {
@@ -131,7 +108,7 @@ if ( ! empty( $feedId ) ) {
 				}
 			}
 
-			$tableHtml = ' <h3 class="ced_feed_product_table_heading" >Feed Summary Table: </h3> <table class="wp-list-table widefat striped table-view-list posts ced_feed_processing_summary_table" >
+			$tableHtml = '<table class="wp-list-table widefat striped table-view-list posts" >
 				<thead class="table-dark">
 					<tr>
 						<th scope="col" colspan="5" style="text-align: center;" >' . esc_html__( $response_heading, 'amazon-for-woocommerce' ) . '</th>
@@ -202,7 +179,7 @@ if ( ! empty( $feedId ) ) {
 					}
 				}
 
-				$tableHtml  = ' <h3 class="ced_feed_product_table_heading" >Feed Summary Table: </h3> <table class="wp-list-table widefat striped table-view-list posts ced_feed_processing_summary_table" >
+				$tableHtml  = '<table class="wp-list-table widefat striped table-view-list posts" >
 						<thead class="table-dark">
 							<tr>
 								<th scope="col">' . esc_html__( 'Header', 'amazon-for-woocommerce' ) . '</th>
@@ -240,12 +217,8 @@ if ( ! empty( $feedId ) ) {
 
 
 			if ( isset( $response['feed_id'] ) && ! empty( $response['feed_id'] ) ) {
-				echo '<div class="ced_feed_info_container">';
-				echo '<div><p><b>Feed Id</b><span class="ced_feed_colon">:</span><span>' . esc_attr( $response['feed_id'] ) . '</span></p>';
-				echo '</div>';
+				echo '<div class=""><p><b>Feed Id: ' . esc_attr( $response['feed_id'] ) . '</b></p>';
 			}
-
-			ced_prepare_feed_product_table( $product_data );
 
 			if ( isset( $arrayResponse['Message'] ) && ! empty( $arrayResponse['Message'] ) ) {
 
@@ -283,7 +256,7 @@ if ( ! empty( $feedId ) ) {
 					}
 				}
 
-				$tableHtml = ' <h3 class="ced_feed_product_table_heading" >Feed Summary Table: </h3><table class="wp-list-table widefat striped table-view-list posts ced_feed_processing_summary_table"  >
+				$tableHtml = '<table class="wp-list-table widefat striped table-view-list posts"  >
 						<thead class="table-dark">
 							<tr>
 								<th scope="col">Merchant Identifier </th>
@@ -314,14 +287,8 @@ if ( ! empty( $feedId ) ) {
 			}
 		}
 	} elseif ( isset( $response['feed_id'] ) && ! empty( $response['feed_id'] ) ) {
-
-			echo '<div class="ced_feed_info_container">';
-			echo '<div><p><b>Feed Id</b><span class="ced_feed_colon">:</span><span>' . esc_attr( $response['feed_id'] ) . '</span></p>';
-			echo '</div>';
-
-			ced_prepare_feed_product_table( $product_data );
-
-			echo ' <h3 class="ced_feed_product_table_heading" >Feed Summary Table: </h3> <table class="wp-list-table widefat striped table-view-list posts ced_feed_processing_summary_table" >
+			echo '<div class=""><p><b>Feed Id: ' . esc_attr( $response['feed_id'] ) . '</b></p>';
+			echo '<table class="wp-list-table widefat striped table-view-list posts" >
 				<thead class="table-dark">
 					<tr>
 						<th scope="col">Feed Id </th>
@@ -353,55 +320,3 @@ function xml2array( $xmlObject, $out = array() ) {
 
 	return $out;
 }
-
-
-function ced_prepare_feed_product_table( $product_data ) {
-
-	$headers = array(
-		'product_name' => 'Product Name',
-		'sku'          => 'SKU',
-		'type'         => 'Type',
-		'parent_sku'   => 'Parent SKU',
-		'value'        => 'Value Transmitted',
-	);
-
-	?>
-			<h3 class="ced_feed_product_table_heading" >Feed Product Table: </h3>
-			<table class="wp-list-table widefat striped table-view-list posts ced_feed_product_table">
-				<thead class="table-dark">
-					<tr>
-						<?php
-						foreach ( $headers as $key => $value ) {
-							?>
-							<th scope="col"><?php echo( $value ); ?></th>
-							<?php } ?>
-					</tr>
-				</thead>
-				<tbody>
-					
-						<?php
-
-						foreach ( $product_data as $key => $value ) {
-							$key_value = isset( $product_data[ $key ] ) ? $product_data[ $key ] : '';
-							?>
-								<tr>
-									<th scope="row"><?php echo esc_attr( $value['product_name'] ); ?></th> 
-									<td scope="col"><?php echo esc_attr( $key ); ?></td>
-									<td scope="col"><?php echo esc_attr( $value['type'] ); ?></td>
-									<td scope="col"><?php echo esc_attr( $value['parent_sku'] ); ?></td>
-									<td scope="col"><?php echo esc_attr( $value['value'] ); ?></td>
-
-								</tr>	
-								<?php
-
-						}
-
-						?>
-						
-					</tr>
-				</tbody>
-			</table>
-	<?php
-}
-
-?>

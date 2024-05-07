@@ -4,10 +4,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die;
 }
 
-$configFile = CED_EBAY_DIRPATH . 'admin/ebay/lib/ebayConfig.php';
-if(file_exists( $configFile )) {
-	require_once $configFile;
-}
 
 $file = CED_EBAY_DIRPATH . 'admin/partials/header.php';
 if ( file_exists( $file ) ) {
@@ -44,17 +40,16 @@ if ( file_exists( $file ) ) {
 	</style>
 
 <?php
-$current_uri = wp_http_validate_url( wc_get_current_admin_url() );
+
 $user_id                 = isset( $_GET['user_id'] ) ? sanitize_text_field( $_GET['user_id'] ) : '';
-$site_id                 = isset( $_GET['sid'] ) ? sanitize_text_field( $_GET['sid'] ) : '';
-$rsid                 = isset( $_GET['rsid'] ) ? sanitize_text_field( $_GET['rsid'] ) : '';
+$site_id                 = isset( $_GET['site_id'] ) ? sanitize_text_field( $_GET['site_id'] ) : '';
 $activeEbayListings      = ! empty( get_option( 'ced_ebay_total_listings_' . $user_id ) ) ? get_option( 'ced_ebay_total_listings_' . $user_id, true ) : 0;
 $lastImportedTitle       = ! empty( get_option( 'ced_ebay_last_imported_title_' . $user_id . '>' . $site_id ) ) ? get_option( 'ced_ebay_last_imported_title_' . $user_id . '>' . $site_id, true ) : '';
 $uploadedProducts        = 0;
 $importedFromEbay        = 0;
 $totalrevenue            = 0;
 $country_code            = '';
-$configInstance          = Ced\Ebay\Ebayconfig::get_instance();
+$configInstance          = \Ced_Ebay_WooCommerce_Core\Ebayconfig::get_instance();
 		$ebaySiteDetails = $configInstance->getEbaycountrDetail( $site_id );
 if ( ! empty( $ebaySiteDetails ) && is_array( $ebaySiteDetails ) && isset( $ebaySiteDetails['countrycode'] ) ) {
 	$country_code = $ebaySiteDetails['countrycode'];
@@ -116,10 +111,112 @@ if ( is_wp_error( $wooOrderIds ) || empty( $wooOrderIds ) ) {
 }
 $progress_status = get_option( 'ced_ebay_importer_progress_status_' . $user_id . '>' . $site_id );
 
+$marketingRequestFile = CED_EBAY_DIRPATH . 'admin/ebay/lib/cedMarketingRequest.php';
+if ( file_exists( $marketingRequestFile ) ) {
+	$shop_data = ced_ebay_get_shop_data( $user_id, $site_id );
+	if ( ! empty( $shop_data ) && true === $shop_data['is_site_valid'] ) {
+		$siteID = $site_id;
+		$token  = $shop_data['access_token'];
 
+		require_once $marketingRequestFile;
+		$cedMarketingRequest        = new \Ced_Marketing_API_Request( $siteID );
+		$endpoint                   = 'privilege';
+		$responseAccountsApi        = $cedMarketingRequest->sendHttpRequestForAccountAPI( $endpoint, $token, '' );
+		$account_privilege_response = json_decode( $responseAccountsApi, true );
+		// print_r($account_privilege_response);die('123');
+		$selling_limit_currency           = '';
+		$selling_limit_value              = '-';
+		$is_seller_registration_completed = 'Unknown';
+		$selling_limit_quantity           = '-';
+		if ( is_array( $account_privilege_response ) && ( isset( $account_privilege_response['sellingLimit'] ) || isset( $account_privilege_response['sellerRegistrationCompleted'] ) ) ) {
+			$selling_limit_currency           = isset( $account_privilege_response['sellingLimit']['amount']['currency'] ) ? $account_privilege_response['sellingLimit']['amount']['currency'] : '';
+			$selling_limit_value              = isset( $account_privilege_response['sellingLimit']['amount']['value'] ) ? $account_privilege_response['sellingLimit']['amount']['value'] : '-';
+			$selling_limit_quantity           = isset( $account_privilege_response['sellingLimit']['quantity'] ) ? $account_privilege_response['sellingLimit']['quantity'] : '-';
+			$is_seller_registration_completed = isset( $account_privilege_response['sellerRegistrationCompleted'] ) ? $account_privilege_response['sellerRegistrationCompleted'] : 'Unknown';
+		}
+
+		// print_r($selling_limit_currency);
+		// print_r(number_format_i18n($selling_limit_value));
+		// print_r($selling_limit_quantity);
+		// print_r($is_seller_registration_completed);
+		// die('123');
+	}
+}
 ?>
 
+<div class="woocommerce-progress-form-wrapper">
+		<div class="wc-progress-form-content">
+			<header>
+				<h2>eBay Account Details</h2>
+				<p>Keep track of your selling limits on eBay, account registration status, and other vital info about your eBay account</p>
+				<div class="woocommerce-dashboard__store-performance">
+					<div role="menu" aria-orientation="horizontal" aria-label="Performance Indicators" class="ced-ebay-account-details-section"
+						aria-describedby="woocommerce-summary-helptext-87">
+						<ul class="woocommerce-summary has-3-items ced-woocommerce-summary">
+							<li class="woocommerce-summary__item-container">
+								<a href="#" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
+									<div class="woocommerce-summary__item-label"><span
+											data-wp-component="Text"
+											class="components-truncate components-text css-jfofvs e19lxcc00">Total Amount <?php echo ! empty( $selling_limit_currency ) ? esc_html__( '(' . $selling_limit_currency . ')', 'ebay-integration-for-woocommerce' ) : ''; ?></span></div>
+									<div class="woocommerce-summary__item-ced-data">
+										<div class="woocommerce-summary__item-value"><span
+												data-wp-component="Text"
+												class="components-truncate components-text css-2x4s0q e19lxcc00"><?php echo '-' !== $selling_limit_value ? esc_html__( number_format_i18n( $selling_limit_value ), 'ebay-integration-for-woocommerce' ) : '-'; ?></span>
+										</div>
+									</div>
+								</a>
+							</li>
+							
+							<li class="woocommerce-summary__item-container">
+								<a href="#" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
+									<div class="woocommerce-summary__item-label"><span
+											data-wp-component="Text"
+											class="components-truncate components-text css-jfofvs e19lxcc00">Total Quantity</span>
+									</div>
+									<div class="woocommerce-summary__item-ced-data">
+										<div class="woocommerce-summary__item-value"><span
+												data-wp-component="Text"
+												class="components-truncate components-text css-2x4s0q e19lxcc00"><?php echo '-' !== $selling_limit_quantity ? esc_html__( number_format_i18n( $selling_limit_quantity ), 'ebay-integration-for-woocommerce' ) : '-'; ?></span>
+										</div>
+									</div>
+								</a>
+							</li>
 
+							<li class="woocommerce-summary__item-container">
+								<a href="#" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
+									<div class="woocommerce-summary__item-label"><span
+											data-wp-component="Text"
+											class="components-truncate components-text css-jfofvs e19lxcc00">Seller Registration</span>
+									</div>
+									<div class="woocommerce-summary__item-ced-data">
+										<div class="woocommerce-summary__item-value"><span
+												data-wp-component="Text"
+												class="components-truncate components-text css-2x4s0q e19lxcc00">
+												<?php
+												if ( true == $is_seller_registration_completed ) {
+													echo esc_html( 'Completed' );
+												} elseif ( false === $is_seller_registration_completed ) {
+													echo esc_html( 'Pending' );
+												} else {
+													echo esc_html( $is_seller_registration_completed );
+												}
+												?>
+												</span>
+										</div>
+									</div>
+								</a>
+							</li>
+							
+						</ul>
+					</div>
+				</div>
+			</header>
+			<div class="wc-actions">
+				<a style="float: right;" href="#" id="ced_ebay_check_token_status_btn"
+				class="components-button is-primary">Check Token Status</a>
+			</div>
+		</div>
+	</div>
 	<div class="woocommerce-progress-form-wrapper">
 		<div class="wc-progress-form-content ced-ebay-product-importer-section">
 			<header>
@@ -261,10 +358,7 @@ $progress_status = get_option( 'ced_ebay_importer_progress_status_' . $user_id .
 						aria-describedby="woocommerce-summary-helptext-87">
 						<ul class="woocommerce-summary has-3-items ced-woocommerce-summary">
 							<li class="woocommerce-summary__item-container">
-								<?php 
-									$products_view_url = ced_get_navigation_url('ebay', ['user_id' => $user_id, 'sid' => $site_id, 'rsid' => $rsid, 'section' => 'products-view']);
-								?>
-								<a href="<?php echo !empty($products_view_url) ? esc_url($products_view_url.'&section=products-view') : '#';?>" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
+								<a href="#" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
 									<div class="woocommerce-summary__item-label"><span
 											data-wp-component="Text"
 											class="components-truncate components-text css-jfofvs e19lxcc00">Total
@@ -278,7 +372,7 @@ $progress_status = get_option( 'ced_ebay_importer_progress_status_' . $user_id .
 								</a>
 							</li>
 							<li class="woocommerce-summary__item-container">
-							<a href="<?php echo !empty($products_view_url) ? esc_url($products_view_url.'&status_sorting=Uploaded') : '#';?>" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
+								<a href="#" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
 									<div class="woocommerce-summary__item-label"><span
 											data-wp-component="Text"
 											class="components-truncate components-text css-jfofvs e19lxcc00">Listed on eBay
@@ -307,6 +401,16 @@ $progress_status = get_option( 'ced_ebay_importer_progress_status_' . $user_id .
 							</li>
 							<li class="woocommerce-summary__item-container">
 								<a href="#" class="woocommerce-summary__item" role="menuitem" data-link-type="wc-admin">
+									<!-- <div class="woocommerce-summary__item-label"><span
+											data-wp-component="Text"
+											class="components-truncate components-text css-jfofvs e19lxcc00">Revenue</span>
+									</div>
+									<div class="woocommerce-summary__item-ced-data">
+										<div class="woocommerce-summary__item-value"><span
+												data-wp-component="Text"
+												class="components-truncate components-text css-2x4s0q e19lxcc00">$1200</span>
+										</div>
+									</div> -->
 								</a>
 							</li>
 						</ul>
@@ -315,7 +419,7 @@ $progress_status = get_option( 'ced_ebay_importer_progress_status_' . $user_id .
 			</header>
 			<div class="wc-actions">
 				<a style="float: right;" 
-				href="<?php echo esc_url( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=products-view&user_id=' . $user_id . '&sid=' . $site_id . '&rsid=' . $rsid ); ?>"
+				href="<?php echo esc_url( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=products-view&user_id=' . $user_id . '&site_id=' . $site_id ); ?>"
 				class="components-button is-primary">View all Products</a>
 			</div>
 		</div>
@@ -365,12 +469,9 @@ $progress_status = get_option( 'ced_ebay_importer_progress_status_' . $user_id .
 					</div>
 				</div>
 			</header>
-			<?php 
-				$view_orders_url = ced_get_navigation_url('ebay', ['user_id' => $user_id, 'sid' => $site_id, 'rsid' => $rsid, 'section' => 'view-ebay-orders']);
-			?>
 			<div class="wc-actions">
 				<a style="float: right;" 
-				href="<?php echo esc_url( $view_orders_url ); ?>"
+				href="<?php echo esc_url( get_admin_url() . 'admin.php?page=sales_channel&channel=ebay&section=view-ebay-orders&user_id=' . $user_id . '&site_id=' . $site_id ); ?>"
 				class="components-button is-primary">View all Orders</a>
 			</div>
 		</div>

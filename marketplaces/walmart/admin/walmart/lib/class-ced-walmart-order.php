@@ -304,8 +304,7 @@ class Ced_Walmart_Order {
 
 								if ( isset( $shipping_added_succefully ) && 'yes' != $shipping_added_succefully ) {
 									$order->add_item( $rate );
-									$order->add_meta_data( 'shipping_added_succefully', 'yes' );
-									$order->save();
+									update_post_meta( $order_id, 'shipping_added_succefully', 'yes' );
 								}
 							}
 						}
@@ -314,17 +313,16 @@ class Ced_Walmart_Order {
 					if ( 'Acknowledged' == $walmart_order_status || 'Created' == $walmart_order_status ) {
 						$auto_acknowledge = get_option( 'ced_walmart_auto_acknowledge_orders', '' );
 						$response         = $this->acknowledge_order( $order_id );
-						if ( isset( $response['result']['order']['orderLines'] ) ) {
-							$order->add_meta_data( '_ced_walmart_order_status', 'Acknowledged' );
+						if ( isset( $response['order']['orderLines'] ) ) {
+							update_post_meta( $order_id, '_ced_walmart_order_status', 'Acknowledged' );
 						} else {
-							$order->add_meta_data( '_ced_walmart_order_status', $walmart_order_status );
+							update_post_meta( $order_id, '_ced_walmart_order_status', $walmart_order_status );
 						}
 					} else {
-						$order->add_meta_data( '_ced_walmart_order_status', $walmart_order_status );
+						update_post_meta( $order_id, '_ced_walmart_order_status', $walmart_order_status );
 					}
 
-					$order->add_meta_data( '_ced_walmart_shipped_data', $walmart_shipped_details );
-					$order->save();
+					update_post_meta( $order_id, '_ced_walmart_shipped_data', $walmart_shipped_details );
 				}
 			}
 		}
@@ -404,7 +402,6 @@ class Ced_Walmart_Order {
 								} else {
 									$order_id      = $order->get_id();
 									$order_created = true;
-									$response      = $this->ced_walmart_process_instance->ced_walmart_orders_count_request( array( $order_id ) );
 								}
 							}
 							$_product->set_price( $unit_price );
@@ -457,18 +454,17 @@ class Ced_Walmart_Order {
 
 				$order->calculate_totals();
 
-				$order->add_meta_data( '_ced_walmart_order_id', $order_number );
-				$order->add_meta_data( '_ced_walmart_order', 1 );
-				$order->add_meta_data( '_ced_walmart_order_status', 'Acknowledged' );
-				$order->add_meta_data( '_order_marketplace', $marketplace );
-				$order->add_meta_data( '_ced_walmart_order_store_id' . wifw_environment(), $store_id );
+				update_post_meta( $order_id, '_ced_walmart_order_id', $order_number );
+				update_post_meta( $order_id, '_ced_walmart_order', 1 );
+				update_post_meta( $order_id, '_ced_walmart_order_status', 'Acknowledged' );
+				update_post_meta( $order_id, '_order_marketplace', $marketplace );
+				update_post_meta( $order_id, '_ced_walmart_order_store_id' . wifw_environment(), $store_id );
 
 				if ( count( $order_meta ) ) {
 					foreach ( $order_meta as $o_key => $o_value ) {
-						$order->add_meta_data( $o_key, $o_value );
+						update_post_meta( $order_id, $o_key, $o_value );
 					}
 				}
-				$order->save();
 			}
 			return $order_id;
 		}
@@ -482,23 +478,12 @@ class Ced_Walmart_Order {
 	 * @param int $order_number Walmart Order Id.
 	 */
 	public function is_walmart_order_exists( $order_number = 0 ) {
-	   
+		global $wpdb;
 		if ( $order_number ) {
-			$args = array(
-				'meta_key'      => '_ced_walmart_order_id', 
-				'meta_value'    => $order_number, 
-				'meta_compare'  => '=', 
-				'return'        => 'ids', 
-				'limit'         => 1,
-			);
-			
-			$order_id = wc_get_orders($args);
-			
-			if ( !empty($order_id) &&  is_array($order_id)) {
-				return $order_id[0];
+			$order_id = $wpdb->get_var( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='_ced_walmart_order_id' AND meta_value=%s LIMIT 1", $order_number ) );
+			if ( $order_id ) {
+				return $order_id;
 			}
-			
-			
 		}
 		return false;
 	}
@@ -510,8 +495,7 @@ class Ced_Walmart_Order {
 	 * @param int $order_id Woo Order Id.
 	 */
 	public function acknowledge_order( $order_id = 0 ) {
-		$order             = wc_get_walmart($order_id);
-		$order_details     = $order->get_meta( 'order_detail', true );
+		$order_details     = get_post_meta( $order_id, 'order_detail', true );
 		$purchase_order_id = isset( $order_details['purchaseOrderId'] ) ? $order_details['purchaseOrderId'] : '';
 		$action            = 'orders/' . esc_attr( $purchase_order_id ) . '/acknowledge';
 		/** Refresh token hook for walmart
@@ -519,7 +503,7 @@ class Ced_Walmart_Order {
 		 * @since 1.0.0
 		 */
 		do_action( 'ced_walmart_refresh_token' );
-		$response = $this->ced_walmart_process_instance->ced_walmart_process_request( $action, array(), array(), 'POST' );
+		$response = $this->ced_walmart_curl_instance->ced_walmart_post_request( $action );
 		return $response;
 	}
 

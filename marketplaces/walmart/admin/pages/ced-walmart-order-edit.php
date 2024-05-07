@@ -15,16 +15,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 get_walmart_header();
 
 $order_id                 = isset( $_GET['id'] ) ? sanitize_text_field( $_GET['id'] ) : 0;
-$order_obj                = wc_get_order($order_id);
 $store_id                 = isset( $_GET['store_id'] ) ? sanitize_text_field( $_GET['store_id'] ) : '';
-$ced_walmart_order_status = $order_obj->get_meta( '_ced_walmart_order_status', true );
-$walmart_shipped_details  = $order_obj->get_meta( '_ced_walmart_shipped_data', true );
+$ced_walmart_order_status = get_post_meta( $order_id, '_ced_walmart_order_status', true );
+$walmart_shipped_details  = get_post_meta( $order_id, '_ced_walmart_shipped_data', true );
 if ( ( isset( $walmart_shipped_details ) && ! empty( $walmart_shipped_details ) ) || ( isset( $ced_walmart_order_status ) && ! empty( $ced_walmart_order_status ) ) ) {
-	$merchant_order_id = $order_obj->get_meta( 'merchant_order_id', true );
-	$purchase_order_id = $order_obj->get_meta( 'purchaseOrderId', true );
-	$fulfillment_node  = $order_obj->get_meta( 'fulfillment_node', true );
-	$order_detail      = $order_obj->get_meta( 'order_detail', true );
-	$order_item        = $order_obj->get_meta( 'order_items', true );
+	$merchant_order_id = get_post_meta( $order_id, 'merchant_order_id', true );
+	$purchase_order_id = get_post_meta( $order_id, 'purchaseOrderId', true );
+	$fulfillment_node  = get_post_meta( $order_id, 'fulfillment_node', true );
+	$order_detail      = get_post_meta( $order_id, 'order_detail', true );
+	$order_item        = get_post_meta( $order_id, 'order_items', true );
 	if ( isset( $order_item[0] ) ) {
 		$order_items = $order_item;
 	} else {
@@ -34,7 +33,7 @@ if ( ( isset( $walmart_shipped_details ) && ! empty( $walmart_shipped_details ) 
 	$number_items = 0;
 	// Get order status
 
-	$ced_walmart_order_status = $order_obj->get_meta( '_ced_walmart_order_status', true );
+	$ced_walmart_order_status = get_post_meta( $order_id, '_ced_walmart_order_status', true );
 
 	if ( empty( $ced_walmart_order_status ) ) {
 		$ced_walmart_order_status = __( 'Created', 'walmart-woocommerce-integration' );
@@ -237,7 +236,7 @@ if ( ( isset( $walmart_shipped_details ) && ! empty( $walmart_shipped_details ) 
 					<input data-items="<?php echo esc_attr( $number_items ); ?>" type="button" class="button-primary" id="ced_walmart_shipment_submit"  data-storeID="<?php echo esc_attr( $store_id ); ?>" value="Submit Shipment">
 					<?php
 			} elseif ( 'Shipped' == $ced_walmart_order_status ) {
-				$walmart_shipped_details  = $order_obj->get_meta( '_ced_walmart_shipped_data', true );
+				$walmart_shipped_details  = get_post_meta( $order_id, '_ced_walmart_shipped_data', true );
 				$walmart_shipped_data     = $walmart_shipped_details['shipments'][0];
 				$walmart_shipping_carrier = $walmart_shipped_data['carrier'];
 				$walmart_shipping_type    = $walmart_shipped_data['methodCode'];
@@ -345,11 +344,11 @@ if ( ( isset( $walmart_shipped_details ) && ! empty( $walmart_shipped_details ) 
 						$real_cancel_qty = 0;
 						$avail_qty       = $valdata['orderLineQuantity']['amount'];
 						$line_number     = $valdata['lineNumber'];
-						$cancel_qty      = $order_obj->get_meta( 'walmart_line_item_cancel_' . $line_number, true );
+						$cancel_qty      = get_post_meta( $order_id, 'walmart_line_item_cancel_' . $line_number, true );
 						if ( empty( $cancel_qty ) ) {
 							$cancel_qty = 0;
 						}
-						$shipped_qty = $order_obj->get_meta( 'walmart_line_item_shipped_' . $line_number, true );
+						$shipped_qty = get_post_meta( $order_id, 'walmart_line_item_shipped_' . $line_number, true );
 						if ( empty( $shipped_qty ) ) {
 							$shipped_qty = 0;
 						}

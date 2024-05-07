@@ -57,7 +57,7 @@ class CedEtsyAutoloader {
 	 */
 	private function ced_load_file( $path ) {
 		if ( $path && is_readable( $path ) ) {
-			require_once $path; // phpcs:ignore Generic.PHP.ForbiddenFunctions.Discouraged
+			include_once $path;
 			return true;
 		}
 		return false;
@@ -80,10 +80,11 @@ class CedEtsyAutoloader {
 		foreach ( $paths as $path_class => $dir_path ) {
 			if ( 0 === strpos( strtolower( end( $class_name ) ), @$path_class ) ) {
 				$path = $this->include_once . $dir_path;
+
 			}
 		}
 		if ( empty( $path ) || ! $this->ced_load_file( $path . $file ) ) {
-			$this->ced_load_file( $this->include_once . $file );
+			$this->wc_pr_attr_name( $this->include_once . $file );
 		}
 	}
 	/**
