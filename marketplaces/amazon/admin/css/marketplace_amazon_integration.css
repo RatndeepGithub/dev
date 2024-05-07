@@ -1,0 +1,208 @@
+td.is_in_stock.column-is_in_stock.ced-button-full a {
+	width: 100%;
+	justify-content: center;
+}
+
+.ced-table-padding tbody tr td {
+	padding: 16px 10px;
+	vertical-align: middle;
+	border-bottom: 1px solid #eee;
+}
+
+.ced-account-button {
+	display: flex;
+	justify-content: end;
+}
+
+.ced-account-button button {
+	margin-right: 10px;
+}
+
+.ced-account-head,
+.ced-account-body {
+	display: flex;
+	align-items: center;
+}
+
+.ced-account-head div,
+.ced-account-body div {
+	width: 33%;
+	padding: 10px;
+}
+
+.ced-connected-link-account span.ced-circle {
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	left: 5px;
+	background: #1ED14B;
+	border-radius: 50%;
+	border: 1px solid #75757580;
+	top: 11px;
+}
+
+.ced-connected-button-wrapper .ced-connected-link-account {
+	background: #EFF9F1;
+	padding: 9px 18px;
+	color: #1E1E1E;
+	position: relative;
+	content: '';
+	border-radius: 2px;
+	padding-left: 22px;
+	font-size: 12px;
+	width: max-content;
+}
+
+
+.ced-pending-link-account span.ced-circle {
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	left: 5px;
+	background: #72AEE6;
+	border-radius: 50%;
+	border: 1px solid #75757580;
+	top: 11px;
+}
+
+.ced-right {
+	float: right;
+}
+
+.ced-menu-container {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.ced-processing-button-wrap span.ced-circle {
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	left: 5px;
+	background: #72AEE6;
+	border-radius: 50%;
+	border: 1px solid #75757580;
+	top: 17px;
+}
+
+.ced-completed-button-wrap span.ced-circle {
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	left: 5px;
+	background: #1ED14B;
+	border-radius: 50%;
+	border: 1px solid #75757580;
+	top: 17px;
+}
+
+.ced-cancelled-button-wrap span.ced-circle {
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	left: 5px;
+	background: #000000;
+	border-radius: 50%;
+	border: 1px solid #75757580;
+	top: 17px;
+}
+
+.ced-on-hold-button-wrap span.ced-circle {
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	left: 5px;
+	background: #F0C33C;
+	border-radius: 50%;
+	border: 1px solid #75757580;
+	top: 17px;
+}
+
+.ced-pending-button-wrap span.ced-circle {
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	left: 5px;
+	background: #FF8085;
+	border-radius: 50%;
+	border: 1px solid #75757580;
+	top: 17px;
+}
+
+.ced-processing-button-wrap a {
+	background: #EFF4F9;
+	padding: 16px 7px;
+	color: #1E1E1E;
+	position: relative;
+	content: '';
+	border-radius: 2px;
+	padding-left: 22px;
+	font-size: 12px;
+}
+
+.ced-completed-button-wrap a {
+	background: #EFF9F1;
+	padding: 16px 7px;
+	color: #1E1E1E;
+	position: relative;
+	content: '';
+	border-radius: 2px;
+	padding-left: 22px;
+	font-size: 12px;
+}
+
+.ced-cancelled-button-wrap a {
+	background: #E4E4E4;
+	padding: 16px 7px;
+	color: #1E1E1E;
+	position: relative;
+	content: '';
+	border-radius: 2px;
+	padding-left: 22px;
+	font-size: 12px;
+}
+
+.ced-on-hold-button-wrap a {
+	background: #FEF8EE;
+	padding: 16px 7px;
+	color: #1E1E1E;
+	position: relative;
+	content: '';
+	border-radius: 2px;
+	padding-left: 22px;
+	font-size: 12px;
+}
+
+.ced-pending-button-wrap a {
+	background: #FFE8E9;
+	padding: 16px 16px;
+	color: #1E1E1E;
+	position: relative;
+	content: '';
+	border-radius: 2px;
+	padding-left: 22px;
+	font-size: 12px;
+}
+
+
+
+#ced_amazon_verf_disconnect_account_btn {
+	padding: 5px 14px;
+	cursor: pointer;
+}
+
+.ced-notification-top-wrap {
+	margin-left: -20px;
+	height: unset;
+}
+
+.ced-notification-top-wrap .woocommerce-layout__header-heading {
+	height: unset !important;
+}
+
+
+.widefat td {
+	vertical-align: middle;
+	padding: 16px 10px;
+}
